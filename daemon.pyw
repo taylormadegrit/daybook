@@ -33,6 +33,10 @@ except Exception:
     pass
 open_popups = {}  # reminder id → popup
 
+from reminders import desk  # noqa: E402
+
+stickies = desk.Manager(root)  # desktop sticky notes live in this process too
+
 
 def closed(rid):
     open_popups.pop(rid, None)

@@ -100,6 +100,71 @@ def search_all():
                    reminders=[_rem(r) for r in db.list_open() if ql in r["text"].lower()][:8], chats=chats)
 
 
+@app.get("/api/stickies")
+def stickies_list():
+    from . import desk
+    return jsonify(open=desk.all_notes(), closed=[s for s in desk.all_notes(True) if s["closed"]], colors=list(desk.COLORS))
+
+
+@app.post("/api/stickies")
+def sticky_new():
+    from . import desk
+    j = request.get_json() or {}
+    sid = desk.create(j.get("text", ""), j.get("color", "lemon"))
+    desk.COMMANDS.put(("new", sid))
+    return jsonify(desk.get(sid))
+
+
+@app.post("/api/stickies/<int:sid>/<action>")
+def sticky_action(sid, action):
+    from . import desk
+    if action == "show":
+        desk.COMMANDS.put(("show", sid))
+    elif action == "close":
+        desk.update(sid, closed=1)
+        desk.COMMANDS.put(("close", sid))
+    elif action == "delete":
+        desk.COMMANDS.put(("close", sid))
+        desk.delete_forever(sid)
+    elif action == "update":
+        desk.update(sid, **(request.get_json() or {}))
+        desk.COMMANDS.put(("reload", sid))
+    else:
+        return jsonify(error="unknown action"), 400
+    return jsonify(ok=True)
+
+
+@app.get("/api/annotations")
+def annotations_list():
+    from . import annotate_store
+    return jsonify(dir=str(annotate_store.folder()), items=annotate_store.listing())
+
+
+@app.get("/annotations/<path:name>")
+def annotation_file(name):
+    from . import annotate_store
+    return send_from_directory(annotate_store.folder(), name)
+
+
+@app.post("/api/annotate")
+def annotate_start():
+    """Launch the screen annotation overlay (separate process so the screen grab is clean)."""
+    import subprocess
+    root = Path(__file__).resolve().parent.parent
+    subprocess.Popen([str(root / "venv" / "Scripts" / "pythonw.exe"), str(root / "quickadd.pyw"), "annotate", "--delay"],
+                     cwd=str(root))
+    return jsonify(ok=True)
+
+
+@app.delete("/api/annotations/<path:name>")
+def annotation_delete(name):
+    from . import annotate_store
+    p = annotate_store.folder() / Path(name).name
+    if p.exists() and p.suffix.lower() == ".png":
+        p.unlink()
+    return jsonify(ok=True)
+
+
 @app.get("/api/hardware")
 def hardware():
     from . import models_hub

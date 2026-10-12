@@ -187,6 +187,8 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "import_dir": "F:\\28HRTZ",  # old-notes folder
     "user_name": "Taylor",
     "welcome_seen": "0",
+    "theme": "aurora",
+    "annotations_dir": "D:\\Daybook\\Annotations",
 }
 
 

@@ -10,6 +10,16 @@ BG, CARD, FG, MUTED, ACCENT, OK, WARN = "#16181d", "#20232b", "#f2f3f5", "#9aa0a
 FONT = "Segoe UI"
 NAG_EVERY_MS = 5 * 60 * 1000   # ring again every 5 min until you act
 NAG_MAX = 12                   # ...for up to an hour
+THEME_TK = {  # Daybook theme → (background, card, accent) for the desktop pop-ups
+    "aurora": ("#16181d", "#20232b", "#7c9cff"), "sunset": ("#1c1016", "#2a1820", "#ff6f61"),
+    "ocean": ("#08161f", "#10242f", "#2dd4bf"), "matcha": ("#0e1711", "#18261c", "#84e17a"),
+    "synthwave": ("#140a20", "#22112f", "#ff2fb3"), "candy": ("#1a1022", "#28183a", "#ff8bd1"),
+    "ember": ("#170a07", "#25120c", "#ff5a36"), "paper": ("#16181d", "#20232b", "#6c5ce7"),
+}
+try:
+    BG, CARD, ACCENT = THEME_TK.get(db.setting("theme"), THEME_TK["aurora"])
+except Exception:
+    pass
 
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
