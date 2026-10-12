@@ -189,6 +189,9 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "welcome_seen": "0",
     "theme": "aurora",
     "annotations_dir": "D:\\Daybook\\Annotations",
+    "stt_model": "small.en",    # local speech-to-text model (faster-whisper)
+    "stt_language": "",         # '' = auto (multilingual model only)
+    "home": "",                 # JSON: home widgets, scene, sounds
 }
 
 

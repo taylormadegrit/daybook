@@ -37,6 +37,10 @@ from reminders import desk  # noqa: E402
 
 stickies = desk.Manager(root)  # desktop sticky notes live in this process too
 
+from reminders import clock_ui  # noqa: E402
+
+ringer = clock_ui.Ringer(root)  # alarms + timers ring here, even with the Daybook window closed
+
 
 def closed(rid):
     open_popups.pop(rid, None)
@@ -110,5 +114,9 @@ threading.Thread(target=web_server, daemon=True).start()
 if "--open" in sys.argv and db.setting("open_at_startup") == "1":
     threading.Thread(target=open_app_window, daemon=True).start()
 threading.Thread(target=ai_worker, daemon=True).start()
+from reminders import memos, stt  # noqa: E402
+
+memos.start_worker()  # transcribes voice memos in the background
+stt.preload()  # warm the speech model so dictation is quick
 root.after(1000, poll)
 root.mainloop()

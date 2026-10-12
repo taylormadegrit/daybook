@@ -334,9 +334,12 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 .annos img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;display:block}
 .stk .chipc{background-size:cover;background-position:center}
 .hotk{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.modal.xl{width:min(1200px,96vw)}
 </style>
+<link rel="stylesheet" href="/app/extra.css">
 </head>
 <body>
+<canvas id="scene"></canvas><div id="scenebg"></div><div id="scenedim"></div>
 <div class="app">
   <nav class="nav">
     <div class="brand"><img src="/brand/icon-64.png" alt="" class="logo"><div>Daybook<small>Local AI Hub</small></div></div>
@@ -344,17 +347,20 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
-    <div class="navi" data-v="desktop"><svg class="i" data-i="sticky"></svg>Desktop<span class="k">Alt 5</span></div>
-    <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 6</span></div>
-    <div class="navi" data-v="models"><svg class="i" data-i="chip"></svg>Models<span class="k">Alt 7</span></div>
+    <div class="navi" data-v="memos"><svg class="i" data-i="mic"></svg>Voice memos<span class="k">Alt 5</span></div>
+    <div class="navi" data-v="clock"><svg class="i" data-i="timer"></svg>Clock<span class="cnt" id="tm-count" style="display:none"></span><span class="k">Alt 6</span></div>
+    <div class="navi" data-v="desktop"><svg class="i" data-i="sticky"></svg>Desktop<span class="k">Alt 7</span></div>
+    <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 8</span></div>
+    <div class="navi" data-v="models"><svg class="i" data-i="chip"></svg>Models<span class="k">Alt 9</span></div>
     <div class="navsep"></div>
-    <div class="navi" data-v="settings"><svg class="i" data-i="sliders"></svg>Settings<span class="k">Alt 8</span></div>
+    <div class="navi" data-v="settings"><svg class="i" data-i="sliders"></svg>Settings<span class="k">Alt 0</span></div>
     <div class="navi" data-v="help"><svg class="i" data-i="help"></svg>Help<span class="k">?</span></div>
     <div class="navfoot">
       <div class="st" id="st-ai"><i></i>Local AI</div>
       <div class="st" id="st-claude" style="cursor:pointer" onclick="go('settings')"><i></i><span>Claude</span></div>
       <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
       <div class="muted small" id="ver"></div>
+      <button class="navcollapse" title="Collapse / expand the sidebar (Ctrl B)" onclick="setSlim(!$('.app').classList.contains('slim'))"><svg class="i sm" data-i="left"></svg>Collapse sidebar</button>
     </div>
   </nav>
   <div class="main">
@@ -365,18 +371,32 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
         <button class="iconbtn" title="New sticky note (Alt S · Ctrl Alt S anywhere)" onclick="newSticky()"><svg class="i" data-i="sticky"></svg></button>
         <button class="iconbtn" title="Show / tuck away all sticky notes (Alt W · Ctrl Alt W anywhere)" onclick="peekStickies()"><svg class="i" data-i="layers"></svg></button>
         <button class="iconbtn" title="Annotate the screen (Alt P · Ctrl Alt P anywhere)" onclick="annotateNow()"><svg class="i" data-i="brush"></svg></button>
+        <button class="iconbtn micbtn" id="topmic" title="Dictate into the box you were typing in (Alt M) — or record a voice memo" onclick="V.mode?dictateStop():dictate()"><svg class="i" data-i="mic"></svg></button>
+        <button class="iconbtn" title="Timers & alarms (Alt 6)" onclick="go('clock')"><svg class="i" data-i="timer"></svg></button>
       </div>
       <button class="searchbtn" onclick="openPalette()"><svg class="i sm" data-i="search"></svg>Search or jump to…<span class="kbd">Ctrl K</span></button>
       <div style="position:relative">
         <button class="btn pri" onclick="toggleMenu(event)"><svg class="i sm" data-i="plus"></svg>New</button>
-        <div class="menu" id="newmenu" style="right:0;top:44px">
-          <div onclick="reminderModal()"><svg class="i sm" data-i="bell"></svg>Reminder<span class="kbd">Ctrl Alt R</span></div>
-          <div onclick="blockModal()"><svg class="i sm" data-i="clock"></svg>Routine block</div>
-          <div onclick="templateModal()"><svg class="i sm" data-i="note"></svg>Note</div>
-          <div onclick="go('today');setTimeout(()=>$('#l-add').focus(),50)"><svg class="i sm" data-i="pen"></svg>Log entry<span class="kbd">Ctrl Alt N</span></div>
-          <div onclick="go('chat');newChat()"><svg class="i sm" data-i="chat"></svg>Chat</div>
-          <div onclick="closeMenu();newSticky()"><svg class="i sm" data-i="sticky"></svg>Sticky note<span class="kbd">Ctrl Alt S</span></div>
-          <div onclick="closeMenu();annotateNow()"><svg class="i sm" data-i="brush"></svg>Annotate screen<span class="kbd">Ctrl Alt P</span></div>
+        <div class="menu cols" id="newmenu" style="right:0;top:44px">
+          <div style="display:block;padding:0;cursor:default;background:none">
+            <div class="mh">Plan</div>
+            <div onclick="closeMenu();reminderModal()"><svg class="i sm" data-i="bell"></svg>Reminder<span class="kbd">Ctrl Alt R</span></div>
+            <div onclick="closeMenu();blockModal()"><svg class="i sm" data-i="clock"></svg>Routine block</div>
+            <div onclick="closeMenu();go('clock','timers')"><svg class="i sm" data-i="timer"></svg>Timer</div>
+            <div onclick="closeMenu();go('clock','alarms');setTimeout(()=>alarmModal(),300)"><svg class="i sm" data-i="alarm"></svg>Alarm</div>
+            <div class="mh">Desktop</div>
+            <div onclick="closeMenu();newSticky()"><svg class="i sm" data-i="sticky"></svg>Sticky note<span class="kbd">Ctrl Alt S</span></div>
+            <div onclick="closeMenu();annotateNow()"><svg class="i sm" data-i="brush"></svg>Annotate screen<span class="kbd">Ctrl Alt P</span></div>
+          </div>
+          <div style="display:block;padding:0;cursor:default;background:none">
+            <div class="mh">Write</div>
+            <div onclick="closeMenu();templateModal()"><svg class="i sm" data-i="note"></svg>Note (pick a format)</div>
+            <div onclick="closeMenu();go('today');setTimeout(()=>$('#l-add')&&$('#l-add').focus(),80)"><svg class="i sm" data-i="pen"></svg>Log entry<span class="kbd">Ctrl Alt N</span></div>
+            <div onclick="closeMenu();go('chat');newChat()"><svg class="i sm" data-i="chat"></svg>Chat</div>
+            <div class="mh">Voice</div>
+            <div onclick="closeMenu();go('memos');setTimeout(memoRecToggle,250)"><svg class="i sm" data-i="mic"></svg>Record voice memo</div>
+            <div onclick="closeMenu();go('memos');setTimeout(memoImportPick,250)"><svg class="i sm" data-i="up"></svg>Import phone recordings</div>
+          </div>
         </div>
       </div>
       <span class="clock" id="clock"></span>
@@ -388,31 +408,16 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="hello">
         <div><h2 id="greet"></h2><p id="daysum"></p></div>
         <div class="daynav">
+          <button class="btn sm ghost" title="Background scenes & sounds" onclick="customizeModal()"><svg class="i sm" data-i="palette"></svg>Customize</button>
+          <button class="btn sm ghost" title="Add, remove, move widgets" onclick="homeEdit()"><svg class="i sm" data-i="grid"></svg>Edit home</button>
           <button class="iconbtn" title="Previous day" onclick="shiftDay(-1)"><svg class="i" data-i="left"></svg></button>
           <button class="btn sm" onclick="S.dayOffset=0;renderToday()">Today</button>
           <button class="iconbtn" title="Next day" onclick="shiftDay(1)"><svg class="i" data-i="right"></svg></button>
         </div>
       </div>
-      <div class="now" id="nownext"></div>
-      <div class="grid2">
-        <div class="stack">
-          <div class="card"><h3><svg class="i sm" data-i="clock"></svg><span id="sched-h">Schedule</span><button class="btn sm" onclick="reminderModal({date:S.viewDate})"><svg class="i sm" data-i="plus"></svg>Add</button></h3>
-            <div id="overdue"></div><div class="tl" id="timeline"></div></div>
-        </div>
-        <div class="stack">
-          <div class="card"><h3><svg class="i sm" data-i="sticky"></svg>Sticky notes & annotate
-              <span class="row" style="gap:6px;margin-left:auto"><button class="btn sm" onclick="peekStickies()" title="Lift every note above your apps — press again to tuck them back"><svg class="i sm" data-i="layers"></svg>Show all</button>
-              <button class="btn sm" onclick="annotateNow()"><svg class="i sm" data-i="brush"></svg>Annotate</button>
-              <button class="btn sm pri" onclick="newSticky()"><svg class="i sm" data-i="plus"></svg>Sticky</button></span></h3>
-            <div class="minis" id="home-stickies"></div>
-            <div class="annos" id="home-annos"></div>
-            <div class="hotk"><span><span class="kbd">Ctrl Alt S</span> new</span><span><span class="kbd">Ctrl Alt W</span> show all</span><span><span class="kbd">Ctrl Alt P</span> annotate</span><span>Paste pictures into a note with <span class="kbd">Ctrl V</span></span></div></div>
-          <div class="card"><h3><svg class="i sm" data-i="pen"></svg>Daily log<button class="btn sm ghost" onclick="S.logId&&openNote(S.logId)">Open in Notes</button></h3>
-            <div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><input class="f" id="l-add" placeholder="Jot something down… press Enter"><button class="btn" onclick="addLog()">Log</button></div>
-            <div class="log" id="logbody"></div><div class="row small muted" id="logtags" style="margin-top:8px"></div></div>
-          <div class="card"><h3><svg class="i sm" data-i="bell"></svg>Coming up<button class="btn sm ghost" onclick="go('reminders')">All reminders</button></h3><div id="upnext"></div></div>
-        </div>
-      </div>
+      <div class="editbar"><svg class="i sm" data-i="grid"></svg><b>Editing your home</b><span class="small muted">Drag widgets to move them · ⤢ full width · ✕ remove</span><div class="sp"></div>
+        <button class="btn sm" onclick="addWidgetModal()">＋ Add widget</button><button class="btn sm" onclick="customizeModal()">Background</button><button class="btn sm pri" onclick="homeEdit(false)">Done</button></div>
+      <div id="widgets"></div>
     </div></section>
 
     <!-- CALENDAR -->
@@ -454,10 +459,11 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <div class="tags" id="tagcloud"></div>
         </div>
         <div class="ncol">
-          <input class="f" id="q" style="margin-bottom:10px" placeholder="Search notes…" oninput="debounce('nq',loadNotes,250)">
+          <div class="row" style="margin-bottom:10px;flex-wrap:nowrap;gap:6px"><input class="f" id="q" placeholder="Search notes…" oninput="debounce('nq',loadNotes,250)">
+            <button class="iconbtn np-f" title="Show/hide categories & filters" onclick="togglePanel('f')"><svg class="i" data-i="sidebar"></svg></button></div>
           <div id="nlist"></div>
         </div>
-        <div class="ncol"><div class="card" id="ed" style="min-height:100%"><div class="empty"><b>Pick a note</b>or create one with <span class="kbd">New note</span></div></div></div>
+        <div class="ncol"><div class="card" id="ed" style="min-height:100%"><div class="empty"><b>Pick a note</b>or create one with <span class="kbd">New note</span> — 20 formats for meetings, classes, videos, planning and more.<div class="row" style="justify-content:center;margin-top:12px"><button class="btn pri" onclick="templateModal()"><svg class="i sm" data-i="plus"></svg>New note</button><button class="btn" onclick="togglePanel('f')"><svg class="i sm" data-i="sidebar"></svg>Filters</button><button class="btn" onclick="focusMode()"><svg class="i sm" data-i="expand"></svg>Focus mode</button></div></div></div></div>
       </div>
     </div></section>
 
@@ -481,7 +487,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <div class="cscroll" id="cscroll"><div class="thread" id="thread"></div></div>
           <div class="compose">
             <div class="box"><textarea id="cinput" rows="1" placeholder="Message your local AI…"></textarea>
-              <button class="send" id="send" onclick="sendOrStop()" title="Send"><svg class="i" data-i="up"></svg></button></div>
+              <span id="cmic"></span><button class="send" id="send" onclick="sendOrStop()" title="Send"><svg class="i" data-i="up"></svg></button></div>
             <div class="chint">Runs on your PC · Enter to send · Shift+Enter for a new line</div>
           </div>
         </div>
@@ -489,6 +495,28 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- VOICE MEMOS -->
+    <section class="view" id="v-memos"><div class="pad" style="max-width:1600px;padding-bottom:0">
+      <div class="memos">
+        <div class="mcol">
+          <div class="card" style="margin-bottom:12px"><div class="recbig"><button class="recbtn" id="recbtn" title="Record (click again to stop)" onclick="memoRecToggle()"><i></i></button>
+            <div style="flex:1;min-width:0"><div id="rect" class="small" style="margin-bottom:4px">Tap to record</div><canvas class="recwave" id="recwave"></canvas></div></div>
+            <div class="drop" id="mdrop" onclick="memoImportPick()"><b>📱 Import from your phone</b><br>Drop m4a / mp3 / wav files here or click to choose<br><span style="font-size:11.5px">iPhone: Voice Memos → ••• → Share → Save to Files / AirDrop · Android: Recorder → Share</span></div>
+            <input type="file" id="mfile" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.opus,.flac,.amr,.3gp,.caf" multiple style="display:none" onchange="memoImport(this.files);this.value=''"></div>
+          <input class="f" id="mq" placeholder="Search names, labels and what was said…" oninput="debounce('mq',renderMemos,250)" style="margin-bottom:8px">
+          <div class="lblchips" id="mlabels" style="margin-bottom:6px"></div>
+          <div id="mlist"></div>
+        </div>
+        <div class="mcol"><div class="card" id="medit" style="min-height:100%"><div class="empty"><b>Pick a memo</b>or record a new one — it's transcribed on this PC and you can name, label and date it like a journal entry.</div></div></div>
+      </div>
+    </div></section>
+
+    <!-- CLOCK -->
+    <section class="view" id="v-clock"><div class="pad">
+      <div class="ctabs" id="ctabs" style="margin:0 auto 16px"></div>
+      <div id="cbody"></div>
+    </div></section>
+
     <section class="view" id="v-desktop"><div class="pad">
       <div class="grid2">
         <div class="card"><h3><svg class="i sm" data-i="sticky"></svg>Sticky notes
@@ -522,6 +550,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3><div class="themes" id="themes"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice & microphone</h3><div id="voiceset"></div></div>
       <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude</h3><div id="claude"></div></div>
       <div class="set">
         <div class="card"><h3><svg class="i sm" data-i="home"></svg>General</h3>
@@ -563,6 +592,10 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <div class="scrim" id="scrim" onclick="if(event.target===this)closeModal()"><div id="mhost"></div></div>
 <div id="toast"></div>
 
+<script src="/app/voice.js"></script>
+<script src="/app/clock.js"></script>
+<script src="/app/home.js"></script>
+<script src="/app/notesx.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -605,6 +638,17 @@ const ICONS = {
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
   layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
+  mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
+  play: "M6 4l14 8-14 8z", pause: "M7 4h3v16H7zM14 4h3v16h-3z",
+  copy: "M9 9h11v11H9zM5 15H4V4h11v1",
+  timer: "M10 2h4M12 14l3-3M20 14a8 8 0 1 1-16 0 8 8 0 0 1 16 0z",
+  alarm: "M19 13a7 7 0 1 1-14 0 7 7 0 0 1 14 0zM12 9v4l2 2M5 3 2 6M22 6l-3-3M6.4 18.6 4 21M17.6 18.6 20 21",
+  watch: "M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 10v4l2 1M10 2h4M18.5 6.5 20 5",
+  globe: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+  grid: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  expand: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  phone: "M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2",
+  sidebar: "M3 3h18v18H3zM9 3v18", list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   sticky: "M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5zM15 3v6h6",
   brush: "M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z",
   palette: "M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-2a2 2 0 0 0-1 3.7A1.5 1.5 0 0 1 14 22zM7.5 10.5h.01M10.5 7h.01M15 7.5h.01M17 11h.01", ext: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
@@ -615,7 +659,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {memos: ["Voice memos", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -628,7 +672,9 @@ function go(v, sub) {
   $("#ptitle").textContent = VIEWS[v][0]; $("#psub").textContent = VIEWS[v][1];
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => loadNotes(), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  if (!VIEWS[v]) v = "today";
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  applyScene();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
 setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
@@ -636,6 +682,8 @@ setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekd
 // ================= TODAY =================
 function shiftDay(n) { S.dayOffset += n; renderToday(); }
 async function renderToday() {
+  renderHomeWidgets();
+  const $ = sel => document.querySelector(sel) || DUMMY_EL; // widgets you removed simply aren't filled
   const d = new Date(); d.setDate(d.getDate() + S.dayOffset); const iso = isoDay(d); S.viewDate = iso;
   const [j, rems] = await Promise.all([api("/api/today?date=" + iso), api("/api/reminders")]);
   const now = dt(j.now), name = S.settings.user_name || "there", h = now.getHours();
@@ -681,11 +729,14 @@ async function renderToday() {
   renderWelcome();
   renderHomeDesk();
 }
+const DUMMY_EL = {style: {}, classList: {add() {}, remove() {}, toggle() {}}, set innerHTML(v) {}, set textContent(v) {}, focus() {}, value: ""};
 function blkHTML(x, cls, over) {
+  const secs = x.e ? (x.e - Math.max(Date.now(), +x.s)) / 1000 : 0;
+  const tbtn = secs > 30 ? `<button class="iconbtn" title="Start a ${fmtHMS(secs)} timer for this" onclick='taskTimer(${JSON.stringify(x.text).replace(/'/g, "&#39;")},${Math.round(secs)})'>${ic("timer")}</button>` : "";
   const range = `<b>${tm(x.due)}</b>${x.ends ? "to " + hm(x.ends) : over ? dayName(x.due) : ""}`;
   const acts = x.is_current ? `<div class="acts"><button class="iconbtn" title="Done" onclick="remDone(${x.id})">${ic("check")}</button>
       <button class="iconbtn" title="Snooze 10 min" onclick="remSnooze(${x.id},10)">${ic("snooze")}</button>
-      <button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button></div>` : `<div class="acts"><button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button></div>`;
+      <button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button>${tbtn}</div>` : `<div class="acts">${tbtn}<button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button></div>`;
   return `<div class="blk ${cls}"><span class="t">${range}</span><span><span class="x">${esc(x.text)}</span>
     ${x.repeat ? `<span class="badge">${ic("rep")}${x.repeat}</span>` : ""} ${x.priority ? `<span class="badge imp">important</span>` : ""}
     ${x.notes ? `<div class="n">${esc(x.notes)}</div>` : ""}</span>${acts}</div>`;
@@ -705,7 +756,6 @@ async function addLog() {
   const v = $("#l-add").value.trim(); if (!v) return;
   await api("/api/log", {method: "POST", body: {text: v}}); $("#l-add").value = ""; toast("Logged ✓"); if (S.dayOffset === 0) renderToday();
 }
-$("#l-add").addEventListener("keydown", e => e.key === "Enter" && addLog());
 async function remDone(id) { const j = await api(`/api/reminders/${id}/done`, {method: "POST"}); toast(j.result === "done" ? "Done ✓" : "Done ✓ — next " + j.result.replace("next: ", "").replace("T", " ")); refresh(); }
 async function remSnooze(id, m) { await api(`/api/reminders/${id}/snooze`, {method: "POST", body: {minutes: m}}); toast(`Snoozed ${m >= 60 ? m / 60 + " h" : m + " min"}`); refresh(); }
 function refresh() { ({today: renderToday, calendar: renderCalendar, reminders: renderReminders})[S.view]?.(); pollStatus(); }
@@ -750,19 +800,19 @@ async function renderReminders() {
 
 // ---------- reminder modal ----------
 const REPEATS = [["", "Doesn't repeat"], ["daily", "Every day"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]];
-function modal(html, wide) { $("#mhost").innerHTML = `<div class="modal ${wide ? "wide" : ""}">${html}</div>`; $("#scrim").classList.add("on"); paintIcons($("#mhost")); }
+function modal(html, wide) { $("#mhost").innerHTML = `<div class="modal ${wide === "xl" ? "wide xl" : wide ? "wide" : ""}">${html}</div>`; $("#scrim").classList.add("on"); paintIcons($("#mhost")); }
 function closeModal() { $("#scrim").classList.remove("on"); $("#mhost").innerHTML = ""; }
 function reminderModal(pre = {}) {
   closeMenu();
   modal(`<h2>${ic("bell", "i")}New reminder<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
     <div class="seg" id="rm-mode" style="margin-bottom:14px"><button class="on" data-m="nl">Plain English</button><button data-m="ex">Exact time</button></div>
-    <div id="rm-nl"><label class="lb">What and when?</label><input class="f" id="rm-text" placeholder="e.g. call mom sunday at 5pm · take meds every day at 9am" autocomplete="off">
+    <div id="rm-nl"><label class="lb">What and when? <span class="muted small">— type or 🎤 say it</span></label><div class="row" style="flex-wrap:nowrap" id="rm-row"><input class="f" id="rm-text" placeholder="e.g. call mom sunday at 5pm · take meds every day at 9am" autocomplete="off"></div>
       <div class="preview wait" id="rm-prev">Type and Daybook shows what it understood.</div></div>
     <div id="rm-ex" style="display:none">${exactFields(pre)}</div>
     <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveReminder()">${ic("check")}Save reminder</button></div>`);
   $$("#rm-mode button").forEach(b => b.onclick = () => { $$("#rm-mode button").forEach(x => x.classList.toggle("on", x === b)); $("#rm-nl").style.display = b.dataset.m === "nl" ? "" : "none"; $("#rm-ex").style.display = b.dataset.m === "ex" ? "" : "none"; });
   if (pre.date) { $$("#rm-mode button")[1].click(); }
-  const t = $("#rm-text"); t.focus();
+  const t = $("#rm-text"); t.focus(); micFor(t, $("#rm-row"));
   t.addEventListener("input", () => { $("#rm-prev").className = "preview wait"; $("#rm-prev").textContent = "Reading…"; debounce("parse", previewParse, 650); });
   t.addEventListener("keydown", e => e.key === "Enter" && saveReminder());
 }
@@ -845,13 +895,13 @@ async function openNote(id) {
 }
 function renderEditor() {
   const n = S.cur;
-  $("#ed").innerHTML = `<input id="n-title" value="${esc(n.title)}" placeholder="Untitled">
+  $("#ed").innerHTML = edToolbar() + `<input id="n-title" value="${esc(n.title)}" placeholder="Untitled">
     <div class="row" style="margin:10px 0 12px;flex-wrap:nowrap">
       <select class="f" id="n-cat" style="width:190px"><option value="">Category…</option>${S.meta.categories.map(c => `<option ${c === n.category ? "selected" : ""}>${c}</option>`).join("")}</select>
       <input class="f" type="date" id="n-date" value="${n.note_date}" style="width:160px">
       <input class="f" id="n-tags" value="${esc(n.tags.join(", "))}" placeholder="tags, comma separated">
     </div>
-    <textarea class="f" id="n-body" placeholder="Start writing…">${esc(n.body)}</textarea>
+    <div class="inmic"><textarea class="f" id="n-body" placeholder="Start writing… (🎤 dictate with Alt M)" oninput="wordCount()">${esc(n.body)}</textarea></div>
     <div class="row" style="margin-top:10px">
       <button class="btn pri" onclick="saveNote()">${ic("check")}Save<span class="kbd" style="border-color:rgba(0,0,0,.25);color:var(--on)">Ctrl S</span></button>
       <button class="btn" onclick="aiNote()">${ic("spark")}Organize with AI</button>
@@ -865,6 +915,7 @@ function renderEditor() {
         <input class="f" id="aw${i}" placeholder="when? tomorrow 9am"><button class="btn sm" onclick="actRemind(${i})">${ic("bell")}Remind me</button></div>`).join("") : ""}
     </div>`;
   ["n-title", "n-cat", "n-date", "n-tags"].forEach(i => $("#" + i).addEventListener("change", () => saveNote(false)));
+  micFor($("#n-body"), $("#n-body").parentElement); wordCount(); paintIcons($("#ed"));
 }
 async function saveNote(reorg = true) {
   if (!S.cur) return;
@@ -872,19 +923,6 @@ async function saveNote(reorg = true) {
     tags: $("#n-tags").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean), body: $("#n-body").value, reorganize: reorg && $("#n-body").value !== S.cur.body};
   S.cur = await api("/api/notes/" + S.cur.id, {method: "PATCH", body});
   $("#n-saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); loadNotes();
-}
-function templateModal() {
-  closeMenu();
-  const T = Object.keys(S.meta.templates || {}), desc = {"Meeting": "Who, where, decisions, action items", "YouTube / Learning": "Source, key points, quotes", "Idea": "The idea, why, next step",
-    "To-do": "A quick checklist", "Journal": "Today, wins, lessons", "Business": "Client, numbers, actions", "Content": "Hook, script, CTA"};
-  modal(`<h2>${ic("note", "i")}New note<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
-    <div class="tpls"><div class="tpl" onclick="newNote('')"><b>Blank</b><span>Start from scratch</span></div>
-    ${T.map(t => `<div class="tpl" onclick="newNote('${t}')"><b>${t}</b><span>${desc[t] || ""}</span></div>`).join("")}</div>`, true);
-}
-async function newNote(tpl) {
-  closeModal(); if (S.view !== "notes") go("notes");
-  S.cur = await api("/api/notes", {method: "POST", body: {title: "", category: tpl, body: tpl ? S.meta.templates[tpl] : ""}});
-  renderEditor(); loadNotes(); $("#n-title").focus();
 }
 async function aiNote() { if (!S.cur) return; await saveNote(false); toast("Organizing…"); S.cur = await api(`/api/notes/${S.cur.id}/organize`, {method: "POST"}); renderEditor(); loadNotes(); toast("Organized ✓"); }
 async function actRemind(i) {
@@ -1125,6 +1163,7 @@ const STICKY_INK = {lemon: "#3b3410", peach: "#43260f", rose: "#4a1630", lilac: 
 let newColor = "lemon";
 const stickyImg = f => "/sticky-images/" + encodeURIComponent(f);
 async function renderHomeDesk() {
+  if (!$("#home-stickies")) return;
   const [j, a] = await Promise.all([api("/api/stickies"), api("/api/annotations")]);
   const tilt = i => [-1.6, 1.2, -0.6, 1.8, -1.1, 0.7][i % 6];
   $("#home-stickies").innerHTML = j.open.slice(0, 7).map((s, i) => `<div class="mini" style="background:${STICKY[s.color] || STICKY.lemon};color:${STICKY_INK[s.color] || STICKY_INK.lemon};--r:${tilt(i)}deg"
@@ -1166,6 +1205,7 @@ async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
 async function renderSettings() {
+  renderVoiceSettings();
   const [st, set] = await Promise.all([api("/api/status"), api("/api/settings")]); S.settings = set;
   const opts = (sel, extra) => (extra || "") + st.models.map(m => `<option value="${m.name}">${m.name}${m.params ? " · " + m.params : ""}</option>`).join("");
   $("#s-aimodel").innerHTML = opts(); $("#s-chatmodel").innerHTML = opts(null, `<option value="">First installed model</option>`);
@@ -1216,6 +1256,10 @@ async function reorgAll() { const j = await api("/api/notes/reorganize-all", {me
 
 // ================= HELP =================
 const HELP = [
+  ["home", "Your home page", `<p><b>Edit home</b> (top of Today) makes the widgets wiggle: drag them to move, ⤢ to make one full width, ✕ to remove, and <b>＋ Add widget</b> for more — timers, stopwatch, alarms, world clock, voice memos, recent notes, ambience, breathe and more. <b>Customize</b> picks an animated background (fireplace, rainy window, firefly forest, ocean sunset, starry night, snowfall, spring meadow) with matching ambient sound, or your own picture or video. Click an empty part of the background — the scenes react.</p>`],
+  ["clock", "Clock — timers, alarms, stopwatch, world clock", `<p>Works like the iPhone Clock app. <b>Timers</b>: set hours/minutes/seconds or tap a preset (🎯 Focus 25, ☕ Break 5…); run several at once, pause, +1 min, and your recent timers are one tap away. On the Today schedule, the ⏱ button starts a timer for that task. <b>Alarms</b>: time, repeat days, label, sound and snooze. Alarms and timers ring with a sound and a pop-up <b>even when the Daybook window is closed</b>. <b>Stopwatch</b>: laps with fastest in green and slowest in red; it keeps running if you close the window. <b>World clock</b>: add any city.</p>`],
+  ["voice", "Voice: dictation & voice memos", `<p><b>Dictation</b>: press <span class="kb">Alt M</span> or any 🎤 button, talk, then press Done — the words appear where you were typing. Pick your microphone in Settings → Voice. Speech is turned into text <b>on this PC</b> (Whisper) — audio never leaves it.</p>
+    <p><b>Voice memos</b>: press the red button to record, then name, label and date it like a journal entry. Untitled memos get a title from the local AI. To bring in phone recordings: <b>iPhone</b> Voice Memos → ••• → Share → Save to Files / AirDrop / email to yourself; <b>Android</b> Recorder → Share. Then drop the m4a / mp3 files on the Voice memos page. Every memo is searchable by what was said, and <b>Save as note</b> turns it into a journal note.</p>`],
   ["start", "Getting started", `<p>Daybook is your personal command center — reminders, daily routine, notes and a private AI chat. Everything runs on this PC; nothing is sent to the cloud.</p>
     <ol><li><b>Today</b> shows what's happening now, what's next, your schedule, your daily log and what's coming up.</li>
     <li>Add things with <b>＋ New</b> (top right) or the hotkeys below — from anywhere in Windows.</li>
@@ -1228,7 +1272,11 @@ const HELP = [
     <tr><td><span class="kb">Ctrl Alt A</span></td><td>Agenda pop-out</td></tr>
     <tr><td><span class="kb">Ctrl Alt C</span></td><td>Open Chat</td></tr>
     <tr><td><span class="kb">Ctrl K</span></td><td>Search everything / jump anywhere (inside Daybook)</td></tr>
-    <tr><td><span class="kb">Alt 1 – 8</span></td><td>Switch pages: Today, Calendar, Reminders, Notes, Desktop, Chat, Models, Settings</td></tr>
+    <tr><td><span class="kb">Alt 1 – 9, 0</span></td><td>Pages: 1 Today · 2 Calendar · 3 Reminders · 4 Notes · 5 Voice memos · 6 Clock · 7 Desktop · 8 Chat · 9 Models · 0 Settings</td></tr>
+    <tr><td><span class="kb">Alt M</span></td><td>Dictate — speech to text into the box you're typing in (Esc cancels)</td></tr>
+    <tr><td><span class="kb">Ctrl .</span></td><td>Notes focus mode — hide every panel for a full workspace</td></tr>
+    <tr><td><span class="kb">Ctrl B</span></td><td>Collapse / expand the sidebar</td></tr>
+    <tr><td><span class="kb">Space</span></td><td>Start / stop the stopwatch (on the Stopwatch tab)</td></tr>
     <tr><td><span class="kb">Ctrl Alt S</span></td><td>New sticky note on your desktop (Alt S inside Daybook)</td></tr>
     <tr><td><span class="kb">Ctrl Alt W</span></td><td>Show all sticky notes above your apps — press again to tuck them back (Alt W inside Daybook)</td></tr>
     <tr><td><span class="kb">Ctrl Alt P</span></td><td>Annotate the screen — draw, then Save or Copy (Alt P inside Daybook)</td></tr>
@@ -1275,7 +1323,11 @@ function renderHelp() {
 const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "cal", () => go("calendar")], ["Go to Reminders", "bell", () => go("reminders")],
   ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Go to Desktop", "sticky", () => go("desktop")], ["New sticky note", "sticky", () => newSticky()], ["Show all sticky notes", "layers", () => peekStickies()], ["Annotate screen", "brush", () => annotateNow()], ["Go to Models", "chip", () => go("models")], ["Scan my hardware", "chip", () => { go("models"); scanHW(); }], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
   ["New reminder", "plus", () => reminderModal()], ["New routine block", "clock", () => blockModal()], ["New note", "plus", () => templateModal()], ["New chat", "chat", () => newChat()],
-  ["Test a pop-up", "bell", () => testPopup()]];
+  ["Test a pop-up", "bell", () => testPopup()],
+  ["Go to Voice memos", "mic", () => go("memos")], ["Record a voice memo", "mic", () => { go("memos"); setTimeout(memoRecToggle, 250); }], ["Import phone recordings", "up", () => { go("memos"); setTimeout(memoImportPick, 250); }],
+  ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
+  ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
+  ["Focus mode (notes)", "expand", () => { go("notes"); focusMode(); }], ["Collapse sidebar", "sidebar", () => setSlim(!$(".app").classList.contains("slim"))], ["Dictate (speech to text)", "mic", () => dictate()], ["Voice settings", "mic", () => go("settings")]];
 let palItems = [], palIdx = 0;
 function openPalette() {
   closeMenu();
@@ -1312,11 +1364,15 @@ function closeMenu() { $("#newmenu").classList.remove("on"); }
 document.addEventListener("click", closeMenu);
 document.addEventListener("keydown", e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-  if (e.key === "Escape") { closeModal(); closeMenu(); return; }
+  if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
+  if (e.ctrlKey && e.key === ".") { e.preventDefault(); if (S.view !== "notes") go("notes"); focusMode(); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === "b" && !typing) { e.preventDefault(); setSlim(!$(".app").classList.contains("slim")); return; }
+  if (!typing && e.key === " " && S.view === "clock" && C.tab === "stopwatch") { e.preventDefault(); swToggle(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "s" && S.view === "notes" && S.cur) { e.preventDefault(); saveNote(); return; }
   if (e.altKey && !e.ctrlKey && /^[swp]$/i.test(e.key)) { e.preventDefault(); ({s: newSticky, w: peekStickies, p: annotateNow})[e.key.toLowerCase()](); return; }
-  if (e.altKey && /^[1-8]$/.test(e.key)) { e.preventDefault(); go(["today", "calendar", "reminders", "notes", "desktop", "chat", "models", "settings"][+e.key - 1]); return; }
+  if (e.altKey && /^[0-9]$/.test(e.key)) { e.preventDefault(); go(["settings", "today", "calendar", "reminders", "notes", "memos", "clock", "desktop", "chat", "models"][+e.key]); return; }
   if (!typing && e.key === "?") go("help");
 });
 async function pollStatus() {
@@ -1332,13 +1388,15 @@ setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); 
 
 window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
 (async function boot() {
-  paintIcons();
+  paintIcons(); trackFields(); sceneInit();
+  if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);
   const [v, sub] = location.hash.slice(1).split("/");
   go(v || "today", sub);
   if (v === "notes" && sub) openNote(+sub);
-  pollStatus();
+  pollStatus(); clockFetch(); setInterval(() => document.visibilityState === "visible" && !C.poll && clockFetch(), 15000);
+  micFor($("#cinput"), $("#cmic"), "send");
   api("/api/claude").then(setClaudeStatus).catch(() => {});
 })();
 </script>

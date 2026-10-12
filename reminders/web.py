@@ -13,6 +13,14 @@ app = Flask(__name__, static_folder=None)
 from .chat import bp as chat_bp  # noqa: E402
 
 app.register_blueprint(chat_bp)
+from .clock import bp as clock_bp  # noqa: E402
+
+app.register_blueprint(clock_bp)
+from .memos import bp as memos_bp  # noqa: E402
+
+app.register_blueprint(memos_bp)
+BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
+BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
@@ -22,6 +30,58 @@ VERSION = "1.0"
 @app.get("/chat")
 def chat_page():  # chat now lives inside the main app
     return redirect("/#chat")
+
+
+@app.get("/app/<path:name>")
+def app_files(name):  # the app's own scripts (web/app/*.js)
+    return send_from_directory(STATIC / "app", name)
+
+
+# ---------------- home background (custom picture / video) ----------------
+
+@app.post("/api/home/background")
+def bg_upload():
+    f = request.files.get("file")
+    if not f or Path(f.filename or "").suffix.lower() not in BG_EXT:
+        return jsonify(error="Pick a picture (jpg, png, webp, gif) or a video (mp4, webm)"), 400
+    BG_DIR.mkdir(parents=True, exist_ok=True)
+    for old in BG_DIR.glob("custom.*"):
+        old.unlink()
+    name = "custom" + Path(f.filename).suffix.lower()
+    f.save(BG_DIR / name)
+    return jsonify(file=name)
+
+
+@app.get("/backgrounds/<path:name>")
+def bg_file(name):
+    return send_from_directory(BG_DIR, Path(name).name)
+
+
+# ---------------- speech to text ----------------
+
+@app.get("/api/stt/status")
+def stt_status():
+    from . import stt
+    return jsonify(stt.status())
+
+
+@app.post("/api/stt/prepare")
+def stt_prepare():
+    from . import stt
+    stt.preload()
+    return jsonify(ok=True)
+
+
+@app.post("/api/stt")
+def stt_run():
+    from . import stt
+    f = request.files.get("audio")
+    if not f:
+        return jsonify(error="no audio"), 400
+    try:
+        return jsonify(stt.transcribe(f.read(), Path(f.filename or "a.webm").suffix or ".webm"))
+    except Exception as e:
+        return jsonify(error=f"Speech model problem: {e}"), 500
 
 
 @app.get("/brand/<path:name>")
@@ -372,7 +432,9 @@ def delete_reminder(rid):
 
 @app.get("/api/meta")
 def meta():
-    return jsonify(categories=notes.CATEGORIES, templates=notes.TEMPLATES, tags=notes.all_tags()[:60],
+    from . import templates
+    return jsonify(categories=notes.CATEGORIES, templates=templates.listing(), template_groups=templates.GROUPS,
+                   tags=notes.all_tags()[:60],
                    counts=notes.category_counts(), ai=notes.stats())
 
 
@@ -392,7 +454,7 @@ def get_note(nid):
 def add_note():
     j = request.get_json()
     nid = notes.add(j.get("body", ""), j.get("title", ""), j.get("category", ""), j.get("tags", []),
-                    j.get("note_date") or None)
+                    j.get("note_date") or None, organize=j.get("organize", True))
     return jsonify(notes.get(nid))
 
 
