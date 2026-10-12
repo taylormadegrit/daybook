@@ -7,9 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from reminders import ui  # noqa: E402
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
-if mode == "dashboard":  # Ctrl+Alt+D
+if mode in ("dashboard", "chat"):  # Ctrl+Alt+D / Ctrl+Alt+C
     import webbrowser
-    webbrowser.open("http://localhost:8503")
+    webbrowser.open("http://localhost:8503" + ("/chat" if mode == "chat" else ""))
     sys.exit(0)
 
 root = tk.Tk()

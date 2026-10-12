@@ -37,3 +37,10 @@ files that look like logins/keys are skipped). "Import new files from F:\28HRTZ"
 - `reminders/db.py` reminders · `reminders/notes.py` notes, import, AI organizer · `reminders/nlp.py` plain English → time
 - `reminders/ui.py` Tk pop-ups · `reminders/web.py` + `web/index.html` dashboard
 - `daemon.pyw`, `quickadd.pyw`, `mcp_server.py` · data in `data/reminders.db` (not in git)
+
+## Chat (localhost:8503/chat · Ctrl+Alt+C)
+Claude-style chat with every local Ollama model (model picker), saved conversations, streaming,
+Markdown + code highlighting, personas (Assistant, Coder, Content strategist, Ori script writer, Thinking partner).
+Toggles let the model use **Daybook** tools (schedule, reminders, notes, daily log) and **Orca** tools
+(list projects, create a new project in D:\projects + start Claude/Codex on it, start a task in an existing
+project). Orca actions always show a Confirm / Cancel card first. Code: `reminders/chat.py`, `reminders/orca.py`, `web/chat.html`.

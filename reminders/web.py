@@ -10,6 +10,15 @@ PORT = 8503
 STATIC = Path(__file__).resolve().parent.parent / "web"
 app = Flask(__name__, static_folder=None)
 
+from .chat import bp as chat_bp  # noqa: E402
+
+app.register_blueprint(chat_bp)
+
+
+@app.get("/chat")
+def chat_page():
+    return send_from_directory(STATIC, "chat.html")
+
 
 def _rem(r, when=None):
     due = when or db.parse_dt(r["due"])
