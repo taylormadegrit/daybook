@@ -1,27 +1,39 @@
-# Local Reminders
+# Daybook — local AI reminders, routine & notes
 
-Local AI reminders with desktop pop-ups. Nothing leaves this PC.
+Everything runs on this PC: SQLite + the local Ollama model (qwen2.5:7b). Nothing goes to the cloud.
 
-## Ways to add a reminder
-- **Ask Claude** (any Claude Code session): "remind me Friday at 3pm to send the invoice".
-  Claude uses the `reminders` MCP server (`mcp_server.py`, registered at user scope).
-- **Ctrl+Alt+R** opens the quick-add box: type plain English, e.g.
-  `call mom sunday 5pm`, `take meds every day at 9am`, `pay rent on the 1st every month`.
-  Parsed locally: Ollama qwen2.5:7b splits task / when / repeat, `dateparser` does the date math.
-  Type `undo` to remove the last one, `agenda` to open the agenda.
-- **Ctrl+Alt+A** opens the agenda (overdue + next 14 days, with Done / Delete).
+## Hotkeys (Start Menu shortcuts)
+| Keys | What |
+|---|---|
+| **Ctrl+Alt+D** | Open the Daybook dashboard — http://localhost:8503 |
+| **Ctrl+Alt+R** | Quick reminder: `call mom sunday 5pm`, `take meds every day at 9am` |
+| **Ctrl+Alt+N** | Quick note → appended to today's daily log |
+| **Ctrl+Alt+A** | Agenda pop-out (overdue + next 14 days) |
+
+## Dashboard (localhost:8503)
+- **Today** — the day as a timeline of time blocks (routine + reminders), live block highlighted,
+  ◀ ▶ to browse days, plus the **daily log** (timestamped one-liners).
+- **Notes** — categories (Meeting, YouTube / Learning, Idea, To-do, Journal, Business, Content, Tech,
+  Personal), tag cloud, date filter, full-text search. **New** with a template (Meeting, YouTube, Idea…).
+  The local AI fills in title, category, tags, summary, topics and **action items**; each action item
+  has a **⏰ Remind me** button. Your text is never changed by the AI.
+- **Reminders** — plain-English or exact add, repeats, end times (blocks), edit / snooze / delete.
 
 ## Pop-ups
-`daemon.pyw` runs at logon (task `LocalRemindersDaemon`). When something is due it shows an
-always-on-top pop-up bottom-right that rings again every 5 min until you press **Done** or
-**Snooze** (10 min / 1 hour / tonight / tomorrow / typed time). Closing it = snooze 10 min.
-Reminders missed while the PC was off pop up at the next logon. The agenda pops up once a day after 8 AM.
+`daemon.pyw` (task `LocalRemindersDaemon`, at logon) shows an always-on-top pop-up when something is due
+and rings every 5 min until **Done** or **Snooze**. Missed reminders pop up at the next logon.
+The agenda opens once a day after 3 AM. Task `LocalRemindersWakeUp` wakes the PC from sleep at 2:58 AM.
+The same process serves the dashboard and runs the AI note organizer in the background.
 
-Repeats: daily, weekdays, weekly, monthly, yearly, every N minutes/hours/days/weeks.
-Words like "urgent", "important", "asap" mark it important.
+## Claude
+MCP server `reminders` (user scope) — Claude can: add/list/snooze/update/complete/delete reminders,
+show a day's schedule, search/read/add/update notes, log to today, and give a notebook overview.
+
+## Old notes
+`F:\28HRTZ` top-level .txt/.odt/.md/.docx notes were imported (read-only — originals untouched;
+files that look like logins/keys are skipped). "Import new files from F:\28HRTZ" in Notes picks up new ones.
 
 ## Files
-- `reminders/db.py` – SQLite store (`data/reminders.db`)
-- `reminders/nlp.py` – plain English → reminder
-- `reminders/ui.py` – pop-up, agenda and quick-add windows
-- `daemon.pyw`, `quickadd.pyw`, `mcp_server.py`
+- `reminders/db.py` reminders · `reminders/notes.py` notes, import, AI organizer · `reminders/nlp.py` plain English → time
+- `reminders/ui.py` Tk pop-ups · `reminders/web.py` + `web/index.html` dashboard
+- `daemon.pyw`, `quickadd.pyw`, `mcp_server.py` · data in `data/reminders.db` (not in git)
