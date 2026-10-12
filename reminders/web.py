@@ -100,6 +100,27 @@ def search_all():
                    reminders=[_rem(r) for r in db.list_open() if ql in r["text"].lower()][:8], chats=chats)
 
 
+@app.get("/api/claude")
+def claude_status():
+    from . import claude_link
+    return jsonify(claude_link.status())
+
+
+@app.post("/api/claude/<action>/<target>")
+def claude_action(action, target):
+    from . import claude_link
+    try:
+        if action == "connect":
+            msg = claude_link.connect_code() if target == "code" else claude_link.connect_desktop()
+        elif action == "disconnect":
+            msg = claude_link.disconnect(target)
+        else:
+            return jsonify(error="unknown action"), 400
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+    return jsonify(message=msg, status=claude_link.status())
+
+
 @app.post("/api/notes/reorganize-all")
 def reorganize_all():
     with notes._con() as con:

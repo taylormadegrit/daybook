@@ -232,6 +232,10 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .stat div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
 .stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.cl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.clb{display:flex;align-items:center;gap:14px;padding:14px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.clb .d{flex:1}.clb .d b{display:block}.clb .d span{font-size:12.5px;color:var(--muted)}
+.clmark{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#d97757,#c15f3c);color:#fff;font-weight:700;flex:none}
 .help{display:grid;grid-template-columns:220px minmax(0,1fr);gap:26px}
 .toc{position:sticky;top:0;align-self:start}
 .toc a{display:block;padding:7px 10px;border-radius:9px;color:var(--fg2);text-decoration:none;font-size:13.5px}
@@ -282,6 +286,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
     <div class="navi" data-v="help"><svg class="i" data-i="help"></svg>Help<span class="k">?</span></div>
     <div class="navfoot">
       <div class="st" id="st-ai"><i></i>Local AI</div>
+      <div class="st" id="st-claude" style="cursor:pointer" onclick="go('settings')"><i></i><span>Claude</span></div>
       <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
       <div class="muted small" id="ver"></div>
     </div>
@@ -406,6 +411,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
     <!-- SETTINGS -->
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
+      <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude</h3><div id="claude"></div></div>
       <div class="set">
         <div class="card"><h3><svg class="i sm" data-i="home"></svg>General</h3>
           <div class="srow"><div class="d"><b>Your name</b><span>Used in greetings</span></div><input class="f" data-s="user_name"></div>
@@ -908,6 +914,7 @@ async function renderSettings() {
     const k = el.dataset.s; if (el.type === "checkbox") el.checked = set[k] === "1"; else el.value = set[k];
     el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
   });
+  renderClaude();
   const ai = st.counts.ai || {};
   $("#status").innerHTML = `<div class="stat">
       <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
@@ -920,6 +927,29 @@ async function renderSettings() {
       <span class="st ${st.claude_mcp ? "ok" : "bad"}"><i></i>Claude connection ${st.claude_mcp ? "set up" : "missing"}</span>
       <span class="st ok"><i></i>Pop-up service running</span>
       <span class="muted small" style="margin-left:auto">Data: ${esc(st.data)}</span></div>`;
+}
+async function renderClaude() {
+  const c = await api("/api/claude");
+  const box = (title, sub, inst, conn, target, desc) => `<div class="clb"><div class="clmark">${ic("spark", "i")}</div>
+    <div class="d"><b>${title}</b><span>${inst ? (conn ? "Connected — Claude can use your reminders, schedule and notes" : desc) : "Not installed on this PC"}${sub ? " · " + sub : ""}</span></div>
+    ${!inst ? `<a class="btn pri" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a>`
+      : conn ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}Connected</span><button class="btn ghost sm" onclick="claudeAct('disconnect','${target}')">Disconnect</button>`
+      : `<button class="btn pri" onclick="claudeAct('connect','${target}')">${ic("zap")}Connect</button>`}</div>`;
+  $("#claude").innerHTML = `<div class="cl">${box("Claude Code", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook")}
+    ${box("Claude app (desktop)", "", c.desktop.installed, c.desktop.connected, "desktop", "Installed — connect it to Daybook")}</div>
+    <div class="muted small" style="margin-top:10px">Once connected, just ask Claude: “remind me Friday at 3pm to send the invoice”, “what's on my schedule tomorrow?”, “find my notes about the SDVCC meeting”.
+    ${!c.code.installed || !c.desktop.installed ? `Don't have Claude? <a href="${c.get_url}" target="_blank" rel="noopener">Get the easy Claude download</a>.` : ""}</div>`;
+  setClaudeStatus(c);
+}
+function setClaudeStatus(c) {
+  const on = c.code.connected || c.desktop.connected, any = c.code.installed || c.desktop.installed;
+  $("#st-claude").className = "st " + (on ? "ok" : any ? "" : "bad");
+  $("#st-claude span").textContent = on ? "Claude connected" : any ? "Claude — not connected" : "Get Claude";
+}
+async function claudeAct(action, target) {
+  toast(action === "connect" ? "Connecting…" : "Disconnecting…");
+  try { const r = await api(`/api/claude/${action}/${target}`, {method: "POST"}); toast(r.message); renderClaude(); }
+  catch (e) { toast("⚠ " + e.message); }
 }
 async function testPopup() { await api("/api/test-popup", {method: "POST"}); toast("A test pop-up will appear in a few seconds"); }
 async function reorgAll() { const j = await api("/api/notes/reorganize-all", {method: "POST"}); toast(`Re-organizing ${j.queued} notes in the background`); pollStatus(); }
@@ -955,7 +985,7 @@ const HELP = [
     <p>The <b>daily log</b> is one note per day for quick one-liners (<span class="kb">Ctrl Alt N</span> or the box on Today). Your old notes from <code>F:\\28HRTZ</code> were imported read-only; use Settings → Import now to pick up new files.</p>`],
   ["chat", "Chat with local AI", `<p>Chat with any model installed in Ollama — pick it at the top. <b>Personas</b> change its style (Coder, Content strategist, Ori script writer…).</p>
     <p>With <b>Daybook</b> switched on it can read your schedule and notes and create reminders. With <b>Orca</b> on, ask “start a new project: …” and it prepares the project and a brief for Claude — you see a <b>Confirm / Cancel</b> card first. Confirming creates <code>D:\\projects\\name</code>, adds it to Orca and starts Claude on it (that part uses your Claude plan).</p>`],
-  ["claude", "Using Daybook from Claude", `<p>In any Claude Code session you can say things like “remind me Friday at 3 to send the invoice”, “what's on my schedule tomorrow?” or “find my notes about the SDVCC meeting”. Claude talks to Daybook through the <code>reminders</code> connection.</p>`],
+  ["claude", "Using Daybook from Claude", `<p><button class="btn pri" onclick="go('settings');setTimeout(()=>$('#claudecard').scrollIntoView({behavior:'smooth'}),300)">${ic("zap")}Connect Claude</button> <a class="btn" href="https://taylormade420.gumroad.com/l/cfrswx" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a></p><p>Connect it once in <b>Settings → Claude</b> (works with Claude Code and the Claude desktop app). In any Claude session you can say things like “remind me Friday at 3 to send the invoice”, “what's on my schedule tomorrow?” or “find my notes about the SDVCC meeting”. Claude talks to Daybook through the <code>reminders</code> connection.</p>`],
   ["trouble", "Troubleshooting", `<ul><li><b>No pop-ups?</b> Settings → Test a pop-up. If nothing shows, sign out and in (the background service starts at sign-in).</li>
     <li><b>AI not working / “Ollama not running”?</b> Start the Ollama app from the Start menu.</li>
     <li><b>Hotkeys don't respond?</b> Sign out and back in once so Windows registers them.</li>
@@ -1033,6 +1063,7 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
   go(v || "today", sub);
   if (v === "notes" && sub) openNote(+sub);
   pollStatus();
+  api("/api/claude").then(setClaudeStatus).catch(() => {});
 })();
 </script>
 </body>
