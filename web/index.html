@@ -224,6 +224,23 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .send{width:38px;height:38px;border-radius:11px;border:none;background:var(--grad);color:#0a0b10;display:grid;place-items:center;flex:none}
 .send.stop{background:#2a2d3a;color:#fff}
 .chint{max-width:820px;margin:7px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
+/* ---------- models ---------- */
+.hw{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.hwt{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.hwt .l{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}.hwt b{display:block;font-size:17px;margin:3px 0 1px}.hwt span{font-size:12.5px;color:var(--fg2)}
+.hwsum{margin-top:12px;padding:10px 14px;border-radius:11px;background:linear-gradient(90deg,rgba(62,224,160,.10),rgba(79,209,255,.05));border:1px solid rgba(62,224,160,.28);color:#c8f7e3}
+.scanning{display:flex;align-items:center;gap:12px;padding:18px;color:var(--fg2)}.scanning .typing{padding:0}
+.mbest{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:20px 22px;border-radius:var(--r);margin-bottom:16px;
+  border:1px solid rgba(139,123,255,.45);background:linear-gradient(135deg,rgba(139,123,255,.16),rgba(79,209,255,.07))}
+.mbest .l{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#cfc8ff}.mbest h2{margin:4px 0 6px;font-size:22px}
+.mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.mc{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.mc:hover{border-color:var(--line2)}.mc h4{margin:0;font-size:15px;line-height:1.3;word-break:break-word}.mc .pub{font-size:12px;color:var(--muted)}
+.mc .bs{display:flex;flex-wrap:wrap;gap:5px}.mc .foot{display:flex;gap:6px;align-items:center;margin-top:auto;padding-top:4px}
+.fit{font-size:11.5px;padding:2px 9px;border-radius:99px;border:1px solid}
+.fit.fast{color:var(--ok);border-color:rgba(62,224,160,.45);background:rgba(62,224,160,.08)}.fit.multi{color:var(--a2);border-color:rgba(79,209,255,.4)}
+.fit.split{color:var(--warn);border-color:rgba(255,190,92,.4)}.fit.cpu{color:var(--bad);border-color:rgba(255,107,129,.4)}
+.prog{flex:1}.prog .bar{margin-top:0}.prog .small{margin-top:3px}
 /* ---------- settings / help ---------- */
 .set{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .srow{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -268,7 +285,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .menu div:hover{background:var(--card2)}.menu div .kbd{margin-left:auto}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1d2a;border:1px solid rgba(139,123,255,.5);padding:10px 16px;border-radius:12px;opacity:0;transition:.25s;z-index:60;pointer-events:none;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #toast.on{opacity:1;transform:translateX(-50%)}
-@media(max-width:1100px){.grid2,.set,.now{grid-template-columns:1fr}.notes{grid-template-columns:1fr;height:auto}.week{grid-template-columns:repeat(2,1fr)}.tips,.tpls,.stat{grid-template-columns:1fr 1fr}}
+@media(max-width:1100px){.hw,.mgrid{grid-template-columns:1fr 1fr}.grid2,.set,.now{grid-template-columns:1fr}.notes{grid-template-columns:1fr;height:auto}.week{grid-template-columns:repeat(2,1fr)}.tips,.tpls,.stat{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.app{grid-template-columns:1fr}.nav{display:none}.chatwrap{grid-template-columns:1fr}.clist{display:none}.searchbtn{min-width:0}}
 </style>
 </head>
@@ -281,8 +298,9 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
     <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 5</span></div>
+    <div class="navi" data-v="models"><svg class="i" data-i="chip"></svg>Models<span class="k">Alt 6</span></div>
     <div class="navsep"></div>
-    <div class="navi" data-v="settings"><svg class="i" data-i="sliders"></svg>Settings<span class="k">Alt 6</span></div>
+    <div class="navi" data-v="settings"><svg class="i" data-i="sliders"></svg>Settings<span class="k">Alt 7</span></div>
     <div class="navi" data-v="help"><svg class="i" data-i="help"></svg>Help<span class="k">?</span></div>
     <div class="navfoot">
       <div class="st" id="st-ai"><i></i>Local AI</div>
@@ -408,6 +426,17 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
       </div>
     </section>
 
+    <!-- MODELS -->
+    <section class="view" id="v-models"><div class="pad">
+      <div class="card" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="chip"></svg>Your PC<button class="btn pri sm" id="scanbtn" onclick="scanHW()"><svg class="i sm" data-i="search"></svg>Scan my hardware</button></h3>
+        <div id="hw"><div class="empty"><b>Find the best AI models for this computer</b>Scan checks your graphics card, memory, processor and free space — right here on your PC, nothing is uploaded or installed.</div></div>
+      </div>
+      <div id="recs"></div>
+      <div class="card" style="margin-top:18px"><h3><svg class="i sm" data-i="down"></svg>Installed models
+        <a class="btn sm ghost" href="https://huggingface.co/models?library=gguf&sort=trending" target="_blank" rel="noopener"><svg class="i sm" data-i="ext"></svg>Browse Hugging Face</a></h3><div id="installed"></div></div>
+    </div></section>
+
     <!-- SETTINGS -->
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
@@ -490,6 +519,8 @@ const ICONS = {
   rep: "m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3",
   zap: "M13 2 3 14h9l-1 8 10-12h-9l1-8z", snooze: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0zM12 7v5l3 3",
   stop: "M6 6h12v12H6z", arrow: "M5 12h14M12 5l7 7-7 7",
+  chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
+  down: "M12 3v12M6 11l6 6 6-6M5 21h14", ext: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
 };
 const ic = (n, cls = "i sm") => `<svg class="${cls}" viewBox="0 0 24 24"><path d="${ICONS[n] || ""}"/></svg>`;
 function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forEach(s => { s.setAttribute("viewBox", "0 0 24 24"); s.innerHTML = `<path d="${ICONS[s.dataset.i] || ""}"/>`; s.removeAttribute("data-i"); }); }
@@ -499,6 +530,7 @@ const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", se
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
 const VIEWS = {today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
+  models: ["Models", "Find, install and manage local AI models that fit this PC"],
   settings: ["Settings", "Make Daybook work your way"], help: ["Help", "How everything works"]};
 function go(v, sub) {
   if (!VIEWS[v]) v = "today";
@@ -508,7 +540,7 @@ function go(v, sub) {
   $("#ptitle").textContent = VIEWS[v][0]; $("#psub").textContent = VIEWS[v][1];
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => loadNotes(), chat: () => enterChat(sub), settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => loadNotes(), chat: () => enterChat(sub), models: renderModels, settings: renderSettings, help: renderHelp})[v]();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
 setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
@@ -903,6 +935,83 @@ async function stream(url, body) {
   setTimeout(loadChats, 2500); cinput.focus();
 }
 
+// ================= MODELS =================
+let HW = null, RECS = null, recTab = "general";
+const FIT = {fast: "Fast on your GPU", multi: "Uses all GPUs", split: "GPU + RAM · slower", cpu: "CPU only · slow"};
+const TABS = [["general", "General chat"], ["coding", "Coding"], ["reasoning", "Reasoning"], ["vision", "Vision (images)"], ["small", "Small & fast"]];
+async function renderModels() { await renderInstalled(); if (HW) { drawHW(); drawRecs(); } }
+async function scanHW() {
+  $("#scanbtn").disabled = true;
+  $("#hw").innerHTML = `<div class="scanning"><div class="typing"><i></i><i></i><i></i></div>Scanning your graphics card, memory and storage…</div>`;
+  try { HW = await api("/api/hardware"); } catch (e) { $("#hw").innerHTML = `<div class="empty">Scan failed: ${esc(e.message)}</div>`; $("#scanbtn").disabled = false; return; }
+  drawHW(); $("#scanbtn").disabled = false; $("#scanbtn").innerHTML = ic("search") + "Scan again";
+  RECS = null;
+  $("#recs").innerHTML = `<div class="card"><div class="scanning"><div class="typing"><i></i><i></i><i></i></div>Finding the best models for your PC on Hugging Face…</div></div>`;
+  try { RECS = await api("/api/models/recommend"); await renderInstalled(); drawRecs(); }
+  catch (e) { $("#recs").innerHTML = `<div class="card"><div class="empty"><b>Couldn't load suggestions</b>${esc(e.message)}<br><button class="btn" style="margin-top:10px" onclick="scanHW()">Try again</button></div></div>`; }
+}
+function drawHW() {
+  const g = HW.gpus.filter(x => !x.integrated), gi = HW.gpus.filter(x => x.integrated);
+  $("#hw").innerHTML = `<div class="hw">
+    <div class="hwt"><div class="l">Graphics</div><b>${g.length ? g.map(x => x.vram_gb + " GB").join(" + ") : "None dedicated"}</b><span>${esc((g.length ? g : gi).map(x => x.name).join(" · ") || "—")}</span></div>
+    <div class="hwt"><div class="l">Memory (RAM)</div><b>${HW.ram_gb} GB</b><span>${HW.ram_free_gb} GB free right now</span></div>
+    <div class="hwt"><div class="l">Processor</div><b>${HW.cpu.threads} threads</b><span>${esc(HW.cpu.name.replace(/\(R\)|\(TM\)|CPU|@.*$/g, "").trim())}</span></div>
+    <div class="hwt"><div class="l">Free space for models</div><b>${HW.disk_free_gb} GB</b><span>${esc(HW.models_dir)}</span></div></div>
+    <div class="hwsum">${ic("check")} ${esc(HW.summary)}${HW.total_vram_gb > HW.best_vram_gb ? ` · up to ~${(HW.total_vram_gb - 1.2).toFixed(1)} GB across all your GPUs` : ""}</div>`;
+}
+const installedNames = new Set();
+function modelCard(m, big) {
+  const have = installedNames.has(m.ollama.toLowerCase());
+  const btn = have ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}Installed</span>`
+    : m.disk_ok ? `<button class="btn ${big ? "pri" : "sm pri"}" onclick="installModel(this,'${esc(m.ollama)}')">${ic("down")}Install · ${m.size_gb} GB</button>`
+    : `<span class="badge imp">Not enough disk space</span>`;
+  const meta = `${m.params_b ? `<span class="badge">${m.params_b}B</span>` : ""}<span class="badge">${m.quant} · ${esc(m.quality)}</span><span class="fit ${m.fit}">${FIT[m.fit]}</span>`;
+  if (big) return `<div class="mbest"><div><div class="l">${ic("spark")} Best pick for your PC</div><h2>${esc(m.name)}</h2>
+      <div class="row" style="gap:6px">${meta}<span class="muted small">by ${esc(m.publisher)} · updated ${esc(m.updated)} · ${(m.downloads / 1000).toFixed(0)}k downloads</span></div></div>
+      <div class="row" style="flex-direction:column;align-items:stretch">${btn}<a class="btn ghost sm" href="${m.url}" target="_blank" rel="noopener">${ic("ext")}View on Hugging Face</a></div></div>`;
+  return `<div class="mc"><div><h4>${esc(m.name)}</h4><div class="pub">by ${esc(m.publisher)} · updated ${esc(m.updated)}</div></div><div class="bs">${meta}</div>
+    <div class="foot">${btn}<a class="iconbtn" title="View on Hugging Face" href="${m.url}" target="_blank" rel="noopener">${ic("ext")}</a></div></div>`;
+}
+function drawRecs() {
+  if (!RECS) return;
+  if (!RECS.count) { $("#recs").innerHTML = `<div class="card"><div class="empty"><b>No models fit this PC</b>Free up memory or disk space and scan again.</div></div>`; return; }
+  $("#recs").innerHTML = (RECS.best ? modelCard(RECS.best, true) : "") + `<div class="card"><h3>${ic("spark")}Recommended for your hardware
+      <span class="muted small" style="text-transform:none;letter-spacing:0;margin-left:auto">From Hugging Face · ${esc(RECS.fetched)}</span><button class="btn sm ghost" onclick="refreshRecs()">Refresh</button></h3>
+    <div class="seg" id="rectabs">${TABS.map(([k, l]) => `<button data-k="${k}" class="${k === recTab ? "on" : ""}">${l}</button>`).join("")}</div>
+    <div class="mgrid">${(RECS.groups[recTab] || []).map(m => modelCard(m)).join("") || `<div class="empty">Nothing in this group fits your PC.</div>`}</div></div>`;
+  $$("#rectabs button").forEach(b => b.onclick = () => { recTab = b.dataset.k; drawRecs(); });
+}
+async function refreshRecs() { toast("Refreshing from Hugging Face…"); try { RECS = await api("/api/models/recommend?refresh=1"); drawRecs(); } catch (e) { toast("⚠ " + e.message); } }
+async function renderInstalled() {
+  const j = await api("/api/models/installed");
+  installedNames.clear(); j.models.forEach(m => installedNames.add(m.name.toLowerCase()));
+  $("#installed").innerHTML = !j.ollama ? `<div class="empty"><b>Ollama isn't running</b>Start Ollama from the Start menu — it runs your local models. Don't have it? <a href="https://ollama.com/download" target="_blank" rel="noopener">Get Ollama</a></div>`
+    : j.models.length ? j.models.map(m => `<div class="rem" style="grid-template-columns:1fr auto auto"><span><b>${esc(m.name)}</b> <span class="badge">${esc(m.params || "")}</span> <span class="badge">${esc(m.quant || "")}</span></span>
+        <span class="muted small">${m.size_gb} GB</span><span class="acts"><button class="btn sm" onclick="useModel('${esc(m.name)}')">${ic("chat")}Chat</button><button class="btn sm ghost danger" onclick="removeModel(this,'${esc(m.name)}')">${ic("trash")}Remove</button></span></div>`).join("")
+    : `<div class="empty">No models installed yet — pick one above.</div>`;
+}
+async function installModel(btn, name) {
+  const wrap = document.createElement("div"); wrap.className = "prog"; wrap.innerHTML = `<div class="bar"><i style="width:0%"></i></div><div class="small muted">Starting…</div>`;
+  btn.replaceWith(wrap); const bar = wrap.querySelector("i"), lab = wrap.querySelector(".small");
+  try {
+    const res = await fetch("/api/models/pull", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name})});
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", failed = null;
+    for (;;) { const {value, done} = await rd.read(); if (done) break; buf += dec.decode(value, {stream: true}); let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) { const ch = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = (ch.match(/^event: (.*)$/m) || [])[1], d = JSON.parse((ch.match(/^data: (.*)$/m) || [, "{}"])[1]);
+        if (ev === "progress") { if (d.total) { const pc = d.completed / d.total * 100; bar.style.width = pc.toFixed(1) + "%"; lab.textContent = `Downloading ${pc.toFixed(0)}% · ${((d.completed || 0) / 1e9).toFixed(2)} / ${(d.total / 1e9).toFixed(2)} GB`; } else lab.textContent = d.status; }
+        else if (ev === "error") failed = d.message; } }
+    if (failed) throw new Error(failed);
+    bar.style.width = "100%"; lab.textContent = "Installed ✓"; toast("Installed ✓ — it's in Chat's model list"); S.models = [];
+    renderInstalled();
+  } catch (e) { lab.textContent = "⚠ " + e.message; lab.style.color = "var(--bad)"; }
+}
+async function removeModel(btn, name) {
+  if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again"; return; }
+  try { await api("/api/models/" + encodeURIComponent(name), {method: "DELETE"}); toast("Removed " + name); S.models = []; await renderInstalled(); drawRecs(); } catch (e) { toast("⚠ " + e.message); }
+}
+async function useModel(name) { S.models = []; go("chat"); setTimeout(() => { $("#model").value = name; newChat(); }, 400); }
+
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
 async function renderSettings() {
@@ -968,7 +1077,7 @@ const HELP = [
     <tr><td><span class="kb">Ctrl Alt A</span></td><td>Agenda pop-out</td></tr>
     <tr><td><span class="kb">Ctrl Alt C</span></td><td>Open Chat</td></tr>
     <tr><td><span class="kb">Ctrl K</span></td><td>Search everything / jump anywhere (inside Daybook)</td></tr>
-    <tr><td><span class="kb">Alt 1 – 6</span></td><td>Switch pages: Today, Calendar, Reminders, Notes, Chat, Settings</td></tr>
+    <tr><td><span class="kb">Alt 1 – 7</span></td><td>Switch pages: Today, Calendar, Reminders, Notes, Chat, Models, Settings</td></tr>
     <tr><td><span class="kb">?</span></td><td>This help page</td></tr>
     <tr><td><span class="kb">Ctrl S</span></td><td>Save the note you're editing</td></tr>
     <tr><td><span class="kb">Esc</span></td><td>Close a window or the search</td></tr></table>`],
@@ -985,6 +1094,13 @@ const HELP = [
     <p>The <b>daily log</b> is one note per day for quick one-liners (<span class="kb">Ctrl Alt N</span> or the box on Today). Your old notes from <code>F:\\28HRTZ</code> were imported read-only; use Settings → Import now to pick up new files.</p>`],
   ["chat", "Chat with local AI", `<p>Chat with any model installed in Ollama — pick it at the top. <b>Personas</b> change its style (Coder, Content strategist, Ori script writer…).</p>
     <p>With <b>Daybook</b> switched on it can read your schedule and notes and create reminders. With <b>Orca</b> on, ask “start a new project: …” and it prepares the project and a brief for Claude — you see a <b>Confirm / Cancel</b> card first. Confirming creates <code>D:\\projects\\name</code>, adds it to Orca and starts Claude on it (that part uses your Claude plan).</p>`],
+  ["models", "Models & your hardware", `<p>Open <b>Models</b> and press <b>Scan my hardware</b>. Daybook reads your graphics card, memory, processor and free space using what's already built into Windows — nothing extra to install, nothing uploaded.</p>
+    <p>With an internet connection it then pulls current models from <b>Hugging Face</b> (trusted publishers: bartowski, unsloth, LM Studio, ggml) and picks the best-quality version of each that fits your PC:</p>
+    <table><tr><td><span class="fit fast">Fast on your GPU</span></td><td>Fits entirely in your graphics card — best speed</td></tr>
+    <tr><td><span class="fit multi">Uses all GPUs</span></td><td>Spread across your graphics cards — still quick</td></tr>
+    <tr><td><span class="fit split">GPU + RAM · slower</span></td><td>Part runs on the processor — works, but slower</td></tr>
+    <tr><td><span class="fit cpu">CPU only · slow</span></td><td>No suitable graphics card — small models only</td></tr></table>
+    <p><b>Install</b> downloads it through Ollama with live progress; it then appears in Chat's model picker and in Settings → Local AI. Remove models you don't use to free disk space.</p>`],
   ["claude", "Using Daybook from Claude", `<p><button class="btn pri" onclick="go('settings');setTimeout(()=>$('#claudecard').scrollIntoView({behavior:'smooth'}),300)">${ic("zap")}Connect Claude</button> <a class="btn" href="https://taylormade420.gumroad.com/l/cfrswx" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a></p><p>Connect it once in <b>Settings → Claude</b> (works with Claude Code and the Claude desktop app). In any Claude session you can say things like “remind me Friday at 3 to send the invoice”, “what's on my schedule tomorrow?” or “find my notes about the SDVCC meeting”. Claude talks to Daybook through the <code>reminders</code> connection.</p>`],
   ["trouble", "Troubleshooting", `<ul><li><b>No pop-ups?</b> Settings → Test a pop-up. If nothing shows, sign out and in (the background service starts at sign-in).</li>
     <li><b>AI not working / “Ollama not running”?</b> Start the Ollama app from the Start menu.</li>
@@ -999,7 +1115,7 @@ function renderHelp() {
 
 // ================= palette (Ctrl+K) =================
 const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "cal", () => go("calendar")], ["Go to Reminders", "bell", () => go("reminders")],
-  ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
+  ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Go to Models", "chip", () => go("models")], ["Scan my hardware", "chip", () => { go("models"); scanHW(); }], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
   ["New reminder", "plus", () => reminderModal()], ["New routine block", "clock", () => blockModal()], ["New note", "plus", () => templateModal()], ["New chat", "chat", () => newChat()],
   ["Test a pop-up", "bell", () => testPopup()]];
 let palItems = [], palIdx = 0;
@@ -1041,7 +1157,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") { closeModal(); closeMenu(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "s" && S.view === "notes" && S.cur) { e.preventDefault(); saveNote(); return; }
-  if (e.altKey && /^[1-6]$/.test(e.key)) { e.preventDefault(); go(["today", "calendar", "reminders", "notes", "chat", "settings"][+e.key - 1]); return; }
+  if (e.altKey && /^[1-7]$/.test(e.key)) { e.preventDefault(); go(["today", "calendar", "reminders", "notes", "chat", "models", "settings"][+e.key - 1]); return; }
   if (!typing && e.key === "?") go("help");
 });
 async function pollStatus() {

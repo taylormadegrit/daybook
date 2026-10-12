@@ -100,6 +100,71 @@ def search_all():
                    reminders=[_rem(r) for r in db.list_open() if ql in r["text"].lower()][:8], chats=chats)
 
 
+@app.get("/api/hardware")
+def hardware():
+    from . import models_hub
+    return jsonify(models_hub.scan())
+
+
+@app.get("/api/models/recommend")
+def model_recs():
+    from . import models_hub
+    try:
+        return jsonify(models_hub.recommend(models_hub.scan(), force=request.args.get("refresh") == "1"))
+    except Exception as e:
+        return jsonify(error=f"Couldn't reach Hugging Face — check your internet connection. ({e})"), 503
+
+
+@app.get("/api/models/installed")
+def models_installed():
+    from . import chat as chat_mod
+    try:
+        tags = chat_mod.ollama("/api/tags")["models"]
+    except Exception:
+        return jsonify(ollama=False, models=[])
+    return jsonify(ollama=True, models=[{"name": m["name"], "size_gb": round(m["size"] / 1e9, 2),
+                                         "params": m["details"].get("parameter_size"), "quant": m["details"].get("quantization_level"),
+                                         "modified": m.get("modified_at", "")[:10]} for m in tags])
+
+
+@app.post("/api/models/pull")
+def model_pull():
+    """Stream Ollama's download progress as server-sent events."""
+    import json as _json
+    from . import chat as chat_mod
+    name = (request.get_json() or {}).get("name", "")
+    if not name.startswith("hf.co/") and ":" not in name:
+        return jsonify(error="bad model name"), 400
+
+    def gen():
+        try:
+            with chat_mod.ollama("/api/pull", {"model": name, "stream": True}, stream=True) as resp:
+                for line in resp:
+                    if line.strip():
+                        j = _json.loads(line)
+                        if j.get("error"):
+                            yield f"event: error\ndata: {_json.dumps({'message': j['error']})}\n\n"
+                            return
+                        yield f"event: progress\ndata: {_json.dumps(j)}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {_json.dumps({'message': str(e)})}\n\n"
+    return app.response_class(gen(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+@app.delete("/api/models/<path:name>")
+def model_delete(name):
+    import json as _json
+    import urllib.request as _u
+    req = _u.Request("http://localhost:11434/api/delete", _json.dumps({"model": name}).encode(),
+                     {"Content-Type": "application/json"}, method="DELETE")
+    try:
+        _u.urlopen(req, timeout=30).read()
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+    return jsonify(ok=True)
+
+
 @app.get("/api/claude")
 def claude_status():
     from . import claude_link
