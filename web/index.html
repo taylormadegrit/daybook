@@ -319,6 +319,20 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 .gi{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--card)}
 .gi img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;cursor:zoom-in}
 .gi .gm{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:12px;color:var(--muted)}
+.quick{display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.quick .iconbtn{width:34px;height:34px}
+.minis{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;margin-top:4px}
+.mini{position:relative;border-radius:10px;padding:10px 10px 28px;min-height:100px;font-size:12.5px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.28);transform:rotate(var(--r,0deg));transition:transform .15s}
+.mini:hover{transform:rotate(0) translateY(-3px)}
+.mini p{margin:0;white-space:pre-wrap;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;line-height:1.35}
+.mini img{width:100%;height:58px;object-fit:cover;border-radius:6px;margin-top:6px;display:block}
+.mini .mb{position:absolute;left:9px;right:5px;bottom:4px;display:flex;align-items:center;gap:2px;font-size:11px;opacity:.8}
+.mini .mb button{background:none;border:0;cursor:pointer;font-size:12px;color:inherit;padding:2px 4px;border-radius:5px}
+.mini .mb button:hover{background:rgba(0,0,0,.12)}
+.mini.add{display:grid;place-items:center;text-align:center;box-shadow:none;border:2px dashed var(--line);color:var(--muted);background:transparent;padding:10px}
+.annos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+.annos img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;display:block}
+.stk .chipc{background-size:cover;background-position:center}
 .hotk{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
@@ -347,6 +361,11 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <header class="topbar">
       <div class="ptitle"><h1 id="ptitle">Today</h1><div id="psub"></div></div>
       <div class="sp"></div>
+      <div class="quick" title="Desktop tools">
+        <button class="iconbtn" title="New sticky note (Alt S · Ctrl Alt S anywhere)" onclick="newSticky()"><svg class="i" data-i="sticky"></svg></button>
+        <button class="iconbtn" title="Show / tuck away all sticky notes (Alt W · Ctrl Alt W anywhere)" onclick="peekStickies()"><svg class="i" data-i="layers"></svg></button>
+        <button class="iconbtn" title="Annotate the screen (Alt P · Ctrl Alt P anywhere)" onclick="annotateNow()"><svg class="i" data-i="brush"></svg></button>
+      </div>
       <button class="searchbtn" onclick="openPalette()"><svg class="i sm" data-i="search"></svg>Search or jump to…<span class="kbd">Ctrl K</span></button>
       <div style="position:relative">
         <button class="btn pri" onclick="toggleMenu(event)"><svg class="i sm" data-i="plus"></svg>New</button>
@@ -381,6 +400,13 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
             <div id="overdue"></div><div class="tl" id="timeline"></div></div>
         </div>
         <div class="stack">
+          <div class="card"><h3><svg class="i sm" data-i="sticky"></svg>Sticky notes & annotate
+              <span class="row" style="gap:6px;margin-left:auto"><button class="btn sm" onclick="peekStickies()" title="Lift every note above your apps — press again to tuck them back"><svg class="i sm" data-i="layers"></svg>Show all</button>
+              <button class="btn sm" onclick="annotateNow()"><svg class="i sm" data-i="brush"></svg>Annotate</button>
+              <button class="btn sm pri" onclick="newSticky()"><svg class="i sm" data-i="plus"></svg>Sticky</button></span></h3>
+            <div class="minis" id="home-stickies"></div>
+            <div class="annos" id="home-annos"></div>
+            <div class="hotk"><span><span class="kbd">Ctrl Alt S</span> new</span><span><span class="kbd">Ctrl Alt W</span> show all</span><span><span class="kbd">Ctrl Alt P</span> annotate</span><span>Paste pictures into a note with <span class="kbd">Ctrl V</span></span></div></div>
           <div class="card"><h3><svg class="i sm" data-i="pen"></svg>Daily log<button class="btn sm ghost" onclick="S.logId&&openNote(S.logId)">Open in Notes</button></h3>
             <div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><input class="f" id="l-add" placeholder="Jot something down… press Enter"><button class="btn" onclick="addLog()">Log</button></div>
             <div class="log" id="logbody"></div><div class="row small muted" id="logtags" style="margin-top:8px"></div></div>
@@ -578,6 +604,7 @@ const ICONS = {
   stop: "M6 6h12v12H6z", arrow: "M5 12h14M12 5l7 7-7 7",
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
+  layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
   sticky: "M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5zM15 3v6h6",
   brush: "M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z",
   palette: "M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-2a2 2 0 0 0-1 3.7A1.5 1.5 0 0 1 14 22zM7.5 10.5h.01M10.5 7h.01M15 7.5h.01M17 11h.01", ext: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
@@ -652,6 +679,7 @@ async function renderToday() {
     <span><span class="x">${esc(r.text)}</span> ${r.repeat ? `<span class="badge">${ic("rep")}${r.repeat}</span>` : ""}${r.priority ? ` <span class="badge imp">important</span>` : ""}</span></div>`).join("")
     : `<div class="empty">Nothing else scheduled.</div>`;
   renderWelcome();
+  renderHomeDesk();
 }
 function blkHTML(x, cls, over) {
   const range = `<b>${tm(x.due)}</b>${x.ends ? "to " + hm(x.ends) : over ? dayName(x.due) : ""}`;
@@ -1093,12 +1121,28 @@ async function pickTheme(t) { applyTheme(t); renderThemes(); await saveSetting("
 
 // ================= DESKTOP =================
 const STICKY = {lemon: "#fff3a8", peach: "#ffd6b8", rose: "#ffc7dd", lilac: "#e2d4ff", sky: "#c9e9ff", mint: "#c8f5dc", night: "#2f3341"};
+const STICKY_INK = {lemon: "#3b3410", peach: "#43260f", rose: "#4a1630", lilac: "#2c1d52", sky: "#0f2f47", mint: "#0f3a24", night: "#e9ebf2"};
 let newColor = "lemon";
+const stickyImg = f => "/sticky-images/" + encodeURIComponent(f);
+async function renderHomeDesk() {
+  const [j, a] = await Promise.all([api("/api/stickies"), api("/api/annotations")]);
+  const tilt = i => [-1.6, 1.2, -0.6, 1.8, -1.1, 0.7][i % 6];
+  $("#home-stickies").innerHTML = j.open.slice(0, 7).map((s, i) => `<div class="mini" style="background:${STICKY[s.color] || STICKY.lemon};color:${STICKY_INK[s.color] || STICKY_INK.lemon};--r:${tilt(i)}deg"
+      title="Click to bring this note up" onclick="stickyAct(${s.id},'show')"><p>${esc(s.preview.replace(/🖼\n?/g, "").trim() || (s.images.length ? "" : "Empty note"))}</p>
+      ${s.images.length ? `<img src="${stickyImg(s.images[0])}" alt="">` : ""}
+      <div class="mb"><span>${s.mode === "top" ? "📌 on top" : "⇣ desktop"}</span><span style="margin-left:auto"></span>
+        <button title="${s.mode === "top" ? "Send to the desktop layer" : "Pin on top of everything"}" onclick="event.stopPropagation();stickyMode(${s.id},'${s.mode === "top" ? "desktop" : "top"}')">${s.mode === "top" ? "⇣" : "📌"}</button>
+        <button title="Close (restore it from the Desktop page)" onclick="event.stopPropagation();stickyAct(${s.id},'close')">✕</button></div></div>`).join("")
+    + `<div class="mini add" onclick="newSticky()"><div>${ic("plus", "i")}<div style="margin-top:4px">New sticky</div></div></div>`;
+  $("#home-annos").innerHTML = a.items.slice(0, 4).map(x => `<img src="/annotations/${encodeURIComponent(x.name)}" loading="lazy" title="Annotation · ${dayName(x.taken)} ${tm(x.taken)}" onclick="window.open(this.src,'_blank')">`).join("");
+}
+function deskRefresh() { if (S.view === "desktop") renderDesktop(); else if (S.view === "today") renderHomeDesk(); }
+async function peekStickies() { await api("/api/stickies/peek", {method: "POST"}); toast("Sticky notes lifted on top — press again (Alt W / Ctrl Alt W) to tuck them back"); }
 async function renderDesktop() {
   $("#newcolors").innerHTML = Object.entries(STICKY).map(([k, c]) => `<i title="${k}" class="${k === newColor ? "on" : ""}" style="background:${c}" onclick="newColor='${k}';renderDesktop()"></i>`).join("");
   const j = await api("/api/stickies");
-  const row = (s, closed) => { const first = (s.text || "").split("\n")[0].trim() || "Empty note";
-    return `<div class="stk"><span class="chipc" style="background:${STICKY[s.color] || STICKY.lemon}"></span>
+  const row = (s, closed) => { const first = (s.preview || "").split("\n").map(x => x.trim()).find(x => x && x !== "🖼") || (s.images.length ? "🖼 Picture" : "Empty note");
+    return `<div class="stk"><span class="chipc" style="background-color:${STICKY[s.color] || STICKY.lemon}${s.images.length ? `;background-image:url('${stickyImg(s.images[0])}')` : ""}"></span>
       <span><b>${esc(first.slice(0, 60))}</b><div class="small muted">${closed ? "closed" : s.mode === "top" ? "📌 On top" : "⇣ On desktop"} · edited ${dayName(s.updated)} ${tm(s.updated)}</div></span>
       <span class="row" style="gap:4px">${closed ? `<button class="btn sm" onclick="stickyAct(${s.id},'show')">Restore</button><button class="btn sm ghost danger" onclick="stickyDel(this,${s.id})">${ic("trash")}</button>`
         : `<button class="btn sm" onclick="stickyAct(${s.id},'show')">Show</button><button class="btn sm" onclick="stickyMode(${s.id},'${s.mode === "top" ? "desktop" : "top"}')">${s.mode === "top" ? "⇣ Desktop" : "📌 On top"}</button><button class="btn sm ghost" onclick="stickyAct(${s.id},'close')">Close</button>`}</span></div>`; };
@@ -1111,13 +1155,13 @@ async function renderDesktop() {
       <button class="iconbtn" title="Delete" onclick="annoDel(this,'${esc(x.name)}')">${ic("trash")}</button></div></div>`).join("")
     : `<div class="empty" style="grid-column:1/-1"><b>No annotations yet</b>Press Annotate screen or <span class="kbd">Ctrl Alt P</span>, draw, then Save.</div>`;
 }
-async function newSticky() { await api("/api/stickies", {method: "POST", body: {color: newColor}}); toast("Sticky note added to your desktop"); if (S.view === "desktop") renderDesktop(); }
-async function stickyAct(id, a) { await api(`/api/stickies/${id}/${a}`, {method: "POST"}); setTimeout(renderDesktop, 400); }
-async function stickyMode(id, mode) { await api(`/api/stickies/${id}/update`, {method: "POST", body: {mode}}); toast(mode === "top" ? "Pinned on top" : "Moved to the desktop layer"); setTimeout(renderDesktop, 300); }
+async function newSticky() { await api("/api/stickies", {method: "POST", body: {color: newColor}}); toast("Sticky note added to your desktop — type, or paste a picture with Ctrl V"); setTimeout(deskRefresh, 300); }
+async function stickyAct(id, a) { await api(`/api/stickies/${id}/${a}`, {method: "POST"}); setTimeout(deskRefresh, 400); }
+async function stickyMode(id, mode) { await api(`/api/stickies/${id}/update`, {method: "POST", body: {mode}}); toast(mode === "top" ? "Pinned on top" : "Moved to the desktop layer"); setTimeout(deskRefresh, 300); }
 function stickyDel(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Delete?"; return; } stickyAct(id, "delete"); }
 async function annotateNow() { await api("/api/annotate", {method: "POST"}); toast("Annotation mode — draw, then Save or Copy"); }
 async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.style.color = "var(--bad)"; toast("Click again to delete"); return; }
-  await api("/api/annotations/" + encodeURIComponent(name), {method: "DELETE"}); renderDesktop(); }
+  await api("/api/annotations/" + encodeURIComponent(name), {method: "DELETE"}); deskRefresh(); }
 
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
@@ -1185,8 +1229,9 @@ const HELP = [
     <tr><td><span class="kb">Ctrl Alt C</span></td><td>Open Chat</td></tr>
     <tr><td><span class="kb">Ctrl K</span></td><td>Search everything / jump anywhere (inside Daybook)</td></tr>
     <tr><td><span class="kb">Alt 1 – 8</span></td><td>Switch pages: Today, Calendar, Reminders, Notes, Desktop, Chat, Models, Settings</td></tr>
-    <tr><td><span class="kb">Ctrl Alt S</span></td><td>New sticky note on your desktop</td></tr>
-    <tr><td><span class="kb">Ctrl Alt P</span></td><td>Annotate the screen (draw, then Save or Copy)</td></tr>
+    <tr><td><span class="kb">Ctrl Alt S</span></td><td>New sticky note on your desktop (Alt S inside Daybook)</td></tr>
+    <tr><td><span class="kb">Ctrl Alt W</span></td><td>Show all sticky notes above your apps — press again to tuck them back (Alt W inside Daybook)</td></tr>
+    <tr><td><span class="kb">Ctrl Alt P</span></td><td>Annotate the screen — draw, then Save or Copy (Alt P inside Daybook)</td></tr>
     <tr><td><span class="kb">?</span></td><td>This help page</td></tr>
     <tr><td><span class="kb">Ctrl S</span></td><td>Save the note you're editing</td></tr>
     <tr><td><span class="kb">Esc</span></td><td>Close a window or the search</td></tr></table>`],
@@ -1204,6 +1249,8 @@ const HELP = [
   ["chat", "Chat with local AI", `<p>Chat with any model installed in Ollama — pick it at the top. <b>Personas</b> change its style (Coder, Content strategist, Ori script writer…).</p>
     <p>With <b>Daybook</b> switched on it can read your schedule and notes and create reminders. With <b>Orca</b> on, ask “start a new project: …” and it prepares the project and a brief for Claude — you see a <b>Confirm / Cancel</b> card first. Confirming creates <code>D:\\projects\\name</code>, adds it to Orca and starts Claude on it (that part uses your Claude plan).</p>`],
   ["desktop", "Sticky notes & annotations", `<p><b>Sticky notes</b> (<span class="kb">Ctrl Alt S</span>) sit right on your desktop with no taskbar button. The arrow button switches between <b>Desktop</b> (stays under your apps, never in the way — see it when you minimize or use Win+D) and <b>On top</b> (floats above everything). Text saves as you type and notes come back after a restart. Closed notes can be restored from the Desktop page.</p>
+    <p><b>Working in other apps?</b> Press <span class="kb">Ctrl Alt W</span> to lift every note above your windows so you can read, move, edit or pin them — press it again to tuck them back. <b>Pictures:</b> copy any image (a screenshot, Snipping Tool, a picture file in Explorer, an image in your browser) and press <span class="kb">Ctrl V</span> inside a note. Double-click a picture to open it full size; Backspace removes it.</p>
+    <p>The same tools are on the <b>Today</b> page and in the top bar of every page (sticky · show all · annotate).</p>
     <p><b>Annotate</b> (<span class="kb">Ctrl Alt P</span>) freezes all your screens. Draw with the toolbar or keys P pen · H highlighter · A arrow · B box · C circle · T text · E eraser. <span class="kb">Ctrl Z</span> or right-click undoes. <b>Save</b> writes a PNG of the monitor you drew on to <code>D:\\Daybook\\Annotations</code>; <b>Copy</b> puts it on the clipboard.</p>`],
   ["models", "Models & your hardware", `<p>Open <b>Models</b> and press <b>Scan my hardware</b>. Daybook reads your graphics card, memory, processor and free space using what's already built into Windows — nothing extra to install, nothing uploaded.</p>
     <p>With an internet connection it then pulls current models from <b>Hugging Face</b> (trusted publishers: bartowski, unsloth, LM Studio, ggml) and picks the best-quality version of each that fits your PC:</p>
@@ -1226,7 +1273,7 @@ function renderHelp() {
 
 // ================= palette (Ctrl+K) =================
 const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "cal", () => go("calendar")], ["Go to Reminders", "bell", () => go("reminders")],
-  ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Go to Desktop", "sticky", () => go("desktop")], ["New sticky note", "sticky", () => newSticky()], ["Annotate screen", "brush", () => annotateNow()], ["Go to Models", "chip", () => go("models")], ["Scan my hardware", "chip", () => { go("models"); scanHW(); }], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
+  ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Go to Desktop", "sticky", () => go("desktop")], ["New sticky note", "sticky", () => newSticky()], ["Show all sticky notes", "layers", () => peekStickies()], ["Annotate screen", "brush", () => annotateNow()], ["Go to Models", "chip", () => go("models")], ["Scan my hardware", "chip", () => { go("models"); scanHW(); }], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
   ["New reminder", "plus", () => reminderModal()], ["New routine block", "clock", () => blockModal()], ["New note", "plus", () => templateModal()], ["New chat", "chat", () => newChat()],
   ["Test a pop-up", "bell", () => testPopup()]];
 let palItems = [], palIdx = 0;
@@ -1268,6 +1315,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") { closeModal(); closeMenu(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "s" && S.view === "notes" && S.cur) { e.preventDefault(); saveNote(); return; }
+  if (e.altKey && !e.ctrlKey && /^[swp]$/i.test(e.key)) { e.preventDefault(); ({s: newSticky, w: peekStickies, p: annotateNow})[e.key.toLowerCase()](); return; }
   if (e.altKey && /^[1-8]$/.test(e.key)) { e.preventDefault(); go(["today", "calendar", "reminders", "notes", "desktop", "chat", "models", "settings"][+e.key - 1]); return; }
   if (!typing && e.key === "?") go("help");
 });

@@ -11,11 +11,11 @@ if mode == "annotate":  # Ctrl+Alt+P — must set its own DPI mode before anythi
     annotate.main(hide_daybook="--delay" in sys.argv)
     sys.exit(0)
 
-if mode == "sticky":  # Ctrl+Alt+S — the background service owns the note windows
+if mode in ("sticky", "peek"):  # Ctrl+Alt+S new note / Ctrl+Alt+W show-hide all — the service owns the windows
     import json
     import urllib.request
-    req = urllib.request.Request("http://127.0.0.1:8503/api/stickies", json.dumps({}).encode(),
-                                 {"Content-Type": "application/json"})
+    url = "http://127.0.0.1:8503/api/stickies" + ("/peek" if mode == "peek" else "")
+    req = urllib.request.Request(url, json.dumps({}).encode(), {"Content-Type": "application/json"})
     try:
         urllib.request.urlopen(req, timeout=5)
     except Exception:

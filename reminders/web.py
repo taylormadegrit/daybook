@@ -103,7 +103,25 @@ def search_all():
 @app.get("/api/stickies")
 def stickies_list():
     from . import desk
-    return jsonify(open=desk.all_notes(), closed=[s for s in desk.all_notes(True) if s["closed"]], colors=list(desk.COLORS))
+
+    def view(n):
+        return {**n, "preview": desk.preview(n["text"]), "images": desk.images_in(n["text"])}
+    return jsonify(open=[view(n) for n in desk.all_notes()],
+                   closed=[view(n) for n in desk.all_notes(True) if n["closed"]], colors=list(desk.COLORS))
+
+
+@app.post("/api/stickies/peek")
+def stickies_peek():
+    """Toggle: lift every sticky above your apps, or tuck them back."""
+    from . import desk
+    desk.COMMANDS.put(("peek", None))
+    return jsonify(ok=True)
+
+
+@app.get("/sticky-images/<path:name>")
+def sticky_image(name):
+    from . import desk
+    return send_from_directory(desk.IMG_DIR, Path(name).name)
 
 
 @app.post("/api/stickies")

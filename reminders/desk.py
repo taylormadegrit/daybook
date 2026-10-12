@@ -1,9 +1,12 @@
 """Desktop sticky notes: borderless windows with no taskbar button. Each note lives either on the
 desktop layer (behind every app, never in the way) or pinned on top. Text autosaves to SQLite."""
 import ctypes
+import os
 import queue
+import re
 import tkinter as tk
 from datetime import datetime
+from pathlib import Path
 
 from . import db
 
@@ -17,6 +20,9 @@ FONT = "Segoe UI"
 COMMANDS = queue.Queue()  # web thread → Tk thread ("new"|"show"|"close"|"reload", id)
 HWND_BOTTOM, HWND_TOPMOST, HWND_NOTOPMOST = 1, -1, -2
 u32 = ctypes.windll.user32
+IMG_DIR = Path(__file__).resolve().parent.parent / "data" / "sticky_images"
+IMG_RE = re.compile(r"\[\[img:([^\]]+)\]\]")  # pasted pictures are stored in the text as [[img:file.png]]
+IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
 
 
 def _con():
@@ -59,7 +65,21 @@ def update(sid, **f):
             con.execute(f"UPDATE stickies SET {', '.join(k + '=?' for k in f)} WHERE id=?", (*f.values(), sid))
 
 
+def images_in(text):
+    return IMG_RE.findall(text or "")
+
+
+def preview(text):
+    return IMG_RE.sub("🖼", text or "")
+
+
 def delete_forever(sid):
+    row = get(sid)
+    for f in images_in(row["text"] if row else ""):
+        try:
+            (IMG_DIR / Path(f).name).unlink()
+        except OSError:
+            pass
     with _con() as con:
         con.execute("DELETE FROM stickies WHERE id=?", (sid,))
 
@@ -92,7 +112,8 @@ class Sticky(tk.Toplevel):
             self.btns[key] = b
         self.text = tk.Text(self, wrap="word", relief="flat", bd=0, padx=10, pady=8, font=(FONT, 11),
                             undo=True, highlightthickness=0)
-        self.text.insert("1.0", row["text"])
+        self.photos, self.imgfiles = [], {}  # Tk image name → file in IMG_DIR
+        self.load_text(row["text"])
         self.text.pack(fill="both", expand=True)
         self.grip = tk.Label(self, text="◢", font=(FONT, 8), cursor="size_nw_se")
         self.grip.place(relx=1, rely=1, anchor="se")
@@ -110,6 +131,11 @@ class Sticky(tk.Toplevel):
         self.text.bind("<<Modified>>", self._changed)
         self.text.bind("<Button-1>", lambda e: (self.focus_force(), self.text.focus_set()))
         self.text.bind("<Escape>", lambda e: self.mgr.root.focus())
+        for seq in ("<Control-v>", "<Control-V>", "<Shift-Insert>"):
+            self.text.bind(seq, self._paste)
+        self.text.tag_bind("img", "<Double-Button-1>", self._open_image)
+        self.text.tag_bind("img", "<Enter>", lambda e: self.text.configure(cursor="hand2"))
+        self.text.tag_bind("img", "<Leave>", lambda e: self.text.configure(cursor="xterm"))
 
         x = row["x"] if row["x"] is not None else mgr.next_pos()[0]
         y = row["y"] if row["y"] is not None else mgr.next_pos()[1]
@@ -118,6 +144,91 @@ class Sticky(tk.Toplevel):
             update(self.sid, x=x, y=y)
         self.paint()
         self.after(60, self.apply_layer)
+
+    # --- text + pictures ---
+    def load_text(self, raw):
+        self.text.delete("1.0", "end")
+        self.photos.clear()
+        self.imgfiles.clear()
+        pos = 0
+        for m in IMG_RE.finditer(raw or ""):
+            self.text.insert("end", raw[pos:m.start()])
+            self.insert_image(m.group(1), "end")
+            pos = m.end()
+        self.text.insert("end", (raw or "")[pos:])
+        self.text.edit_modified(False)
+        self.text.edit_reset()
+
+    def serialize(self):
+        out = []
+        for kind, value, _ in self.text.dump("1.0", "end-1c", text=True, image=True):
+            if kind == "text":
+                out.append(value)
+            elif kind == "image" and value in self.imgfiles:
+                out.append(f"[[img:{self.imgfiles[value]}]]")
+        return "".join(out)
+
+    def insert_image(self, fname, index="insert"):
+        from PIL import Image, ImageTk
+        try:
+            im = Image.open(IMG_DIR / Path(fname).name)
+            im.load()
+        except Exception:
+            self.text.insert(index, "[missing picture]")
+            return
+        maxw = max(120, self.w - 34)
+        if im.width > maxw:
+            im = im.resize((maxw, max(1, round(im.height * maxw / im.width))), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(im, master=self)
+        name = self.text.image_create(index, image=photo, padx=1, pady=4)
+        self.text.tag_add("img", name)
+        self.photos.append(photo)
+        self.imgfiles[name] = Path(fname).name
+
+    def _paste(self, e=None):
+        """Ctrl+V: a copied picture (screenshot, Snipping Tool, image file from Explorer) goes into the note."""
+        from PIL import Image, ImageGrab
+        try:
+            clip = ImageGrab.grabclipboard()
+        except Exception:
+            clip = None
+        imgs = []
+        if isinstance(clip, Image.Image):
+            imgs = [clip]
+        elif isinstance(clip, list):
+            for f in clip:
+                if Path(f).suffix.lower() in IMG_EXT:
+                    try:
+                        imgs.append(Image.open(f))
+                    except Exception:
+                        pass
+        if not imgs:
+            return None  # plain text: let Tk paste normally
+        IMG_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            self.text.delete("sel.first", "sel.last")
+        except tk.TclError:
+            pass
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        for i, im in enumerate(imgs):
+            fname = f"sticky{self.sid}_{stamp}_{i}.png"
+            if im.mode not in ("RGB", "RGBA"):
+                im = im.convert("RGBA")
+            im.save(IMG_DIR / fname)
+            if self.text.compare("insert", "!=", "insert linestart"):
+                self.text.insert("insert", "\n")
+            self.insert_image(fname)
+            self.text.insert("insert", "\n")
+        self.text.see("insert")
+        self._changed()
+        return "break"
+
+    def _open_image(self, e):
+        idx = self.text.index(f"@{e.x},{e.y}")
+        for kind, value, _ in self.text.dump(idx, f"{idx}+1c", image=True):
+            if kind == "image" and value in self.imgfiles:
+                os.startfile(IMG_DIR / self.imgfiles[value])  # full size in the Photos app
+                return "break"
 
     # --- look ---
     def paint(self):
@@ -128,14 +239,14 @@ class Sticky(tk.Toplevel):
         self.text.configure(bg=paper, fg=ink, insertbackground=ink, selectbackground=head)
         self.grip.configure(bg=paper, fg=head)
         self.btns["pin"].configure(text="📌" if self.mode == "top" else "⇣", fg=ink)
-        first = self.text.get("1.0", "1.end").strip()
+        first = preview(self.text.get("1.0", "1.end")).strip() or ("🖼 picture" if self.imgfiles else "")
         self.title_lbl.configure(text=(first[:28] + "…" if len(first) > 28 else first) if self.collapsed else "")
 
     def apply_layer(self):
         """Desktop mode: sit under every app window. Top mode: float above everything."""
         try:
             hwnd = int(self.wm_frame(), 16)
-            if self.mode == "top":
+            if self.mode == "top" or self.mgr.peeking:
                 u32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, 0x0013)  # NOSIZE|NOMOVE|NOACTIVATE
             else:
                 u32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, 0x0013)
@@ -193,7 +304,7 @@ class Sticky(tk.Toplevel):
         self.apply_layer()
 
     def _changed(self, e=None):
-        if self.text.edit_modified():
+        if e is None or self.text.edit_modified():
             self.text.edit_modified(False)
             if getattr(self, "_pending", None):
                 self.after_cancel(self._pending)
@@ -201,14 +312,14 @@ class Sticky(tk.Toplevel):
 
     def _flush(self):
         self._pending = None
-        update(self.sid, text=self.text.get("1.0", "end-1c"))
+        update(self.sid, text=self.serialize())
         if self.collapsed:
             self.paint()
 
 
 class Manager:
     def __init__(self, root):
-        self.root, self.windows = root, {}
+        self.root, self.windows, self.peeking = root, {}, False
         for row in all_notes():
             self.open(row)
         root.after(300, self.pump)
@@ -255,24 +366,37 @@ class Manager:
                     w.after(1500, w.apply_layer)
                 elif cmd == "close" and sid in self.windows:
                     self.windows[sid].action("close")
+                elif cmd == "peek":
+                    self.peek()
                 elif cmd == "reload" and row and sid in self.windows:
                     w = self.windows[sid]
                     w.color, w.mode = row["color"], row["mode"]
-                    w.text.delete("1.0", "end")
-                    w.text.insert("1.0", row["text"])
-                    w.text.edit_modified(False)
+                    w.load_text(row["text"])
                     w.paint()
                     w.apply_layer()
         except queue.Empty:
             pass
         self.root.after(300, self.pump)
 
+    def peek(self):
+        """Ctrl+Alt+W: lift every note above your apps to read/edit/move them; press again to tuck them back."""
+        self.peeking = not self.peeking and bool(self.windows)
+        for w in list(self.windows.values()):
+            try:
+                w.deiconify()
+                w.apply_layer()
+            except Exception:
+                pass
+        if self.peeking:
+            first = next(iter(self.windows.values()))
+            first.after(80, first.focus_force)
+
     def keep_layers(self):
         """Desktop-mode notes drift up when clicked — quietly push them back under the apps."""
         focused = self.root.focus_get()
         for w in list(self.windows.values()):
             try:
-                if w.mode != "top" and (focused is None or focused.winfo_toplevel() is not w):
+                if not self.peeking and w.mode != "top" and (focused is None or focused.winfo_toplevel() is not w):
                     w.apply_layer()
             except Exception:
                 pass
