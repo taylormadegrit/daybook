@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory
 
 from . import db, nlp, notes
 
@@ -15,9 +15,114 @@ from .chat import bp as chat_bp  # noqa: E402
 app.register_blueprint(chat_bp)
 
 
+STARTED = datetime.now()
+VERSION = "1.0"
+
+
 @app.get("/chat")
-def chat_page():
-    return send_from_directory(STATIC, "chat.html")
+def chat_page():  # chat now lives inside the main app
+    return redirect("/#chat")
+
+
+@app.get("/brand/<path:name>")
+def brand(name):
+    return send_from_directory(STATIC / "brand", name)
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return jsonify(name="Daybook", short_name="Daybook", description="Local AI Hub for Notes, Reminders & Scheduling",
+                   start_url="/#today", display="standalone", background_color="#0a0b10", theme_color="#0a0b10",
+                   icons=[{"src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                          {"src": "/brand/icon-256.png", "sizes": "256x256", "type": "image/png"}])
+
+
+@app.get("/api/settings")
+def get_settings():
+    return jsonify(db.settings())
+
+
+@app.patch("/api/settings")
+def save_settings():
+    j = request.get_json() or {}
+    if "agenda_hour" in j and not (0 <= int(j["agenda_hour"]) <= 23):
+        return jsonify(error="Agenda hour must be 0–23"), 400
+    if "nag_minutes" in j and not (1 <= int(j["nag_minutes"]) <= 120):
+        return jsonify(error="Nag interval must be 1–120 minutes"), 400
+    db.set_settings(j)
+    return jsonify(db.settings())
+
+
+@app.get("/api/status")
+def status():
+    from . import chat as chat_mod
+    models = chat_mod.model_list()
+    mcp = False
+    try:
+        mcp = '"reminders"' in (Path.home() / ".claude.json").read_text(encoding="utf-8")
+    except Exception:
+        pass
+    open_now = db.list_open()
+    return jsonify(
+        version=VERSION, started=db.fmt(STARTED), ollama=bool(models), models=models,
+        orca=Path(r"D:\Applications\Orca\resources\bin\orca.exe").exists(), claude_mcp=mcp,
+        data=str(db.DB_PATH), counts={"reminders": len(open_now), "routine": sum(1 for r in open_now if r["repeat"]),
+                                       "notes": sum(notes.category_counts().values()), "ai": notes.stats()})
+
+
+@app.get("/api/calendar")
+def calendar_range():
+    start = date.fromisoformat(request.args.get("start") or date.today().isoformat())
+    days = min(int(request.args.get("days", 7)), 42)
+    out = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        out.append({"date": d.isoformat(), "items": [_rem(r, w) for w, r in db.occurrences_on(d)],
+                    "log": bool(notes.find_daily_log(d))})
+    return jsonify(out)
+
+
+@app.get("/api/search")
+def search_all():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify(notes=[], reminders=[], chats=[])
+    from . import chat as chat_mod
+    ql = q.lower()
+    try:
+        found = notes.search(q, limit=8)
+    except Exception:
+        found = []
+    with chat_mod._con() as con:
+        chats = [dict(r) for r in con.execute("SELECT id, title FROM chats WHERE title LIKE ? ORDER BY updated DESC LIMIT 5",
+                                              (f"%{q}%",))]
+    return jsonify(notes=[{"id": n["id"], "title": n["title"], "category": n["category"], "date": n["note_date"]} for n in found],
+                   reminders=[_rem(r) for r in db.list_open() if ql in r["text"].lower()][:8], chats=chats)
+
+
+@app.post("/api/notes/reorganize-all")
+def reorganize_all():
+    with notes._con() as con:
+        n = con.execute("UPDATE notes SET ai_status='pending' WHERE trim(body) != ''").rowcount
+    return jsonify(queued=n)
+
+
+@app.post("/api/test-popup")
+def test_popup():
+    rid = db.add("Test pop-up — press Done", datetime.now() + timedelta(seconds=5),
+                 notes="If you can see this, pop-ups are working.")
+    return jsonify(id=rid)
+
+
+@app.post("/api/parse")
+def parse_preview():
+    """Live preview of a plain-English reminder before saving it."""
+    text = (request.get_json() or {}).get("text", "").strip()
+    if len(text) < 3:
+        return jsonify(ok=False)
+    p = nlp.parse(text)
+    return jsonify(ok=True, text=p["text"], due=db.fmt(p["due"]), repeat=p["repeat"], priority=p["priority"],
+                   guessed=bool(p.get("guessed_time")))
 
 
 def _rem(r, when=None):
@@ -46,6 +151,8 @@ def today():
 
 @app.get("/api/reminders")
 def reminders():
+    if request.args.get("status") == "done":
+        return jsonify([_rem(r) | {"completed": r["completed"]} for r in db.list_recent_done(100)])
     return jsonify([_rem(r) for r in db.list_open()])
 
 

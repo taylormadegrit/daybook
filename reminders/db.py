@@ -177,6 +177,33 @@ def delete(rid):
         con.execute("UPDATE reminders SET status='deleted' WHERE id=?", (rid,))
 
 
+SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
+    "open_at_startup": "1",     # open the Daybook window at logon
+    "agenda_popup": "1",        # morning agenda pop-up
+    "agenda_hour": "3",         # ...after this hour
+    "nag_minutes": "5",         # pop-ups ring again every N minutes
+    "ai_model": "qwen2.5:7b",   # local model for parsing + organizing notes
+    "chat_model": "",           # default model for new chats ('' = first installed)
+    "import_dir": "F:\\28HRTZ",  # old-notes folder
+    "user_name": "Taylor",
+    "welcome_seen": "0",
+}
+
+
+def setting(key):
+    return meta_get("set:" + key, SETTINGS.get(key, ""))
+
+
+def settings():
+    return {k: setting(k) for k in SETTINGS}
+
+
+def set_settings(values):
+    for k, v in values.items():
+        if k in SETTINGS:
+            meta_set("set:" + k, str(v))
+
+
 def meta_get(key, default=None):
     with connect() as con:
         row = con.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()

@@ -235,9 +235,9 @@ def date_from_name(name, mtime):
     return mtime.date().isoformat()
 
 
-def import_folder(folder=IMPORT_DIR, top_level_only=True):
+def import_folder(folder=None, top_level_only=True):
     """Copy note text into the Daybook. Files on F: are only read. Re-running skips what's already imported."""
-    folder = Path(folder)
+    folder = Path(folder or db.setting("import_dir") or IMPORT_DIR)
     files = folder.iterdir() if top_level_only else folder.rglob("*")
     added, skipped = [], []
     for p in sorted(files):

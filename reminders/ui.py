@@ -95,7 +95,7 @@ class ReminderPopup(tk.Toplevel):
         self.attributes("-topmost", True)
         self.nags += 1
         if self.nags < NAG_MAX:
-            self.after(NAG_EVERY_MS, self._ring)
+            self.after(max(1, int(db.setting("nag_minutes") or 5)) * 60 * 1000, self._ring)
 
     def _done(self):
         db.complete(self.rid)

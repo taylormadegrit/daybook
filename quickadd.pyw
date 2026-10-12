@@ -8,12 +8,16 @@ from reminders import ui  # noqa: E402
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
 if mode in ("dashboard", "chat"):  # Ctrl+Alt+D / Ctrl+Alt+C
-    import webbrowser
-    webbrowser.open("http://localhost:8503" + ("/chat" if mode == "chat" else ""))
+    from reminders import appwin
+    appwin.open_app("chat" if mode == "chat" else "today")
     sys.exit(0)
 
 root = tk.Tk()
 root.withdraw()
+try:  # Daybook icon on every pop-up window
+    root.iconbitmap(default=str(Path(__file__).resolve().parent / "web" / "brand" / "daybook.ico"))
+except Exception:
+    pass
 if mode == "agenda":    # Ctrl+Alt+A
     ui.AgendaWindow(root)
 elif mode == "note":    # Ctrl+Alt+N

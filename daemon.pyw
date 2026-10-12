@@ -27,6 +27,10 @@ except OSError:
 
 root = tk.Tk()
 root.withdraw()
+try:  # Daybook icon on every pop-up window
+    root.iconbitmap(default=str(Path(__file__).resolve().parent / "web" / "brand" / "daybook.ico"))
+except Exception:
+    pass
 open_popups = {}  # reminder id → popup
 
 
@@ -48,7 +52,8 @@ def poll():
 
         now = datetime.now()
         today = now.strftime("%Y-%m-%d")
-        if now.hour >= AGENDA_HOUR and db.meta_get("agenda_shown") != today:
+        agenda_hour = int(db.setting("agenda_hour") or AGENDA_HOUR)
+        if db.setting("agenda_popup") == "1" and now.hour >= agenda_hour and db.meta_get("agenda_shown") != today:
             db.meta_set("agenda_shown", today)
             if db.list_open(until=now.replace(hour=23, minute=59)):
                 ui.AgendaWindow(root, "Good morning — today's agenda")
@@ -85,55 +90,20 @@ def web_server():
 
 
 def open_app_window():
-    """--open (passed by the logon task): show Daybook's Today page as its own app window once the server is up."""
-    import subprocess
+    """--open (passed by the logon task): show Daybook as its own app window once the server is up."""
     import urllib.request
-    import webbrowser
-    url = f"http://localhost:{web.PORT}/#today"
+    from reminders import appwin
     for _ in range(60):
         try:
-            urllib.request.urlopen(url, timeout=2)
+            urllib.request.urlopen(appwin.URL, timeout=2)
             break
         except Exception:
             time.sleep(1)
-    if raise_window():  # already open (e.g. daemon restarted) → just bring it forward
-        return
-    chrome = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-    if chrome.exists():
-        subprocess.Popen([str(chrome), f"--app={url}", "--window-size=1280,860"])
-        for _ in range(20):  # a background process can't steal focus, so pop it over everything once
-            time.sleep(1)
-            if raise_window():
-                break
-    else:
-        webbrowser.open(url)
-
-
-def raise_window(title="Daybook"):
-    import ctypes
-    from ctypes import wintypes
-    u = ctypes.windll.user32
-    found = []
-
-    def cb(h, _):
-        buf = ctypes.create_unicode_buffer(256)
-        u.GetWindowTextW(h, buf, 256)
-        if buf.value == title and u.IsWindowVisible(h):
-            found.append(h)
-        return True
-    u.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
-    if not found:
-        return False
-    h = found[0]
-    u.ShowWindow(h, 9)  # SW_RESTORE
-    u.SetWindowPos(h, -1, 0, 0, 0, 0, 0x0003)  # HWND_TOPMOST, no move/size
-    u.SetWindowPos(h, -2, 0, 0, 0, 0, 0x0003)  # back to normal so it doesn't stay pinned
-    u.SetForegroundWindow(h)
-    return True
+    appwin.open_app("today")
 
 
 threading.Thread(target=web_server, daemon=True).start()
-if "--open" in sys.argv:
+if "--open" in sys.argv and db.setting("open_at_startup") == "1":
     threading.Thread(target=open_app_window, daemon=True).start()
 threading.Thread(target=ai_worker, daemon=True).start()
 root.after(1000, poll)

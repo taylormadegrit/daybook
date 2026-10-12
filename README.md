@@ -1,4 +1,4 @@
-# Daybook — local AI reminders, routine & notes
+# Daybook — Local AI Hub for Notes, Reminders & Scheduling
 
 Everything runs on this PC: SQLite + the local Ollama model (qwen2.5:7b). Nothing goes to the cloud.
 
@@ -44,3 +44,10 @@ Markdown + code highlighting, personas (Assistant, Coder, Content strategist, Or
 Toggles let the model use **Daybook** tools (schedule, reminders, notes, daily log) and **Orca** tools
 (list projects, create a new project in D:\projects + start Claude/Codex on it, start a task in an existing
 project). Orca actions always show a Confirm / Cancel card first. Code: `reminders/chat.py`, `reminders/orca.py`, `web/chat.html`.
+
+## App layout (v1.0)
+One window (Chrome app mode, opens at sign-in) with a sidebar: **Today** (now/next, schedule, daily log, coming up),
+**Calendar** (week view), **Reminders** (Upcoming / Routine / One-time / Completed), **Notes**, **Chat**, **Settings**
+(startup, agenda, nag interval, AI models, import, system status, test pop-up) and **Help** (guide + hotkeys).
+**Ctrl+K** searches everything and runs commands; **Alt+1–6** switch pages; **?** opens Help.
+Settings live in the `meta` table (`set:*` keys, defaults in `db.SETTINGS`). Branding in `web/brand/` (logo, icons, .ico).

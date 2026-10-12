@@ -15,7 +15,7 @@ DEFAULT_HOUR = 9  # "tomorrow" with no time → 9 AM
 
 
 def _ask_ollama(prompt):
-    body = json.dumps({"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
+    body = json.dumps({"model": db.setting("ai_model") or OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
                        "options": {"temperature": 0}}).encode()
     req = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:

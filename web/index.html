@@ -4,371 +4,1036 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Daybook</title>
+<link rel="icon" type="image/png" href="/brand/icon-64.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a0b10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
-:root{--bg:#121418;--panel:#1a1d23;--card:#22262e;--line:#2e333d;--fg:#eef0f3;--muted:#98a0ad;--accent:#7c9cff;--ok:#3ecf8e;--warn:#ffb454;--bad:#ff6b6b}
+:root{
+  --bg:#0a0b10;--glass:rgba(20,22,31,.74);--glass2:rgba(30,33,46,.62);--card:rgba(255,255,255,.035);--card2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--fg:#eceef4;--fg2:#c9cdda;--muted:#8a90a3;
+  --a1:#8b7bff;--a2:#4fd1ff;--a3:#ff7ac6;--ok:#3ee0a0;--warn:#ffbe5c;--bad:#ff6b81;
+  --grad:linear-gradient(135deg,var(--a1),var(--a2));--r:14px;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.55 Inter,"Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:radial-gradient(38% 34% at 12% 8%,rgba(139,123,255,.20),transparent 70%),
+             radial-gradient(34% 30% at 92% 18%,rgba(79,209,255,.13),transparent 70%),
+             radial-gradient(40% 40% at 60% 105%,rgba(255,122,198,.10),transparent 70%);
+  filter:blur(24px);animation:drift 30s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(3%,-2%,0) scale(1.05)}}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
-button:hover{border-color:var(--accent)}
-button.primary{background:var(--accent);color:#0b0d12;border-color:var(--accent);font-weight:600}
-button.ok{background:var(--ok);color:#06140d;border-color:var(--ok)}
-button.ghost{background:none;border-color:transparent;color:var(--muted)}
-button.ghost:hover{color:var(--fg)}
-input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-header{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
-header h1{margin:0;font-size:18px;letter-spacing:.3px}
-header h1 span{color:var(--accent)}
-nav{display:flex;gap:4px}
-nav button{background:none;border:none;color:var(--muted);padding:6px 14px}
-nav button.on{color:var(--fg);background:var(--card)}
-#clock{margin-left:auto;color:var(--muted)}
-#aistat{color:var(--muted);font-size:12px}
-main{padding:18px 20px;max-width:1400px;margin:0 auto}
-.page{display:none}.page.on{display:block}
-.cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-.panel h2{margin:0 0 10px;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+button{cursor:pointer}
+a{color:var(--a2)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:9px;border:3px solid transparent;background-clip:padding-box}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:15px;height:15px}
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+.nav{background:var(--glass);backdrop-filter:blur(18px);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;font-weight:700;font-size:16px;letter-spacing:.2px}
+.logo{width:34px;height:34px;border-radius:9px;flex:none;filter:drop-shadow(0 0 10px rgba(139,123,255,.45))}
+.orb{width:26px;height:26px;border-radius:50%;background:var(--grad);box-shadow:0 0 18px rgba(139,123,255,.55);flex:none}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase}
+.navi{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;color:var(--fg2);cursor:pointer;margin:1px 0;border:1px solid transparent;user-select:none}
+.navi:hover{background:var(--card)}
+.navi.on{background:linear-gradient(90deg,rgba(139,123,255,.20),rgba(79,209,255,.06));color:#fff;border-color:rgba(139,123,255,.25)}
+.navi .k{margin-left:auto;font-size:11px;color:var(--muted);font-family:"JetBrains Mono",monospace}
+.navi .cnt{margin-left:auto;font-size:11px;padding:0 7px;border-radius:99px;background:rgba(255,190,92,.15);color:var(--warn)}
+.navsep{height:1px;background:var(--line);margin:12px 6px}
+.navfoot{margin-top:auto;padding:10px 8px 2px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.st{display:flex;align-items:center;gap:7px}.st i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.st.ok i{background:var(--ok);box-shadow:0 0 8px var(--ok)}.st.bad i{background:var(--bad)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 26px;border-bottom:1px solid var(--line);background:rgba(10,11,16,.35);backdrop-filter:blur(12px)}
+.ptitle h1{margin:0;font-size:19px;letter-spacing:.1px}.ptitle div{color:var(--muted);font-size:12.5px}
+.sp{flex:1}
+.searchbtn{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:11px;border:1px solid var(--line2);background:var(--card);color:var(--muted);min-width:250px}
+.searchbtn:hover{border-color:rgba(139,123,255,.5);color:var(--fg)}
+.kbd{margin-left:auto;font:11px "JetBrains Mono",monospace;padding:1px 6px;border-radius:6px;border:1px solid var(--line2);color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:11px;border:1px solid var(--line2);background:var(--card2);font-weight:600;font-size:13.5px;white-space:nowrap}
+.btn:hover{border-color:rgba(139,123,255,.55)}
+.btn.pri{background:var(--grad);border:none;color:#0a0b10}
+.btn.ok{background:rgba(62,224,160,.14);border-color:rgba(62,224,160,.4);color:#bff5df}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted);font-weight:500}.btn.ghost:hover{color:var(--fg);background:var(--card)}
+.btn.danger{color:var(--bad)}.btn.sm{padding:5px 10px;font-size:12.5px;border-radius:9px}
+.iconbtn{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid transparent;background:none;color:var(--muted)}
+.iconbtn:hover{background:var(--card2);color:var(--fg);border-color:var(--line)}
+.clock{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.view{display:none;flex:1;min-height:0;overflow:auto}.view.on{display:block}
+.pad{padding:22px 26px 40px;max-width:1680px;margin:0 auto}
+/* ---------- primitives ---------- */
+.card{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;backdrop-filter:blur(10px)}
+.card h3{margin:0 0 12px;font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.card h3 .btn{margin-left:auto;text-transform:none;letter-spacing:0}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
+.stack{display:flex;flex-direction:column;gap:18px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.grow{flex:1;min-width:0}
-.muted{color:var(--muted)}.small{font-size:12px}
-.badge{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.badge.imp{color:var(--warn);border-color:var(--warn)}
-/* timeline */
-.tl{position:relative;margin-top:6px}
-.blk{display:grid;grid-template-columns:118px 1fr auto;gap:10px;align-items:center;padding:10px 12px;margin:6px 0;border-radius:10px;background:var(--card);border-left:4px solid var(--line)}
-.blk.past{opacity:.5}
-.blk.live{border-left-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
-.blk.next{border-left-color:var(--accent)}
-.blk .t{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
-.blk .x{font-weight:600}
-.overdue .blk{border-left-color:var(--bad)}
-/* log */
-.log{white-space:pre-wrap;background:var(--card);border-radius:10px;padding:12px;min-height:120px;max-height:52vh;overflow:auto}
-/* notes */
-.notes{display:grid;grid-template-columns:220px 340px minmax(0,1fr);gap:14px;height:calc(100vh - 100px)}
-.side,.list,.editor{overflow:auto}
-.side .cat{display:flex;justify-content:space-between;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
-.side .cat:hover,.side .cat.on{background:var(--card);color:var(--fg)}
-.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--card);border:1px solid var(--line);cursor:pointer;color:var(--muted)}
-.tag.on,.tag:hover{border-color:var(--accent);color:var(--fg)}
-.item{padding:10px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);margin-bottom:8px;cursor:pointer}
-.item:hover{border-color:var(--accent)}
-.item.on{border-color:var(--accent);background:var(--card)}
-.item .ti{font-weight:600;margin-bottom:2px}
-.item .su{color:var(--muted);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.editor .panel{min-height:100%}
-#n-title{font-size:18px;font-weight:600;width:100%;background:none;border-color:transparent;padding:4px 0}
-#n-title:focus{border-color:transparent;border-bottom:1px solid var(--accent);border-radius:0}
-#n-body{width:100%;min-height:42vh;resize:vertical;font-family:Consolas,"Cascadia Mono",monospace;font-size:13.5px;line-height:1.55}
-.ai{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-.ai h3{margin:10px 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
-.act{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
-.act input{width:150px;padding:4px 8px;font-size:12px}
-.empty{color:var(--muted);text-align:center;padding:40px 10px}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);padding:10px 16px;border-radius:10px;display:none;z-index:20}
-.rem{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--card);margin:6px 0}
-.adv{display:grid;grid-template-columns:2fr 1.2fr 1fr .8fr auto auto;gap:8px;margin-top:10px}
-@media (max-width:1000px){.cols,.notes{grid-template-columns:1fr;height:auto}.adv{grid-template-columns:1fr 1fr}}
+.muted{color:var(--muted)}.small{font-size:12.5px}
+input.f,select.f,textarea.f{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;outline:none;transition:.15s}
+input.f:focus,select.f:focus,textarea.f:focus{border-color:rgba(139,123,255,.6);box-shadow:0 0 0 3px rgba(139,123,255,.13)}
+select.f option{background:#151722}
+label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--card2);border:1px solid var(--line);color:var(--muted);white-space:nowrap;vertical-align:1px}
+.badge.imp{color:var(--warn);border-color:rgba(255,190,92,.45)}.badge.ai{color:#cfc8ff;border-color:rgba(139,123,255,.4)}
+.empty{color:var(--muted);text-align:center;padding:28px 10px;font-size:13.5px}
+.empty b{display:block;color:var(--fg2);font-size:15px;margin-bottom:4px}
+.seg{display:inline-flex;padding:3px;border-radius:11px;background:rgba(0,0,0,.25);border:1px solid var(--line)}
+.seg button{border:none;background:none;padding:6px 13px;border-radius:8px;color:var(--muted);font-weight:500;font-size:13px}
+.seg button.on{background:var(--card2);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.05) inset}
+.switch{position:relative;width:40px;height:22px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;border-radius:99px;background:rgba(255,255,255,.12);transition:.2s;cursor:pointer}
+.switch span::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.switch input:checked+span{background:var(--a1)}.switch input:checked+span::after{transform:translateX(18px)}
+/* ---------- today ---------- */
+.hello{display:flex;align-items:flex-end;gap:16px;margin-bottom:18px}
+.hello h2{margin:0;font-size:26px;letter-spacing:-.2px;background:linear-gradient(90deg,#fff,#cfc8ff 55%,#a6eaff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hello p{margin:2px 0 0;color:var(--muted)}
+.daynav{margin-left:auto;display:flex;align-items:center;gap:4px}
+.now{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.nowc{border-radius:var(--r);padding:16px 18px;border:1px solid var(--line);background:var(--glass2);position:relative;overflow:hidden}
+.nowc.live{border-color:rgba(62,224,160,.35);background:linear-gradient(135deg,rgba(62,224,160,.10),rgba(79,209,255,.05))}
+.nowc .lbl{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);display:flex;gap:6px;align-items:center}
+.nowc.live .lbl{color:var(--ok)}
+.nowc .big{font-size:19px;font-weight:700;margin:6px 0 2px}
+.nowc .sub{color:var(--fg2);font-size:13px}
+.bar{height:5px;border-radius:9px;background:rgba(255,255,255,.08);margin-top:12px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),var(--a2));border-radius:9px}
+.tl{position:relative}
+.blk{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:11px 14px;margin:7px 0;border-radius:12px;background:var(--card);border:1px solid var(--line);position:relative}
+.blk::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--line2)}
+.blk.past{opacity:.45}.blk.live{border-color:rgba(62,224,160,.4);background:rgba(62,224,160,.06)}.blk.live::before{background:var(--ok)}
+.blk.next::before{background:var(--a1)}.blk.over::before{background:var(--bad)}
+.blk .t{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px;line-height:1.3}
+.blk .t b{display:block;color:var(--fg);font-size:14px}
+.blk .x{font-weight:600}.blk .n{font-size:12.5px;color:var(--muted)}
+.blk .acts{display:flex;gap:4px;opacity:.75}.blk:hover .acts{opacity:1}
+.log{white-space:pre-wrap;font-size:13.5px;line-height:1.7;max-height:300px;overflow:auto;color:var(--fg2)}
+.welcome{border:1px solid rgba(139,123,255,.35);background:linear-gradient(135deg,rgba(139,123,255,.14),rgba(79,209,255,.06));border-radius:var(--r);padding:18px 20px;margin-bottom:18px}
+.welcome h3{margin:0 0 4px;font-size:17px}
+.tips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.tip{background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--fg2)}
+.tip b{display:block;color:#fff;margin-bottom:2px}
+/* ---------- calendar ---------- */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.wd{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);min-height:62vh;display:flex;flex-direction:column}
+.wd.today{border-color:rgba(139,123,255,.5);box-shadow:0 0 0 1px rgba(139,123,255,.2) inset}
+.wdh{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;cursor:pointer}
+.wdh .dn{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.wdh .dd{font-size:20px;font-weight:700;margin-left:8px}
+.wd.today .dd{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wdh .iconbtn{margin-left:auto;width:26px;height:26px}
+.wdb{padding:8px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.ev{padding:7px 9px;border-radius:9px;background:rgba(139,123,255,.12);border:1px solid rgba(139,123,255,.25);font-size:12.5px;cursor:pointer;line-height:1.35}
+.ev:hover{border-color:rgba(139,123,255,.6)}
+.ev.rep{background:rgba(79,209,255,.09);border-color:rgba(79,209,255,.22)}.ev.imp{background:rgba(255,190,92,.10);border-color:rgba(255,190,92,.35)}
+.ev .et{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+/* ---------- reminders ---------- */
+.rem{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);margin:7px 0}
+.rem:hover{border-color:var(--line2)}
+.rem .w{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.35}.rem .w b{display:block;color:var(--fg);font-size:13.5px}
+.rem .acts{display:flex;gap:4px}
+.grouph{font-size:11.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:18px 2px 4px}
+/* ---------- notes ---------- */
+.notes{display:grid;grid-template-columns:220px 330px minmax(0,1fr);gap:14px;height:calc(100vh - 120px)}
+.ncol{overflow:auto;min-height:0}
+.cat{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;cursor:pointer;color:var(--fg2);font-size:13.5px}
+.cat:hover{background:var(--card)}.cat.on{background:var(--card2);color:#fff}
+.cat .c{margin-left:auto;color:var(--muted);font-size:12px}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line);cursor:pointer;color:var(--muted)}
+.tag.on,.tag:hover{border-color:rgba(139,123,255,.55);color:var(--fg)}
+.item{padding:11px 13px;border-radius:12px;background:var(--card);border:1px solid var(--line);margin-bottom:8px;cursor:pointer;transition:.12s}
+.item:hover{border-color:var(--line2)}.item.on{border-color:rgba(139,123,255,.55);background:rgba(139,123,255,.08)}
+.item .ti{font-weight:600;margin-bottom:3px}
+.item .su{color:var(--muted);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#n-title{font-size:20px;font-weight:700;width:100%;background:none;border:none;outline:none;padding:2px 0}
+#n-body{min-height:40vh;resize:vertical;font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
+.aibox{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.aibox h4{margin:12px 0 6px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+.act{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.act input{width:170px;padding:5px 9px;font-size:12.5px}
+.tpls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tpl{padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.tpl:hover{border-color:rgba(139,123,255,.55)}.tpl b{display:block;margin-bottom:3px}.tpl span{font-size:12.5px;color:var(--muted)}
+/* ---------- chat ---------- */
+.chatwrap{display:grid;grid-template-columns:250px 1fr;height:calc(100vh - 69px)}
+.clist{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:12px 10px}
+.clist .items{overflow:auto;flex:1;margin-top:8px}
+.ci{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:9px;color:var(--fg2);cursor:pointer;font-size:13.5px}
+.ci span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci:hover{background:var(--card)}.ci.on{background:var(--card2);color:#fff}
+.ci .iconbtn{opacity:0;width:24px;height:24px}.ci:hover .iconbtn{opacity:1}
+.cgrp{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin:12px 8px 4px}
+.cmain{display:flex;flex-direction:column;min-width:0;min-height:0}
+.cbar{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;border:1px solid var(--line2);background:var(--card);font-size:12.5px}
+.pill select{background:transparent;border:none;outline:none;max-width:200px}.pill select option{background:#151722}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.tog{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);padding:5px 10px;border-radius:99px;border:1px solid var(--line);cursor:pointer;user-select:none}
+.tog.on{color:#fff;border-color:rgba(139,123,255,.55);background:rgba(139,123,255,.14)}
+.cscroll{flex:1;overflow:auto}
+.thread{max-width:820px;margin:0 auto;padding:24px 22px 30px}
+.msg{display:flex;gap:13px;margin:0 0 24px;animation:in .22s ease}
+@keyframes in{from{opacity:0;transform:translateY(5px)}}
+.msg.user{justify-content:flex-end}
+.msg.user .bubble{background:linear-gradient(135deg,rgba(139,123,255,.26),rgba(79,209,255,.16));border:1px solid rgba(139,123,255,.33);padding:10px 15px;border-radius:17px 17px 4px 17px;max-width:78%;white-space:pre-wrap}
+.av{width:28px;height:28px;border-radius:50%;flex:none;background:var(--grad);display:grid;place-items:center;color:#0a0b10;margin-top:2px}
+.mbody{min-width:0;flex:1}
+.md{overflow-wrap:anywhere}.md p{margin:.3em 0 .7em}.md ul,.md ol{padding-left:1.4em}.md li{margin:.2em 0}
+.md h1,.md h2,.md h3{margin:1em 0 .4em;line-height:1.3}.md h1{font-size:1.3em}.md h2{font-size:1.15em}.md h3{font-size:1.03em}
+.md blockquote{margin:.6em 0;padding:.2em 1em;border-left:3px solid var(--a1);color:var(--fg2);background:rgba(139,123,255,.06);border-radius:0 8px 8px 0}
+.md code{font-family:"JetBrains Mono",Consolas,monospace;font-size:.87em;background:rgba(255,255,255,.07);padding:.12em .4em;border-radius:6px}
+.md pre{position:relative;background:#0d0f16!important;border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow:auto}
+.md pre code{background:none;padding:0;font-size:12.8px;line-height:1.55}
+.md table{border-collapse:collapse}.md th,.md td{border:1px solid var(--line2);padding:6px 10px}
+.copy{position:absolute;top:8px;right:8px;font-size:11.5px;padding:3px 9px;border-radius:7px;border:1px solid var(--line2);background:#1a1d28;color:var(--muted)}
+.mmeta{display:flex;gap:12px;align-items:center;margin-top:5px;font-size:12px;color:var(--muted);opacity:0;transition:.2s}
+.msg:hover .mmeta,.msg.last .mmeta{opacity:1}.mmeta button{background:none;border:none;color:var(--muted);padding:0}.mmeta button:hover{color:#fff}
+.chip{display:inline-flex;align-items:center;gap:8px;margin:2px 0 10px;padding:6px 12px;border-radius:10px;font-size:12.5px;background:rgba(79,209,255,.07);border:1px solid rgba(79,209,255,.22);color:#bfeeff;cursor:pointer;max-width:100%}
+.chip pre{display:none;margin:6px 0 0;white-space:pre-wrap;font-size:12px;color:var(--muted);font-family:"JetBrains Mono",monospace}
+.chip.open{display:block}.chip.open pre{display:block}
+.think{margin:0 0 10px;font-size:12.5px;color:var(--muted);border-left:2px solid var(--line2);padding-left:10px;white-space:pre-wrap;max-height:160px;overflow:auto}
+.acard{border:1px solid rgba(255,190,92,.4);background:linear-gradient(135deg,rgba(255,190,92,.08),rgba(255,122,198,.05));border-radius:14px;padding:14px 16px;margin:4px 0 10px}
+.acard h4{margin:0 0 6px;font-size:14px;color:var(--warn)}.acard .kv{font-size:13px;color:var(--fg2);margin:3px 0}.acard .kv b{color:var(--muted);font-weight:500;margin-right:6px}
+.caret{display:inline-block;width:8px;height:1.1em;vertical-align:-3px;background:var(--a2);border-radius:2px;animation:blink 1s steps(2) infinite;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+.typing{display:flex;gap:5px;padding:8px 0}.typing i{width:7px;height:7px;border-radius:50%;background:var(--a1);animation:bob 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s;background:#6fa8ff}.typing i:nth-child(3){animation-delay:.3s;background:var(--a2)}
+@keyframes bob{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-6px);opacity:1}}
+.chero{max-width:720px;margin:10vh auto 0;padding:0 22px;text-align:center}
+.bigmark{width:84px;height:84px;display:block;margin:0 auto 14px;border-radius:20px;filter:drop-shadow(0 0 30px rgba(139,123,255,.45));animation:pulse2 4s ease-in-out infinite}
+@keyframes pulse2{50%{filter:drop-shadow(0 0 46px rgba(79,209,255,.5));transform:scale(1.03)}}
+.chero .big{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;background:var(--grad);box-shadow:0 0 50px rgba(139,123,255,.5);animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 80px rgba(79,209,255,.5);transform:scale(1.04)}}
+.chero h2{font-size:26px;margin:0 0 6px}.chero p{color:var(--muted);margin:0 0 22px}
+.sugs{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left}
+.sug{padding:12px 14px;border-radius:13px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13.5px;transition:.15s}
+.sug:hover{border-color:rgba(139,123,255,.5);transform:translateY(-1px)}.sug b{display:block;font-size:13px;margin-bottom:2px}.sug span{color:var(--muted);font-size:12.5px}
+.compose{padding:8px 22px 18px}
+.box{max-width:820px;margin:0 auto;display:flex;align-items:flex-end;gap:10px;padding:9px 9px 9px 16px;border-radius:18px;background:var(--glass);border:1px solid var(--line2);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.box:focus-within{border-color:rgba(139,123,255,.55);box-shadow:0 10px 40px rgba(0,0,0,.35),0 0 0 4px rgba(139,123,255,.12)}
+.box textarea{flex:1;resize:none;border:none;outline:none;background:transparent;max-height:200px;min-height:26px;padding:6px 0;line-height:1.5}
+.send{width:38px;height:38px;border-radius:11px;border:none;background:var(--grad);color:#0a0b10;display:grid;place-items:center;flex:none}
+.send.stop{background:#2a2d3a;color:#fff}
+.chint{max-width:820px;margin:7px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
+/* ---------- settings / help ---------- */
+.set{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.srow{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:none}.srow .d{flex:1}.srow .d b{display:block;font-weight:600}.srow .d span{color:var(--muted);font-size:12.5px}
+.srow input.f,.srow select.f{width:190px}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.help{display:grid;grid-template-columns:220px minmax(0,1fr);gap:26px}
+.toc{position:sticky;top:0;align-self:start}
+.toc a{display:block;padding:7px 10px;border-radius:9px;color:var(--fg2);text-decoration:none;font-size:13.5px}
+.toc a:hover{background:var(--card)}
+.hs{margin-bottom:26px}.hs h2{font-size:19px;margin:0 0 8px;scroll-margin-top:10px}.hs p,.hs li{color:var(--fg2)}
+.hs table{border-collapse:collapse;width:100%;font-size:13.5px}.hs td,.hs th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+.hs code{font-family:"JetBrains Mono",monospace;font-size:.86em;background:var(--card2);padding:.1em .4em;border-radius:6px}
+.kb{font:12px "JetBrains Mono",monospace;padding:2px 7px;border-radius:6px;border:1px solid var(--line2);background:var(--card);white-space:nowrap}
+/* ---------- overlays ---------- */
+.scrim{position:fixed;inset:0;background:rgba(5,6,10,.6);backdrop-filter:blur(6px);display:none;z-index:40;align-items:flex-start;justify-content:center;padding-top:12vh}
+.scrim.on{display:flex}
+.modal{width:min(560px,92vw);background:#141621;border:1px solid var(--line2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:20px 22px;animation:pop .16s ease}
+.modal.wide{width:min(760px,94vw)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}}
+.modal h2{margin:0 0 14px;font-size:18px;display:flex;align-items:center;gap:8px}
+.modal h2 .iconbtn{margin-left:auto}
+.mfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.preview{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(62,224,160,.07);border:1px solid rgba(62,224,160,.25);font-size:13.5px;min-height:42px;color:#c8f7e3}
+.preview.wait{background:var(--card);border-color:var(--line);color:var(--muted)}
+.pal{width:min(620px,92vw);background:#141621;border:1px solid var(--line2);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:pop .14s ease}
+.pal input{width:100%;padding:16px 18px;font-size:16px;background:none;border:none;border-bottom:1px solid var(--line);outline:none}
+.pal .res{max-height:52vh;overflow:auto;padding:6px}
+.pal .ph{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:8px 12px 4px}
+.pal .pr{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--fg2)}
+.pal .pr.on{background:rgba(139,123,255,.16);color:#fff}.pal .pr .muted{margin-left:auto;font-size:12px}
+.menu{position:absolute;z-index:30;background:#161925;border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:6px;min-width:200px;display:none}
+.menu.on{display:block}
+.menu div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13.5px}
+.menu div:hover{background:var(--card2)}.menu div .kbd{margin-left:auto}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1d2a;border:1px solid rgba(139,123,255,.5);padding:10px 16px;border-radius:12px;opacity:0;transition:.25s;z-index:60;pointer-events:none;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media(max-width:1100px){.grid2,.set,.now{grid-template-columns:1fr}.notes{grid-template-columns:1fr;height:auto}.week{grid-template-columns:repeat(2,1fr)}.tips,.tpls,.stat{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.app{grid-template-columns:1fr}.nav{display:none}.chatwrap{grid-template-columns:1fr}.clist{display:none}.searchbtn{min-width:0}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Day<span>book</span></h1>
-  <nav>
-    <button data-p="today" class="on">Today</button>
-    <button data-p="notes">Notes</button>
-    <button data-p="rem">Reminders</button>
-    <a href="/chat" style="color:var(--muted);text-decoration:none;padding:6px 14px">✦ Chat</a>
+<div class="app">
+  <nav class="nav">
+    <div class="brand"><img src="/brand/icon-64.png" alt="" class="logo"><div>Daybook<small>Local AI Hub</small></div></div>
+    <div class="navi" data-v="today"><svg class="i" data-i="home"></svg>Today<span class="k">Alt 1</span></div>
+    <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
+    <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
+    <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
+    <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 5</span></div>
+    <div class="navsep"></div>
+    <div class="navi" data-v="settings"><svg class="i" data-i="sliders"></svg>Settings<span class="k">Alt 6</span></div>
+    <div class="navi" data-v="help"><svg class="i" data-i="help"></svg>Help<span class="k">?</span></div>
+    <div class="navfoot">
+      <div class="st" id="st-ai"><i></i>Local AI</div>
+      <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
+      <div class="muted small" id="ver"></div>
+    </div>
   </nav>
-  <span id="aistat"></span>
-  <span id="clock"></span>
-</header>
-
-<main>
-<!-- TODAY -->
-<section class="page on" id="p-today">
-  <div class="row" style="margin-bottom:14px">
-    <button class="ghost" onclick="shiftDay(-1)">◀</button>
-    <h2 id="t-date" style="margin:0;font-size:20px"></h2>
-    <button class="ghost" onclick="shiftDay(1)">▶</button>
-    <button class="ghost" onclick="dayOffset=0;loadToday()">Today</button>
-  </div>
-  <div class="cols">
-    <div class="panel">
-      <h2>Schedule</h2>
-      <div class="row">
-        <input id="t-add" class="grow" placeholder="Add: “dentist 2:30pm”, “walk every day at 6am”…">
-        <input id="t-ends" style="width:110px" placeholder="ends (6:00)" title="Optional end time for a time block">
-        <button class="primary" onclick="quickRem('t-add','t-ends')">Add</button>
+  <div class="main">
+    <header class="topbar">
+      <div class="ptitle"><h1 id="ptitle">Today</h1><div id="psub"></div></div>
+      <div class="sp"></div>
+      <button class="searchbtn" onclick="openPalette()"><svg class="i sm" data-i="search"></svg>Search or jump to…<span class="kbd">Ctrl K</span></button>
+      <div style="position:relative">
+        <button class="btn pri" onclick="toggleMenu(event)"><svg class="i sm" data-i="plus"></svg>New</button>
+        <div class="menu" id="newmenu" style="right:0;top:44px">
+          <div onclick="reminderModal()"><svg class="i sm" data-i="bell"></svg>Reminder<span class="kbd">Ctrl Alt R</span></div>
+          <div onclick="blockModal()"><svg class="i sm" data-i="clock"></svg>Routine block</div>
+          <div onclick="templateModal()"><svg class="i sm" data-i="note"></svg>Note</div>
+          <div onclick="go('today');setTimeout(()=>$('#l-add').focus(),50)"><svg class="i sm" data-i="pen"></svg>Log entry<span class="kbd">Ctrl Alt N</span></div>
+          <div onclick="go('chat');newChat()"><svg class="i sm" data-i="chat"></svg>Chat</div>
+        </div>
       </div>
-      <div id="t-overdue" class="overdue"></div>
-      <div id="t-tl" class="tl"></div>
-      <div id="t-next"></div>
-    </div>
-    <div class="panel">
-      <h2>Daily log</h2>
-      <div class="row" style="margin-bottom:10px">
-        <input id="l-add" class="grow" placeholder="Jot something down… (Enter)">
-        <button onclick="addLog()">Log</button>
-      </div>
-      <div id="l-body" class="log"></div>
-      <div class="row small muted" style="margin-top:8px"><span id="l-ai"></span>
-        <button class="ghost small" style="margin-left:auto" onclick="openNote(logId)">Open in Notes →</button></div>
-    </div>
-  </div>
-</section>
+      <span class="clock" id="clock"></span>
+    </header>
 
-<!-- NOTES -->
-<section class="page" id="p-notes">
-  <div class="notes">
-    <div class="side">
-      <div class="row" style="margin-bottom:10px">
-        <select id="tpl" class="grow"><option value="">Blank note</option></select>
-        <button class="primary" onclick="newNote()">New</button>
+    <!-- TODAY -->
+    <section class="view" id="v-today"><div class="pad">
+      <div id="welcome"></div>
+      <div class="hello">
+        <div><h2 id="greet"></h2><p id="daysum"></p></div>
+        <div class="daynav">
+          <button class="iconbtn" title="Previous day" onclick="shiftDay(-1)"><svg class="i" data-i="left"></svg></button>
+          <button class="btn sm" onclick="S.dayOffset=0;renderToday()">Today</button>
+          <button class="iconbtn" title="Next day" onclick="shiftDay(1)"><svg class="i" data-i="right"></svg></button>
+        </div>
       </div>
-      <div id="cats"></div>
-      <h2 class="muted small" style="margin:14px 0 4px;letter-spacing:1px">TAGS</h2>
-      <div id="tagcloud" class="tags"></div>
-      <h2 class="muted small" style="margin:14px 0 4px;letter-spacing:1px">DATE</h2>
-      <input type="date" id="f-from" style="width:100%;margin-bottom:6px" onchange="loadNotes()">
-      <input type="date" id="f-to" style="width:100%" onchange="loadNotes()">
-      <button class="ghost small" style="margin-top:12px" onclick="importOld()">Import new files from F:\28HRTZ</button>
-    </div>
-    <div class="list">
-      <input id="q" style="width:100%;margin-bottom:10px" placeholder="Search all notes…" oninput="debounce(loadNotes,250)()">
-      <div id="nlist"></div>
-    </div>
-    <div class="editor"><div class="panel" id="ed"><div class="empty">Pick a note or press <b>New</b>.</div></div></div>
-  </div>
-</section>
+      <div class="now" id="nownext"></div>
+      <div class="grid2">
+        <div class="stack">
+          <div class="card"><h3><svg class="i sm" data-i="clock"></svg><span id="sched-h">Schedule</span><button class="btn sm" onclick="reminderModal({date:S.viewDate})"><svg class="i sm" data-i="plus"></svg>Add</button></h3>
+            <div id="overdue"></div><div class="tl" id="timeline"></div></div>
+        </div>
+        <div class="stack">
+          <div class="card"><h3><svg class="i sm" data-i="pen"></svg>Daily log<button class="btn sm ghost" onclick="S.logId&&openNote(S.logId)">Open in Notes</button></h3>
+            <div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><input class="f" id="l-add" placeholder="Jot something down… press Enter"><button class="btn" onclick="addLog()">Log</button></div>
+            <div class="log" id="logbody"></div><div class="row small muted" id="logtags" style="margin-top:8px"></div></div>
+          <div class="card"><h3><svg class="i sm" data-i="bell"></svg>Coming up<button class="btn sm ghost" onclick="go('reminders')">All reminders</button></h3><div id="upnext"></div></div>
+        </div>
+      </div>
+    </div></section>
 
-<!-- REMINDERS -->
-<section class="page" id="p-rem">
-  <div class="panel">
-    <h2>New reminder</h2>
-    <div class="row">
-      <input id="r-nat" class="grow" placeholder="Plain English: “pay rent on the 1st every month”, “urgent: call Ori tomorrow 10am”">
-      <button class="primary" onclick="quickRem('r-nat')">Add</button>
-    </div>
-    <div class="adv">
-      <input id="r-text" placeholder="…or exact: what">
-      <input id="r-due" type="datetime-local">
-      <select id="r-rep"><option value="">once</option><option>daily</option><option>weekdays</option><option>weekly</option><option>monthly</option><option>yearly</option></select>
-      <input id="r-ends" placeholder="ends HH:MM">
-      <label class="small muted"><input type="checkbox" id="r-pri"> important</label>
-      <button onclick="exactRem()">Add exact</button>
-    </div>
+    <!-- CALENDAR -->
+    <section class="view" id="v-calendar"><div class="pad" style="max-width:1500px">
+      <div class="row" style="margin-bottom:14px">
+        <button class="iconbtn" onclick="shiftWeek(-1)"><svg class="i" data-i="left"></svg></button>
+        <button class="btn sm" onclick="S.weekOffset=0;renderCalendar()">This week</button>
+        <button class="iconbtn" onclick="shiftWeek(1)"><svg class="i" data-i="right"></svg></button>
+        <h2 id="weekh" style="margin:0 0 0 8px;font-size:18px"></h2>
+        <div class="sp"></div>
+        <span class="muted small">Click a day to open it · click an item to edit</span>
+      </div>
+      <div class="week" id="week"></div>
+    </div></section>
+
+    <!-- REMINDERS -->
+    <section class="view" id="v-reminders"><div class="pad" style="max-width:1000px">
+      <div class="row" style="margin-bottom:6px">
+        <div class="seg" id="remseg">
+          <button data-f="upcoming" class="on">Upcoming</button><button data-f="routine">Routine</button><button data-f="once">One-time</button><button data-f="done">Completed</button>
+        </div>
+        <div class="sp"></div>
+        <button class="btn" onclick="blockModal()"><svg class="i sm" data-i="clock"></svg>Routine block</button>
+        <button class="btn pri" onclick="reminderModal()"><svg class="i sm" data-i="plus"></svg>New reminder</button>
+      </div>
+      <div id="remlist"></div>
+    </div></section>
+
+    <!-- NOTES -->
+    <section class="view" id="v-notes"><div class="pad" style="max-width:1600px;padding-bottom:0">
+      <div class="notes">
+        <div class="ncol">
+          <button class="btn pri" style="width:100%;justify-content:center;margin-bottom:12px" onclick="templateModal()"><svg class="i sm" data-i="plus"></svg>New note</button>
+          <div id="cats"></div>
+          <div class="grouph">Date</div>
+          <input type="date" class="f" id="f-from" style="margin-bottom:6px" onchange="loadNotes()">
+          <input type="date" class="f" id="f-to" onchange="loadNotes()">
+          <div class="grouph">Tags</div>
+          <div class="tags" id="tagcloud"></div>
+        </div>
+        <div class="ncol">
+          <input class="f" id="q" style="margin-bottom:10px" placeholder="Search notes…" oninput="debounce('nq',loadNotes,250)">
+          <div id="nlist"></div>
+        </div>
+        <div class="ncol"><div class="card" id="ed" style="min-height:100%"><div class="empty"><b>Pick a note</b>or create one with <span class="kbd">New note</span></div></div></div>
+      </div>
+    </div></section>
+
+    <!-- CHAT -->
+    <section class="view" id="v-chat">
+      <div class="chatwrap">
+        <div class="clist">
+          <button class="btn pri" style="justify-content:center" onclick="newChat()"><svg class="i sm" data-i="plus"></svg>New chat</button>
+          <input class="f" id="csearch" style="margin-top:8px" placeholder="Search chats" oninput="renderChatList()">
+          <div class="items" id="chats"></div>
+        </div>
+        <div class="cmain">
+          <div class="cbar">
+            <input class="f" id="ctitle" style="width:240px;background:none;border-color:transparent;font-weight:600" value="New chat" onchange="patchChat({title:this.value})">
+            <div class="sp"></div>
+            <label class="pill" title="Model"><span class="dot" id="mdot"></span><select id="model" onchange="patchChat({model:this.value})"></select></label>
+            <label class="pill" title="Persona"><svg class="i sm" data-i="spark"></svg><select id="persona" onchange="patchChat({persona:this.value})"></select></label>
+            <span class="tog" id="t-daybook" onclick="toggleTool('daybook')" title="Let the AI read your schedule & notes and create reminders"><svg class="i sm" data-i="cal"></svg>Daybook</span>
+            <span class="tog" id="t-orca" onclick="toggleTool('orca')" title="Let the AI create Orca projects / start coding agents (always asks first)"><svg class="i sm" data-i="zap"></svg>Orca</span>
+          </div>
+          <div class="cscroll" id="cscroll"><div class="thread" id="thread"></div></div>
+          <div class="compose">
+            <div class="box"><textarea id="cinput" rows="1" placeholder="Message your local AI…"></textarea>
+              <button class="send" id="send" onclick="sendOrStop()" title="Send"><svg class="i" data-i="up"></svg></button></div>
+            <div class="chint">Runs on your PC · Enter to send · Shift+Enter for a new line</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
+      <div class="set">
+        <div class="card"><h3><svg class="i sm" data-i="home"></svg>General</h3>
+          <div class="srow"><div class="d"><b>Your name</b><span>Used in greetings</span></div><input class="f" data-s="user_name"></div>
+          <div class="srow"><div class="d"><b>Open Daybook at startup</b><span>Shows this window when you sign in</span></div><label class="switch"><input type="checkbox" data-s="open_at_startup"><span></span></label></div>
+          <div class="srow"><div class="d"><b>Morning agenda pop-up</b><span>Quick list of today's items, once a day</span></div><label class="switch"><input type="checkbox" data-s="agenda_popup"><span></span></label></div>
+          <div class="srow"><div class="d"><b>Agenda after</b><span>Hour of the day it can appear</span></div><select class="f" data-s="agenda_hour"></select></div>
+        </div>
+        <div class="card"><h3><svg class="i sm" data-i="bell"></svg>Reminders</h3>
+          <div class="srow"><div class="d"><b>Ring again every</b><span>Pop-ups keep ringing until Done / Snooze</span></div><select class="f" data-s="nag_minutes"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></div>
+          <div class="srow"><div class="d"><b>Test a pop-up</b><span>Shows one in ~5 seconds</span></div><button class="btn" onclick="testPopup()">Send test</button></div>
+          <div class="srow"><div class="d"><b>Wake PC at 2:58 AM</b><span>Windows task <code>LocalRemindersWakeUp</code> — so the 3 AM alarm fires from sleep</span></div><span class="badge">On</span></div>
+        </div>
+        <div class="card"><h3><svg class="i sm" data-i="spark"></svg>Local AI</h3>
+          <div class="srow"><div class="d"><b>Model for reminders & notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
+          <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
+          <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
+        </div>
+        <div class="card"><h3><svg class="i sm" data-i="note"></svg>Notes import</h3>
+          <div class="srow"><div class="d"><b>Old notes folder</b><span>Read-only — files are never changed</span></div><input class="f" data-s="import_dir"></div>
+          <div class="srow"><div class="d"><b>Import new files</b><span>.txt .odt .md .docx · skips login/key files</span></div><button class="btn" onclick="importOld()">Import now</button></div>
+          <div class="srow"><div class="d"><b>Welcome card</b><span>Show the getting-started card on Today again</span></div><button class="btn" onclick="saveSetting('welcome_seen','0');toast('It will show on Today')">Show again</button></div>
+        </div>
+      </div>
+    </div></section>
+
+    <!-- HELP -->
+    <section class="view" id="v-help"><div class="pad" style="max-width:1100px">
+      <div class="help">
+        <div class="toc" id="toc"></div>
+        <div id="helpbody"></div>
+      </div>
+    </div></section>
   </div>
-  <div class="panel" style="margin-top:14px"><h2>Upcoming</h2><div id="rlist"></div></div>
-</section>
-</main>
+</div>
+
+<!-- overlays -->
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeModal()"><div id="mhost"></div></div>
 <div id="toast"></div>
 
 <script>
-const $ = s => document.querySelector(s);
-const api = async (url, opt = {}) => {
-  const r = await fetch(url, {headers: {"Content-Type": "application/json"}, ...opt,
-    body: opt.body ? JSON.stringify(opt.body) : undefined});
-  const j = await r.json();
+// ================= utilities =================
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const api = async (u, o = {}) => {
+  const r = await fetch(u, {headers: {"Content-Type": "application/json"}, ...o, body: o.body ? JSON.stringify(o.body) : undefined});
+  const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 };
-const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const toast = (m) => { const t = $("#toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); };
+const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const dt = s => new Date(s);
 const tm = s => dt(s).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
 const hm = s => { if (!s) return ""; const [h, m] = s.split(":"); const d = new Date(); d.setHours(+h, +m); return d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); };
 const dayName = s => dt(s).toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"});
-let timers = {}; const debounce = (f, ms) => () => { clearTimeout(timers[f.name]); timers[f.name] = setTimeout(f, ms); };
-let META = {}, dayOffset = 0, logId = null, cur = null, filt = {category: "", tag: ""};
+const isoDay = d => d.toLocaleDateString("en-CA");
+const rel = ms => { const m = Math.round(ms / 60000); if (m < 1) return "now"; if (m < 60) return `${m} min`; const h = Math.floor(m / 60); return h < 24 ? `${h} h ${m % 60 ? (m % 60) + " min" : ""}`.trim() : `${Math.round(h / 24)} days`; };
+const T = {}; const debounce = (k, f, ms) => { clearTimeout(T[k]); T[k] = setTimeout(f, ms); };
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 2600); }
+marked.setOptions({breaks: true, gfm: true});
+const md = t => DOMPurify.sanitize(marked.parse(t || ""));
 
-// ---------- nav ----------
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => show(b.dataset.p));
-function show(p) {
-  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.p === p));
-  document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id === "p-" + p));
-  location.hash = p;
-  ({today: loadToday, notes: loadNotes, rem: loadRems})[p]();
-}
-setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", hour: "numeric", minute: "2-digit"}), 1000);
+const ICONS = {
+  home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  cal: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18",
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+  chat: "M7.9 20A9 9 0 1 0 4 16.1L2 22z",
+  sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+  help: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01",
+  search: "M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM21 21l-4.3-4.3",
+  plus: "M12 5v14M5 12h14", check: "M20 6 9 17l-5-5", x: "M18 6 6 18M6 6l12 12",
+  clock: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0zM12 6v6l4 2",
+  spark: "M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z",
+  left: "m15 18-6-6 6-6", right: "m9 18 6-6-6-6", up: "m5 12 7-7 7 7M12 19V5",
+  trash: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+  pen: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
+  rep: "m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3",
+  zap: "M13 2 3 14h9l-1 8 10-12h-9l1-8z", snooze: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0zM12 7v5l3 3",
+  stop: "M6 6h12v12H6z", arrow: "M5 12h14M12 5l7 7-7 7",
+};
+const ic = (n, cls = "i sm") => `<svg class="${cls}" viewBox="0 0 24 24"><path d="${ICONS[n] || ""}"/></svg>`;
+function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forEach(s => { s.setAttribute("viewBox", "0 0 24 24"); s.innerHTML = `<path d="${ICONS[s.dataset.i] || ""}"/>`; s.removeAttribute("data-i"); }); }
 
-// ---------- today ----------
-function shiftDay(n) { dayOffset += n; loadToday(); }
-async function loadToday() {
-  const d = new Date(); d.setDate(d.getDate() + dayOffset);
-  const iso = d.toLocaleDateString("en-CA");
-  const j = await api("/api/today?date=" + iso);
-  $("#t-date").textContent = d.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric"});
-  const now = dt(j.now);
-  $("#t-overdue").innerHTML = j.overdue.length ? `<h2 style="margin-top:14px;color:var(--bad)">Overdue</h2>` + j.overdue.map(r => blk(r, now, true)).join("") : "";
-  let nextMarked = false;
-  $("#t-tl").innerHTML = j.timeline.length ? j.timeline.map(r => {
-    const start = dt(r.due), end = r.ends ? new Date(start.toDateString() + " " + r.ends) : new Date(+start + 15 * 60000);
-    let cls = end < now ? "past" : (start <= now ? "live" : "");
-    if (!cls && !nextMarked && dayOffset === 0) { cls = "next"; nextMarked = true; }
-    return blk(r, now, false, cls);
-  }).join("") : `<div class="empty">Nothing scheduled.</div>`;
-  // Coming up: the next reminders after the day being viewed, so startup always shows what's next
-  const endOfDay = new Date(iso + "T23:59");
-  const next = (await api("/api/reminders")).filter(r => dt(r.due) > endOfDay).slice(0, 6);
-  $("#t-next").innerHTML = next.length ? `<h2 style="margin-top:18px">Coming up</h2>` + next.map(r => `<div class="blk next" style="opacity:.9">
-    <span class="t">${dayName(r.due)} ${tm(r.due)}</span><span><span class="x">${esc(r.text)}</span>
-    ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""}${r.priority ? ` <span class="badge imp">important</span>` : ""}</span><span></span></div>`).join("") : "";
-  logId = j.log.id;
-  $("#l-body").textContent = j.log.body || "Nothing logged yet today.";
-  $("#l-ai").textContent = j.log.tags.filter(t => t !== "daily-log").map(t => "#" + t).join("  ");
+// ================= state & routing =================
+const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
+  cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
+const VIEWS = {today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+  notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
+  settings: ["Settings", "Make Daybook work your way"], help: ["Help", "How everything works"]};
+function go(v, sub) {
+  if (!VIEWS[v]) v = "today";
+  S.view = v;
+  $$(".navi").forEach(n => n.classList.toggle("on", n.dataset.v === v));
+  $$(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+  $("#ptitle").textContent = VIEWS[v][0]; $("#psub").textContent = VIEWS[v][1];
+  const h = "#" + v + (sub ? "/" + sub : "");
+  if (location.hash !== h) history.replaceState(null, "", h);
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => loadNotes(), chat: () => enterChat(sub), settings: renderSettings, help: renderHelp})[v]();
 }
-function blk(r, now, over, cls = "") {
-  const range = tm(r.due) + (r.ends ? " – " + hm(r.ends) : "");
-  const btns = r.is_current ? `<span class="row" style="gap:4px">
-      <button class="ok" title="Done" onclick="remDone(${r.id})">✓</button>
-      <button title="Snooze 10 min" onclick="remSnooze(${r.id},10)">+10m</button></span>` : `<span></span>`;
-  return `<div class="blk ${cls}"><span class="t">${over ? dayName(r.due) + " " : ""}${range}</span>
-    <span><span class="x">${esc(r.text)}</span> ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""}
-    ${r.priority ? `<span class="badge imp">important</span>` : ""}${r.notes ? `<div class="small muted">${esc(r.notes)}</div>` : ""}</span>${btns}</div>`;
+$$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
+setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
+
+// ================= TODAY =================
+function shiftDay(n) { S.dayOffset += n; renderToday(); }
+async function renderToday() {
+  const d = new Date(); d.setDate(d.getDate() + S.dayOffset); const iso = isoDay(d); S.viewDate = iso;
+  const [j, rems] = await Promise.all([api("/api/today?date=" + iso), api("/api/reminders")]);
+  const now = dt(j.now), name = S.settings.user_name || "there", h = now.getHours();
+  const greet = h < 5 ? "You're up early" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  $("#greet").textContent = S.dayOffset === 0 ? `${greet}, ${name}` : d.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric"});
+  $("#psub").textContent = d.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric", year: "numeric"});
+  $("#sched-h").textContent = S.dayOffset === 0 ? "Today's schedule" : "Schedule";
+  // timeline + now/next
+  const items = j.timeline.map(r => { const s = dt(r.due), e = r.ends ? new Date(s.toDateString() + " " + r.ends) : new Date(+s + 15 * 6e4); return {...r, s, e}; });
+  const live = S.dayOffset === 0 ? items.find(x => x.s <= now && now < x.e) : null;
+  const next = S.dayOffset === 0 ? items.find(x => x.s > now) : items[0];
+  const left = items.filter(x => x.e > now).length;
+  $("#daysum").textContent = S.dayOffset === 0
+    ? (items.length ? `${items.length} item${items.length > 1 ? "s" : ""} today · ${left} still ahead` : "Nothing scheduled today") + (j.overdue.length ? ` · ${j.overdue.length} overdue` : "")
+    : (items.length ? `${items.length} item${items.length > 1 ? "s" : ""} scheduled` : "Nothing scheduled");
+  const nxt = next || rems.map(r => ({...r, s: dt(r.due)})).find(r => r.s > now);
+  $("#nownext").innerHTML = (S.dayOffset === 0 ? `<div class="nowc ${live ? "live" : ""}">
+      <div class="lbl">${ic(live ? "zap" : "clock")}${live ? "Happening now" : "Right now"}</div>
+      <div class="big">${live ? esc(live.text) : "Free time"}</div>
+      <div class="sub">${live ? `${tm(live.s)} – ${tm(live.e)} · ${rel(live.e - now)} left` : "No block running — enjoy it"}</div>
+      ${live ? `<div class="bar"><i style="width:${Math.min(100, (now - live.s) / (live.e - live.s) * 100)}%"></i></div>` : ""}</div>` : "") +
+    `<div class="nowc"${S.dayOffset !== 0 ? ' style="grid-column:1/-1"' : ""}><div class="lbl">${ic("right")}Up next</div>
+      <div class="big">${nxt ? esc(nxt.text) : "Nothing coming up"}</div>
+      <div class="sub">${nxt ? `${S.dayOffset === 0 && nxt.s.toDateString() !== now.toDateString() ? dayName(nxt.due) + " · " : ""}${tm(nxt.s)}${S.dayOffset === 0 ? " · in " + rel(nxt.s - now) : ""}` : "Add one with New → Reminder"}</div></div>`;
+  $("#overdue").innerHTML = j.overdue.length ? `<div class="grouph" style="color:var(--bad);margin-top:0">Overdue</div>` + j.overdue.map(r => blkHTML({...r, s: dt(r.due)}, "over", true)).join("") : "";
+  let marked = false;
+  $("#timeline").innerHTML = items.length ? items.map(x => {
+    let c = "";
+    if (S.dayOffset === 0) { c = x.e <= now ? "past" : x === live ? "live" : ""; if (!c && !marked) { c = "next"; marked = true; } }
+    return blkHTML(x, c);
+  }).join("") : `<div class="empty"><b>A clear day</b>Add something with the button above, or try <span class="kbd">Ctrl Alt R</span></div>`;
+  // log
+  S.logId = j.log.id;
+  $("#logbody").textContent = j.log.body || "Nothing logged yet. Quick thoughts, wins, things you noticed — they land here with a timestamp.";
+  $("#logbody").style.color = j.log.body ? "" : "var(--muted)";
+  $("#logtags").innerHTML = (j.log.tags || []).filter(t => t !== "daily-log").map(t => `<span class="tag">#${esc(t)}</span>`).join("");
+  // coming up (after the viewed day)
+  const end = new Date(iso + "T23:59");
+  const up = rems.filter(r => dt(r.due) > end).slice(0, 6);
+  $("#upnext").innerHTML = up.length ? up.map(r => `<div class="blk" style="grid-template-columns:96px 1fr"><span class="t"><b>${tm(r.due)}</b>${dayName(r.due)}</span>
+    <span><span class="x">${esc(r.text)}</span> ${r.repeat ? `<span class="badge">${ic("rep")}${r.repeat}</span>` : ""}${r.priority ? ` <span class="badge imp">important</span>` : ""}</span></div>`).join("")
+    : `<div class="empty">Nothing else scheduled.</div>`;
+  renderWelcome();
 }
-async function quickRem(id, endsId) {
-  const v = $("#" + id).value.trim(); if (!v) return;
-  try {
-    const r = await api("/api/reminders", {method: "POST", body: {natural: v, ends: endsId ? $("#" + endsId).value.trim() : ""}});
-    toast(`✓ ${r.text} — ${dayName(r.due)} ${tm(r.due)}${r.repeat ? " (" + r.repeat + ")" : ""}`);
-    $("#" + id).value = ""; if (endsId) $("#" + endsId).value = "";
-    refresh();
-  } catch (e) { toast("⚠ " + e.message); }
+function blkHTML(x, cls, over) {
+  const range = `<b>${tm(x.due)}</b>${x.ends ? "to " + hm(x.ends) : over ? dayName(x.due) : ""}`;
+  const acts = x.is_current ? `<div class="acts"><button class="iconbtn" title="Done" onclick="remDone(${x.id})">${ic("check")}</button>
+      <button class="iconbtn" title="Snooze 10 min" onclick="remSnooze(${x.id},10)">${ic("snooze")}</button>
+      <button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button></div>` : `<div class="acts"><button class="iconbtn" title="Edit" onclick="editReminder(${x.id})">${ic("pen")}</button></div>`;
+  return `<div class="blk ${cls}"><span class="t">${range}</span><span><span class="x">${esc(x.text)}</span>
+    ${x.repeat ? `<span class="badge">${ic("rep")}${x.repeat}</span>` : ""} ${x.priority ? `<span class="badge imp">important</span>` : ""}
+    ${x.notes ? `<div class="n">${esc(x.notes)}</div>` : ""}</span>${acts}</div>`;
 }
-async function remDone(id) { const j = await api(`/api/reminders/${id}/done`, {method: "POST"}); toast(j.result === "done" ? "Done ✓" : "Done ✓ — " + j.result); refresh(); }
-async function remSnooze(id, m) { await api(`/api/reminders/${id}/snooze`, {method: "POST", body: {minutes: m}}); toast(`Snoozed ${m} min`); refresh(); }
+function renderWelcome() {
+  if (S.settings.welcome_seen !== "0" || S.dayOffset !== 0) { $("#welcome").innerHTML = ""; return; }
+  $("#welcome").innerHTML = `<div class="welcome"><div class="row" style="flex-wrap:nowrap;gap:16px"><img src="/brand/icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><div><h3>Welcome to Daybook</h3><div class="muted">Local AI Hub for Notes, Reminders & Scheduling — everything stays on this PC.</div></div></div>
+    <div class="tips">
+      <div class="tip"><b>Plain English</b>“call mom sunday 5pm”, “gym weekdays at 6am” — Daybook figures out the time.</div>
+      <div class="tip"><b>Pop-ups that persist</b>They ring every few minutes until you press Done or Snooze.</div>
+      <div class="tip"><b>Notes that organize themselves</b>The local AI adds titles, tags, summaries and action items.</div>
+      <div class="tip"><b>Hotkeys anywhere</b><span class="kbd">Ctrl Alt R</span> reminder · <span class="kbd">Ctrl Alt N</span> note · <span class="kbd">Ctrl K</span> search</div>
+    </div><div class="row"><button class="btn pri" onclick="dismissWelcome()">Got it</button><button class="btn ghost" onclick="go('help')">Open the guide</button></div></div>`;
+}
+async function dismissWelcome() { await saveSetting("welcome_seen", "1"); renderWelcome(); }
 async function addLog() {
   const v = $("#l-add").value.trim(); if (!v) return;
-  await api("/api/log", {method: "POST", body: {text: v}}); $("#l-add").value = ""; loadToday();
+  await api("/api/log", {method: "POST", body: {text: v}}); $("#l-add").value = ""; toast("Logged ✓"); if (S.dayOffset === 0) renderToday();
 }
 $("#l-add").addEventListener("keydown", e => e.key === "Enter" && addLog());
-$("#t-add").addEventListener("keydown", e => e.key === "Enter" && quickRem("t-add", "t-ends"));
-$("#r-nat").addEventListener("keydown", e => e.key === "Enter" && quickRem("r-nat"));
-function refresh() { const p = document.querySelector("nav button.on").dataset.p; ({today: loadToday, notes: loadNotes, rem: loadRems})[p](); }
+async function remDone(id) { const j = await api(`/api/reminders/${id}/done`, {method: "POST"}); toast(j.result === "done" ? "Done ✓" : "Done ✓ — next " + j.result.replace("next: ", "").replace("T", " ")); refresh(); }
+async function remSnooze(id, m) { await api(`/api/reminders/${id}/snooze`, {method: "POST", body: {minutes: m}}); toast(`Snoozed ${m >= 60 ? m / 60 + " h" : m + " min"}`); refresh(); }
+function refresh() { ({today: renderToday, calendar: renderCalendar, reminders: renderReminders})[S.view]?.(); pollStatus(); }
 
-// ---------- reminders ----------
-async function loadRems() {
-  const rs = await api("/api/reminders");
-  $("#rlist").innerHTML = rs.length ? rs.map(r => `<div class="rem">
-    <span class="muted small">${dayName(r.due)} · ${tm(r.due)}${r.ends ? "–" + hm(r.ends) : ""}</span>
-    <span><b>${esc(r.text)}</b> ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""} ${r.priority ? `<span class="badge imp">important</span>` : ""}
-      ${r.notes ? `<div class="small muted">${esc(r.notes)}</div>` : ""}</span>
-    <span class="row" style="gap:4px"><button class="ok" onclick="remDone(${r.id})">✓</button>
-      <button onclick="remSnooze(${r.id},60)">+1h</button>
-      <button onclick="editRem(${r.id})">Edit</button>
-      <button class="ghost" onclick="delRem(this,${r.id})">Delete</button></span></div>`).join("") : `<div class="empty">No reminders yet.</div>`;
+// ================= CALENDAR =================
+function shiftWeek(n) { S.weekOffset += n; renderCalendar(); }
+async function renderCalendar() {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const start = new Date(t); start.setDate(t.getDate() - ((t.getDay() + 6) % 7) + S.weekOffset * 7);
+  const days = await api(`/api/calendar?start=${isoDay(start)}&days=7`);
+  const endD = new Date(start); endD.setDate(start.getDate() + 6);
+  $("#weekh").textContent = `${start.toLocaleDateString([], {month: "short", day: "numeric"})} – ${endD.toLocaleDateString([], {month: "short", day: "numeric", year: "numeric"})}`;
+  $("#week").innerHTML = days.map(d => {
+    const dd = new Date(d.date + "T12:00"), today = d.date === isoDay(new Date());
+    return `<div class="wd ${today ? "today" : ""}"><div class="wdh" onclick="openDay('${d.date}')"><span class="dn">${dd.toLocaleDateString([], {weekday: "short"})}</span><span class="dd">${dd.getDate()}</span>
+      <button class="iconbtn" title="Add" onclick="event.stopPropagation();reminderModal({date:'${d.date}'})">${ic("plus")}</button></div>
+      <div class="wdb">${d.items.map(x => `<div class="ev ${x.priority ? "imp" : x.repeat ? "rep" : ""}" onclick="editReminder(${x.id})"><div class="et">${tm(x.due)}${x.ends ? "–" + hm(x.ends) : ""}</div>${esc(x.text)}</div>`).join("")
+        || `<div class="muted small" style="padding:6px 4px">—</div>`}${d.log ? `<div class="muted small" style="padding:4px">${ic("pen")} log</div>` : ""}</div></div>`;
+  }).join("");
 }
-async function exactRem() {
-  const text = $("#r-text").value.trim(), due = $("#r-due").value;
-  if (!text || !due) return toast("Fill in what + when");
+function openDay(iso) { const a = new Date(iso + "T12:00"), b = new Date(); b.setHours(12, 0, 0, 0); S.dayOffset = Math.round((a - b) / 864e5); go("today"); }
+
+// ================= REMINDERS =================
+$$("#remseg button").forEach(b => b.onclick = () => { S.remFilter = b.dataset.f; $$("#remseg button").forEach(x => x.classList.toggle("on", x === b)); renderReminders(); });
+async function renderReminders() {
+  const f = S.remFilter, done = f === "done";
+  let rs = await api("/api/reminders" + (done ? "?status=done" : ""));
+  if (f === "routine") rs = rs.filter(r => r.repeat); if (f === "once") rs = rs.filter(r => !r.repeat);
+  if (!rs.length) { $("#remlist").innerHTML = `<div class="empty" style="padding:60px 10px"><b>${done ? "Nothing completed yet" : "No reminders here"}</b>${done ? "" : "Create one with New reminder — plain English works."}</div>`; return; }
+  const now = new Date(); let last = "";
+  $("#remlist").innerHTML = rs.map(r => {
+    const d = dt(r.due), g = done ? "" : d < now ? "Overdue" : d.toDateString() === now.toDateString() ? "Today" : (d - now) < 864e5 * 2 && d.getDate() === new Date(+now + 864e5).getDate() ? "Tomorrow" : (d - now) < 864e5 * 7 ? "This week" : "Later";
+    const head = g && g !== last ? `<div class="grouph" ${g === "Overdue" ? 'style="color:var(--bad)"' : ""}>${g}</div>` : ""; last = g || last;
+    return head + `<div class="rem"><span class="w"><b>${tm(r.due)}${r.ends ? " – " + hm(r.ends) : ""}</b>${done ? "done " + dayName(r.completed) : dayName(r.due)}</span>
+      <span><b>${esc(r.text)}</b> ${r.repeat ? `<span class="badge">${ic("rep")}${r.repeat}</span>` : ""} ${r.priority ? `<span class="badge imp">important</span>` : ""}
+        ${r.notes ? `<div class="small muted">${esc(r.notes)}</div>` : ""}</span>
+      <span class="acts">${done ? "" : `<button class="btn sm ok" onclick="remDone(${r.id})">${ic("check")}Done</button>
+        <button class="btn sm" onclick="remSnooze(${r.id},60)">+1 h</button>
+        <button class="iconbtn" title="Edit" onclick="editReminder(${r.id})">${ic("pen")}</button>`}</span></div>`;
+  }).join("");
+}
+
+// ---------- reminder modal ----------
+const REPEATS = [["", "Doesn't repeat"], ["daily", "Every day"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]];
+function modal(html, wide) { $("#mhost").innerHTML = `<div class="modal ${wide ? "wide" : ""}">${html}</div>`; $("#scrim").classList.add("on"); paintIcons($("#mhost")); }
+function closeModal() { $("#scrim").classList.remove("on"); $("#mhost").innerHTML = ""; }
+function reminderModal(pre = {}) {
+  closeMenu();
+  modal(`<h2>${ic("bell", "i")}New reminder<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+    <div class="seg" id="rm-mode" style="margin-bottom:14px"><button class="on" data-m="nl">Plain English</button><button data-m="ex">Exact time</button></div>
+    <div id="rm-nl"><label class="lb">What and when?</label><input class="f" id="rm-text" placeholder="e.g. call mom sunday at 5pm · take meds every day at 9am" autocomplete="off">
+      <div class="preview wait" id="rm-prev">Type and Daybook shows what it understood.</div></div>
+    <div id="rm-ex" style="display:none">${exactFields(pre)}</div>
+    <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveReminder()">${ic("check")}Save reminder</button></div>`);
+  $$("#rm-mode button").forEach(b => b.onclick = () => { $$("#rm-mode button").forEach(x => x.classList.toggle("on", x === b)); $("#rm-nl").style.display = b.dataset.m === "nl" ? "" : "none"; $("#rm-ex").style.display = b.dataset.m === "ex" ? "" : "none"; });
+  if (pre.date) { $$("#rm-mode button")[1].click(); }
+  const t = $("#rm-text"); t.focus();
+  t.addEventListener("input", () => { $("#rm-prev").className = "preview wait"; $("#rm-prev").textContent = "Reading…"; debounce("parse", previewParse, 650); });
+  t.addEventListener("keydown", e => e.key === "Enter" && saveReminder());
+}
+function blockModal() { closeMenu(); reminderModal({repeat: "daily", block: true}); $("#mhost h2").childNodes[1].textContent = "New routine block"; $$("#rm-mode button")[1].click(); }
+function exactFields(r = {}) {
+  const due = r.due || (r.date ? r.date + "T09:00" : (() => { const d = new Date(Date.now() + 36e5); d.setMinutes(0); return isoDay(d) + "T" + String(d.getHours()).padStart(2, "0") + ":00"; })());
+  return `<label class="lb">What</label><input class="f" id="ex-text" value="${esc(r.text || "")}" placeholder="e.g. Schedule Facebook uploads">
+    <div class="fgrid" style="margin-top:12px">
+      <div><label class="lb">Starts</label><input class="f" type="datetime-local" id="ex-due" value="${due}"></div>
+      <div><label class="lb">Ends (optional — makes it a time block)</label><input class="f" type="time" id="ex-ends" value="${r.ends || ""}"></div>
+      <div><label class="lb">Repeats</label><select class="f" id="ex-rep">${REPEATS.map(([v, l]) => `<option value="${v}" ${v === (r.repeat || "") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div><label class="lb">Priority</label><select class="f" id="ex-pri"><option value="0">Normal</option><option value="1" ${r.priority ? "selected" : ""}>Important</option></select></div>
+    </div>
+    <label class="lb" style="margin-top:12px">Notes (shown in the pop-up)</label><input class="f" id="ex-notes" value="${esc(r.notes || "")}">`;
+}
+async function previewParse() {
+  const v = $("#rm-text")?.value.trim(); if (!v) return;
   try {
-    await api("/api/reminders", {method: "POST", body: {text, due, repeat: $("#r-rep").value, ends: $("#r-ends").value.trim(), priority: $("#r-pri").checked ? 1 : 0}});
-    $("#r-text").value = ""; toast("Added ✓"); loadRems();
+    const p = await api("/api/parse", {method: "POST", body: {text: v}});
+    if (!p.ok) return;
+    $("#rm-prev").className = "preview";
+    $("#rm-prev").innerHTML = `${ic("check")} <b>${esc(p.text)}</b> — ${dt(p.due).toLocaleString([], {weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})}
+      ${p.repeat ? ` · repeats <b>${p.repeat}</b>` : ""}${p.priority ? " · <b>important</b>" : ""}${p.guessed ? `<div class="small" style="opacity:.8;margin-top:3px">No time given — picked tomorrow 9 AM. Add a time to change it.</div>` : ""}`;
+  } catch {}
+}
+async function saveReminder() {
+  try {
+    let r;
+    if ($("#rm-ex") && $("#rm-ex").style.display !== "none") {
+      const body = exactBody(); if (!body) return;
+      r = await api("/api/reminders", {method: "POST", body});
+    } else {
+      const v = $("#rm-text").value.trim(); if (!v) return $("#rm-text").focus();
+      r = await api("/api/reminders", {method: "POST", body: {natural: v}});
+    }
+    closeModal(); toast(`✓ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`); refresh();
   } catch (e) { toast("⚠ " + e.message); }
 }
-function delRem(btn, id) {
-  if (btn.dataset.sure) return api(`/api/reminders/${id}`, {method: "DELETE"}).then(loadRems);
-  btn.dataset.sure = 1; btn.textContent = "Sure?"; btn.style.color = "var(--bad)";
+function exactBody() {
+  const text = $("#ex-text").value.trim(), due = $("#ex-due").value;
+  if (!text || !due) { toast("Add what and when"); return null; }
+  return {text, due, ends: $("#ex-ends").value, repeat: $("#ex-rep").value, priority: +$("#ex-pri").value, notes: $("#ex-notes").value};
 }
-async function editRem(id) {
-  const rs = await api("/api/reminders"); const r = rs.find(x => x.id === id);
-  $("#r-text").value = r.text; $("#r-due").value = r.due; $("#r-rep").value = r.repeat; $("#r-ends").value = r.ends; $("#r-pri").checked = !!r.priority;
-  const b = document.querySelector(".adv button");
-  b.textContent = "Save changes"; b.onclick = async () => {
-    try {
-      await api(`/api/reminders/${id}`, {method: "PATCH", body: {text: $("#r-text").value, due: $("#r-due").value, repeat: $("#r-rep").value, ends: $("#r-ends").value.trim(), priority: $("#r-pri").checked ? 1 : 0}});
-      b.textContent = "Add exact"; b.onclick = exactRem; $("#r-text").value = ""; toast("Saved ✓"); loadRems();
-    } catch (e) { toast("⚠ " + e.message); }
-  };
-  window.scrollTo(0, 0);
+async function editReminder(id) {
+  const r = (await api("/api/reminders")).find(x => x.id === id); if (!r) return toast("That reminder is gone");
+  modal(`<h2>${ic("pen", "i")}Edit reminder<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2><div id="rm-ex">${exactFields(r)}</div>
+    <div class="mfoot"><button class="btn danger ghost" id="delbtn" onclick="delReminder(${id},this)">${ic("trash")}Delete</button><div class="sp"></div>
+      <button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="updateReminder(${id})">${ic("check")}Save</button></div>`);
+}
+async function updateReminder(id) {
+  const b = exactBody(); if (!b) return;
+  try { await api(`/api/reminders/${id}`, {method: "PATCH", body: b}); closeModal(); toast("Saved ✓"); refresh(); } catch (e) { toast("⚠ " + e.message); }
+}
+async function delReminder(id, btn) {
+  if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to delete"; return; }
+  await api(`/api/reminders/${id}`, {method: "DELETE"}); closeModal(); toast("Deleted"); refresh();
 }
 
-// ---------- notes ----------
-async function loadMeta() {
-  META = await api("/api/meta");
-  $("#tpl").innerHTML = `<option value="">Blank note</option>` + Object.keys(META.templates).map(k => `<option>${k}</option>`).join("");
-  const total = Object.values(META.counts).reduce((a, b) => a + b, 0);
-  $("#cats").innerHTML = `<div class="cat ${!filt.category ? "on" : ""}" onclick="setCat('')"><span>All notes</span><span>${total}</span></div>` +
-    META.categories.map(c => `<div class="cat ${filt.category === c ? "on" : ""}" onclick="setCat('${c}')"><span>${c}</span><span>${META.counts[c] || 0}</span></div>`).join("");
-  $("#tagcloud").innerHTML = META.tags.map(([t, n]) => `<span class="tag ${filt.tag === t ? "on" : ""}" onclick="setTag('${esc(t)}')">#${esc(t)} <span class="muted">${n}</span></span>`).join("");
-  const p = META.ai.pending || 0;
-  $("#aistat").textContent = p ? `🧠 AI organizing ${p} note${p > 1 ? "s" : ""}…` : "";
-}
-function setCat(c) { filt.category = c; loadNotes(); }
-function setTag(t) { filt.tag = filt.tag === t ? "" : t; loadNotes(); }
+// ================= NOTES =================
+const CAT_ICON = {"Meeting": "chat", "YouTube / Learning": "spark", "Idea": "zap", "To-do": "check", "Journal": "pen", "Business": "rep", "Content": "note", "Tech": "sliders", "Personal": "home"};
+async function loadMeta() { S.meta = await api("/api/meta"); }
 async function loadNotes() {
   await loadMeta();
-  const qs = new URLSearchParams({q: $("#q").value, category: filt.category, tag: filt.tag, from: $("#f-from").value, to: $("#f-to").value});
+  const total = Object.values(S.meta.counts).reduce((a, b) => a + b, 0);
+  $("#cats").innerHTML = `<div class="cat ${!S.cat ? "on" : ""}" onclick="S.cat='';loadNotes()">${ic("note")}All notes<span class="c">${total}</span></div>` +
+    S.meta.categories.map(c => `<div class="cat ${S.cat === c ? "on" : ""}" onclick="S.cat='${c}';loadNotes()">${ic(CAT_ICON[c] || "note")}${c}<span class="c">${S.meta.counts[c] || 0}</span></div>`).join("");
+  $("#tagcloud").innerHTML = S.meta.tags.filter(([t]) => t !== "imported").slice(0, 40).map(([t, n]) => `<span class="tag ${S.tag === t ? "on" : ""}" onclick="S.tag=S.tag==='${esc(t)}'?'':'${esc(t)}';loadNotes()">#${esc(t)}</span>`).join("");
+  const qs = new URLSearchParams({q: $("#q").value, category: S.cat, tag: S.tag, from: $("#f-from").value, to: $("#f-to").value});
   const ns = await api("/api/notes?" + qs);
-  $("#nlist").innerHTML = ns.length ? ns.map(n => `<div class="item ${cur && cur.id === n.id ? "on" : ""}" onclick="openNote(${n.id})">
+  $("#nlist").innerHTML = ns.length ? ns.map(n => `<div class="item ${S.cur && S.cur.id === n.id ? "on" : ""}" onclick="openNote(${n.id})">
     <div class="ti">${esc(n.title || "Untitled")}</div>
-    <div class="row small muted" style="gap:6px;margin-bottom:3px"><span>${dayName(n.note_date + "T12:00")}</span>
-      ${n.category ? `<span class="badge">${esc(n.category)}</span>` : ""}${n.ai_status === "pending" ? `<span class="badge">🧠…</span>` : ""}</div>
-    <div class="su">${esc(n.summary || n.body.slice(0, 160))}</div></div>`).join("") : `<div class="empty">No notes match.</div>`;
+    <div class="row small muted" style="gap:6px;margin-bottom:4px"><span>${dayName(n.note_date + "T12:00")}</span>${n.category ? `<span class="badge">${esc(n.category)}</span>` : ""}${n.ai_status === "pending" ? `<span class="badge ai">AI…</span>` : ""}</div>
+    <div class="su">${esc(n.summary || n.body.slice(0, 160))}</div></div>`).join("") : `<div class="empty"><b>No notes match</b>Try another search or filter.</div>`;
 }
 async function openNote(id) {
   if (!id) return;
-  if (!document.querySelector("#p-notes").classList.contains("on")) show("notes");
-  cur = await api("/api/notes/" + id);
+  if (S.view !== "notes") { go("notes", id); }
+  S.cur = await api("/api/notes/" + id); history.replaceState(null, "", "#notes/" + id);
   renderEditor(); loadNotes();
 }
 function renderEditor() {
-  const n = cur;
-  $("#ed").innerHTML = `
-    <input id="n-title" value="${esc(n.title)}" placeholder="Title">
-    <div class="row" style="margin:8px 0 12px">
-      <select id="n-cat"><option value="">Category…</option>${META.categories.map(c => `<option ${c === n.category ? "selected" : ""}>${c}</option>`).join("")}</select>
-      <input type="date" id="n-date" value="${n.note_date}">
-      <input id="n-tags" class="grow" value="${esc(n.tags.join(", "))}" placeholder="tags, comma separated">
-      <span class="small muted" id="n-saved"></span>
+  const n = S.cur;
+  $("#ed").innerHTML = `<input id="n-title" value="${esc(n.title)}" placeholder="Untitled">
+    <div class="row" style="margin:10px 0 12px;flex-wrap:nowrap">
+      <select class="f" id="n-cat" style="width:190px"><option value="">Category…</option>${S.meta.categories.map(c => `<option ${c === n.category ? "selected" : ""}>${c}</option>`).join("")}</select>
+      <input class="f" type="date" id="n-date" value="${n.note_date}" style="width:160px">
+      <input class="f" id="n-tags" value="${esc(n.tags.join(", "))}" placeholder="tags, comma separated">
     </div>
-    <textarea id="n-body" placeholder="Write…">${esc(n.body)}</textarea>
+    <textarea class="f" id="n-body" placeholder="Start writing…">${esc(n.body)}</textarea>
     <div class="row" style="margin-top:10px">
-      <button class="primary" onclick="saveNote()">Save <span class="small">(Ctrl+S)</span></button>
-      <button onclick="aiNote()">🧠 Organize with AI</button>
-      <span class="small muted">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
-      <button class="ghost" style="margin-left:auto" onclick="delNote(this)">Delete</button>
+      <button class="btn pri" onclick="saveNote()">${ic("check")}Save<span class="kbd" style="border-color:rgba(0,0,0,.25);color:#0a0b10">Ctrl S</span></button>
+      <button class="btn" onclick="aiNote()">${ic("spark")}Organize with AI</button>
+      <span class="small muted" id="n-saved">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
+      <div class="sp"></div><button class="btn ghost danger" onclick="delNote(this)">${ic("trash")}Delete</button>
     </div>
-    <div class="ai">${n.ai_status === "pending" ? `<div class="muted">🧠 The local AI will organize this note shortly…</div>` : ""}
-      ${n.summary ? `<h3>Summary</h3><div>${esc(n.summary)}</div>` : ""}
-      ${n.topics.length > 1 ? `<h3>Topics</h3><div class="tags">${n.topics.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
-      ${n.actions.length ? `<h3>Action items</h3>` + n.actions.map((a, i) => `<div class="act"><span class="grow">☐ ${esc(a)}</span>
-        <input id="aw${i}" placeholder="when? e.g. tomorrow 9am"><button onclick="actRemind(${i})">⏰ Remind me</button></div>`).join("") : ""}
+    <div class="aibox">${n.ai_status === "pending" ? `<div class="muted small">${ic("spark")} The local AI will organize this note in a moment…</div>` : ""}
+      ${n.summary ? `<h4>Summary</h4><div>${esc(n.summary)}</div>` : ""}
+      ${n.topics.length > 1 ? `<h4>Topics</h4><div class="tags">${n.topics.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${n.actions.length ? `<h4>Action items</h4>` + n.actions.map((a, i) => `<div class="act"><span style="flex:1">☐ ${esc(a)}</span>
+        <input class="f" id="aw${i}" placeholder="when? tomorrow 9am"><button class="btn sm" onclick="actRemind(${i})">${ic("bell")}Remind me</button></div>`).join("") : ""}
     </div>`;
   ["n-title", "n-cat", "n-date", "n-tags"].forEach(i => $("#" + i).addEventListener("change", () => saveNote(false)));
 }
 async function saveNote(reorg = true) {
-  if (!cur) return;
+  if (!S.cur) return;
   const body = {title: $("#n-title").value, category: $("#n-cat").value, note_date: $("#n-date").value,
-    tags: $("#n-tags").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean), body: $("#n-body").value, reorganize: reorg && $("#n-body").value !== cur.body};
-  cur = await api("/api/notes/" + cur.id, {method: "PATCH", body});
-  $("#n-saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
-  loadNotes();
+    tags: $("#n-tags").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean), body: $("#n-body").value, reorganize: reorg && $("#n-body").value !== S.cur.body};
+  S.cur = await api("/api/notes/" + S.cur.id, {method: "PATCH", body});
+  $("#n-saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); loadNotes();
 }
-async function newNote() {
-  const tpl = $("#tpl").value;
-  cur = await api("/api/notes", {method: "POST", body: {title: "", category: tpl, body: tpl ? META.templates[tpl] : ""}});
+function templateModal() {
+  closeMenu();
+  const T = Object.keys(S.meta.templates || {}), desc = {"Meeting": "Who, where, decisions, action items", "YouTube / Learning": "Source, key points, quotes", "Idea": "The idea, why, next step",
+    "To-do": "A quick checklist", "Journal": "Today, wins, lessons", "Business": "Client, numbers, actions", "Content": "Hook, script, CTA"};
+  modal(`<h2>${ic("note", "i")}New note<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+    <div class="tpls"><div class="tpl" onclick="newNote('')"><b>Blank</b><span>Start from scratch</span></div>
+    ${T.map(t => `<div class="tpl" onclick="newNote('${t}')"><b>${t}</b><span>${desc[t] || ""}</span></div>`).join("")}</div>`, true);
+}
+async function newNote(tpl) {
+  closeModal(); if (S.view !== "notes") go("notes");
+  S.cur = await api("/api/notes", {method: "POST", body: {title: "", category: tpl, body: tpl ? S.meta.templates[tpl] : ""}});
   renderEditor(); loadNotes(); $("#n-title").focus();
 }
-async function aiNote() { if (!cur) return; await saveNote(false); toast("🧠 Organizing…"); cur = await api(`/api/notes/${cur.id}/organize`, {method: "POST"}); renderEditor(); loadNotes(); toast("Organized ✓"); }
+async function aiNote() { if (!S.cur) return; await saveNote(false); toast("Organizing…"); S.cur = await api(`/api/notes/${S.cur.id}/organize`, {method: "POST"}); renderEditor(); loadNotes(); toast("Organized ✓"); }
 async function actRemind(i) {
   const when = $("#aw" + i).value.trim() || "tomorrow 9am";
-  const r = await api(`/api/notes/${cur.id}/remind`, {method: "POST", body: {text: cur.actions[i], when}});
+  const r = await api(`/api/notes/${S.cur.id}/remind`, {method: "POST", body: {text: S.cur.actions[i], when}});
   toast(`⏰ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`);
 }
 function delNote(btn) {
-  if (btn.dataset.sure) return api("/api/notes/" + cur.id, {method: "DELETE"}).then(() => { cur = null; $("#ed").innerHTML = `<div class="empty">Deleted.</div>`; loadNotes(); });
-  btn.dataset.sure = 1; btn.textContent = "Delete — sure?"; btn.style.color = "var(--bad)";
+  if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to delete"; return; }
+  api("/api/notes/" + S.cur.id, {method: "DELETE"}).then(() => { S.cur = null; $("#ed").innerHTML = `<div class="empty"><b>Deleted</b></div>`; loadNotes(); });
 }
-async function importOld() { toast("Importing…"); const j = await api("/api/import", {method: "POST"}); toast(`Imported ${j.added} new note(s)`); loadNotes(); }
-document.addEventListener("keydown", e => { if (e.ctrlKey && e.key === "s" && cur && document.querySelector("#p-notes.on")) { e.preventDefault(); saveNote(); } });
-setInterval(() => { if (document.visibilityState === "visible") { loadMeta(); if (document.querySelector("#p-today.on")) loadToday(); } }, 30000);
+async function importOld() { toast("Importing…"); const j = await api("/api/import", {method: "POST"}); toast(`Imported ${j.added} new note${j.added === 1 ? "" : "s"}`); }
 
-loadMeta().then(() => show(location.hash.slice(1) || "today"));
+// ================= CHAT =================
+const TOOL_LABEL = {day_schedule: "Checked your schedule", add_reminder: "Created a reminder", list_reminders: "Looked at reminders", search_notes: "Searched your notes",
+  get_note: "Read a note", add_note: "Saved a note", log_to_today: "Logged to today", orca_list_projects: "Listed Orca projects", orca_new_project: "New Orca project", orca_start_task: "Orca task"};
+const cinput = $("#cinput");
+async function enterChat(sub) {
+  if (!S.models.length) { const m = await api("/api/chat/models"); S.models = m.models; S.personas = m.personas;
+    $("#model").innerHTML = S.models.map(x => `<option value="${x.name}">${x.name}${x.params ? " · " + x.params : ""}</option>`).join("") || `<option>No models — start Ollama</option>`;
+    $("#persona").innerHTML = S.personas.map(p => `<option>${p}</option>`).join("");
+    if (S.settings.chat_model) $("#model").value = S.settings.chat_model; }
+  await loadChats();
+  const id = +sub || (S.chat && S.chat.id);
+  if (id && S.chats.find(c => c.id === id)) openChat(id); else chatHero();
+}
+async function loadChats() { S.chats = await api("/api/chats"); renderChatList(); }
+function renderChatList() {
+  const q = $("#csearch").value.toLowerCase(), now = new Date(), groups = {Today: [], Yesterday: [], "Previous 7 days": [], Older: []};
+  S.chats.filter(c => c.title.toLowerCase().includes(q)).forEach(c => { const a = (now - new Date(c.updated)) / 864e5;
+    groups[new Date(c.updated).toDateString() === now.toDateString() ? "Today" : a < 2 ? "Yesterday" : a < 7 ? "Previous 7 days" : "Older"].push(c); });
+  $("#chats").innerHTML = Object.entries(groups).filter(([, v]) => v.length).map(([g, v]) => `<div class="cgrp">${g}</div>` + v.map(c =>
+    `<div class="ci ${S.chat && S.chat.id === c.id ? "on" : ""}" onclick="openChat(${c.id})"><span>${esc(c.title)}</span><button class="iconbtn" title="Delete" onclick="event.stopPropagation();delChat(${c.id},this)">${ic("trash")}</button></div>`).join("")).join("")
+    || `<div class="empty small">No chats yet</div>`;
+}
+function chatHero() {
+  S.chat = null; history.replaceState(null, "", "#chat"); $("#ctitle").value = "New chat"; setToggles("daybook,orca");
+  const sugs = [["My day", "What's on my schedule tomorrow?"], ["My notes", "What did I write about Unleash U?"], ["Ori script", "Write a 30-second Ori script about discipline as a spiritual practice"], ["New project", "Start a new project: a simple habit tracker web app"]];
+  $("#thread").innerHTML = `<div class="chero"><img class="bigmark" src="/brand/icon-192.png" alt=""><h2>What's on your mind, ${esc(S.settings.user_name || "")}?</h2><p>Private chat with your local models. It can see your schedule & notes and start projects in Orca (it always asks first).</p>
+    <div class="sugs">${sugs.map(([b, s]) => `<div class="sug" data-s="${esc(s)}" onclick="cinput.value=this.dataset.s;sendOrStop()"><b>${b}</b><span>${esc(s)}</span></div>`).join("")}</div></div>`;
+  renderChatList();
+}
+function newChat() { if (S.view !== "chat") go("chat"); chatHero(); cinput.focus(); }
+async function openChat(id) {
+  const j = await api("/api/chats/" + id); S.chat = j.chat; history.replaceState(null, "", "#chat/" + id);
+  $("#ctitle").value = S.chat.title; $("#model").value = S.chat.model; $("#persona").value = S.chat.persona; setToggles(S.chat.tools);
+  renderMessages(j.messages); renderChatList();
+}
+async function delChat(id, btn) {
+  if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.style.color = "var(--bad)"; btn.title = "Click again to delete"; toast("Click the trash again to delete"); return; }
+  await api("/api/chats/" + id, {method: "DELETE"}); if (S.chat && S.chat.id === id) chatHero(); loadChats();
+}
+async function patchChat(b) { if (S.chat) { S.chat = await api("/api/chats/" + S.chat.id, {method: "PATCH", body: b}); loadChats(); } }
+const curTools = () => ["daybook", "orca"].filter(t => $("#t-" + t).classList.contains("on")).join(",");
+function setToggles(s) { ["daybook", "orca"].forEach(t => $("#t-" + t).classList.toggle("on", (s || "").split(",").includes(t))); }
+function toggleTool(t) { $("#t-" + t).classList.toggle("on"); patchChat({tools: curTools()}); }
+function renderMessages(msgs) {
+  const th = $("#thread"); th.innerHTML = "";
+  const resolved = new Set(msgs.filter(m => m.meta.resolved).map(m => m.meta.resolved));
+  let b = null;
+  for (const m of msgs) {
+    if (m.role === "user") { th.insertAdjacentHTML("beforeend", userHTML(m.content)); b = null; continue; }
+    if (!b) b = aiBlock();
+    if (m.role === "tool") b.parts.insertAdjacentHTML("beforeend", chipHTML(m.meta.name, m.meta.args, m.content));
+    else if (m.role === "action") { if (!resolved.has(m.meta.pending)) b.parts.insertAdjacentHTML("beforeend", cardHTML(m.meta.pending, m.meta.name, m.meta.args)); }
+    else if (m.content) { const d = document.createElement("div"); d.className = "md"; d.innerHTML = md(m.content); b.parts.appendChild(d); b.text = m.content; b.stats = m.meta.stats; }
+  }
+  decorate(); markLast(); scrollDown(true);
+}
+const userHTML = t => `<div class="msg user"><div class="bubble">${esc(t)}</div></div>`;
+function aiBlock() { const w = document.createElement("div"); w.className = "msg ai"; w.innerHTML = `<div class="av">${ic("spark")}</div><div class="mbody"><div class="parts"></div><div class="mmeta"></div></div>`;
+  $("#thread").appendChild(w); const b = {el: w, parts: w.querySelector(".parts"), meta: w.querySelector(".mmeta"), text: ""}; w._b = b; return b; }
+const chipHTML = (n, a, r) => `<div class="chip" onclick="this.classList.toggle('open')">${ic("zap")}${TOOL_LABEL[n] || n}<pre>${esc(JSON.stringify(a || {}))}\n\n${esc(r || "")}</pre></div>`;
+function cardHTML(id, name, a) {
+  const rows = Object.entries(a).filter(([, v]) => v).map(([k, v]) => `<div class="kv"><b>${esc(k)}</b>${esc(v)}</div>`).join("");
+  return `<div class="acard" id="card-${id}"><h4>${name === "orca_new_project" ? "Create a new project in Orca?" : "Start a coding agent in Orca?"}</h4>${rows}
+    <div class="row" style="margin-top:10px"><button class="btn pri" onclick="resolveAction('${id}',true)">Confirm</button><button class="btn" onclick="resolveAction('${id}',false)">Cancel</button></div></div>`;
+}
+async function resolveAction(id, approve) {
+  const c = $("#card-" + id); c.querySelector(".row").innerHTML = `<div class="typing"><i></i><i></i><i></i></div>`;
+  const r = await api("/api/actions/" + id, {method: "POST", body: {approve}}).catch(e => ({result: "Error: " + e.message}));
+  c.outerHTML = `<div class="md">${md((approve && !String(r.result).startsWith("Error") ? "✅ " : "") + r.result)}</div>`;
+}
+function decorate(root = document) {
+  root.querySelectorAll(".md pre code:not(.hljs)").forEach(c => { hljs.highlightElement(c);
+    const b = document.createElement("button"); b.className = "copy"; b.textContent = "Copy";
+    b.onclick = () => { navigator.clipboard.writeText(c.innerText); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1200); }; c.parentElement.appendChild(b); });
+}
+function markLast() {
+  const all = $$(".msg.ai"), last = all[all.length - 1];
+  all.forEach(m => { m.classList.toggle("last", m === last); const b = m._b; if (!b) return;
+    const s = b.stats && b.stats.eval_count && b.stats.eval_duration ? `${(b.stats.eval_count / (b.stats.eval_duration / 1e9)).toFixed(0)} tok/s` : "";
+    b.meta.innerHTML = `<button onclick="copyMsg(this)">Copy</button>${m === last ? `<button onclick="regen()">Regenerate</button>` : ""}<span>${s}</span>`; });
+}
+function copyMsg(btn) { navigator.clipboard.writeText(btn.closest(".msg")._b.text); btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1200); }
+let pinned = true;
+$("#cscroll").addEventListener("scroll", e => { const s = e.target; pinned = s.scrollHeight - s.scrollTop - s.clientHeight < 80; });
+function scrollDown(f) { const s = $("#cscroll"); if (f || pinned) s.scrollTop = s.scrollHeight; }
+cinput.addEventListener("input", () => { cinput.style.height = "auto"; cinput.style.height = Math.min(cinput.scrollHeight, 200) + "px"; });
+cinput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendOrStop(); } });
+async function sendOrStop() {
+  if (S.streaming) { if (S.chat) api(`/api/chats/${S.chat.id}/stop`, {method: "POST"}); return; }
+  const text = cinput.value.trim(); if (!text) return;
+  if (!S.chat) { S.chat = await api("/api/chats", {method: "POST", body: {model: $("#model").value, persona: $("#persona").value, tools: curTools()}}); history.replaceState(null, "", "#chat/" + S.chat.id); $("#thread").innerHTML = ""; loadChats(); }
+  cinput.value = ""; cinput.style.height = "auto";
+  $("#thread").insertAdjacentHTML("beforeend", userHTML(text)); scrollDown(true);
+  stream(`/api/chats/${S.chat.id}/send`, {content: text});
+}
+function regen() { const a = $$(".msg.ai"); if (a.length) a[a.length - 1].remove(); stream(`/api/chats/${S.chat.id}/regenerate`, {}); }
+async function stream(url, body) {
+  S.streaming = true; $("#send").classList.add("stop"); $("#send").innerHTML = ic("stop", "i");
+  const b = aiBlock(); let cur = null, think = null, raw = "";
+  b.parts.innerHTML = `<div class="typing"><i></i><i></i><i></i></div>`;
+  const clr = () => b.parts.querySelector(".typing")?.remove();
+  try {
+    const res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const {value, done} = await rd.read(); if (done) break;
+      buf += dec.decode(value, {stream: true}); let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const ch = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = (ch.match(/^event: (.*)$/m) || [])[1], d = JSON.parse((ch.match(/^data: (.*)$/m) || [, "{}"])[1]);
+        if (ev === "token") { clr(); if (!cur) { cur = document.createElement("div"); cur.className = "md"; b.parts.appendChild(cur); raw = ""; } raw += d.t; b.text = raw; cur.innerHTML = md(raw) + `<span class="caret"></span>`; }
+        else if (ev === "think") { clr(); if (!think) { think = document.createElement("div"); think.className = "think"; b.parts.appendChild(think); } think.textContent += d.t; }
+        else if (ev === "tool") { clr(); if (cur) { cur.innerHTML = md(raw); cur = null; } b.parts.insertAdjacentHTML("beforeend", `<div class="chip" data-p="1">${ic("zap")}${TOOL_LABEL[d.name] || d.name}…</div>`); }
+        else if (ev === "tool_result") { const p = b.parts.querySelector('.chip[data-p="1"]'); if (p) p.outerHTML = chipHTML(d.name, {}, d.result); b.parts.insertAdjacentHTML("beforeend", `<div class="typing"><i></i><i></i><i></i></div>`); }
+        else if (ev === "confirm") { clr(); if (cur) { cur.innerHTML = md(raw); cur = null; } b.parts.insertAdjacentHTML("beforeend", cardHTML(d.id, d.name, d.args)); }
+        else if (ev === "error") { clr(); b.parts.insertAdjacentHTML("beforeend", `<div class="md" style="color:var(--bad)">⚠ ${esc(d.message)}</div>`); }
+        else if (ev === "done") b.stats = d.stats;
+        scrollDown();
+      }
+    }
+  } catch (e) { b.parts.insertAdjacentHTML("beforeend", `<div class="md" style="color:var(--bad)">⚠ ${esc(e.message)}</div>`); }
+  clr(); if (cur) cur.innerHTML = md(raw); decorate(b.el); markLast();
+  S.streaming = false; $("#send").classList.remove("stop"); $("#send").innerHTML = ic("up", "i");
+  setTimeout(loadChats, 2500); cinput.focus();
+}
+
+// ================= SETTINGS =================
+async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
+async function renderSettings() {
+  const [st, set] = await Promise.all([api("/api/status"), api("/api/settings")]); S.settings = set;
+  const opts = (sel, extra) => (extra || "") + st.models.map(m => `<option value="${m.name}">${m.name}${m.params ? " · " + m.params : ""}</option>`).join("");
+  $("#s-aimodel").innerHTML = opts(); $("#s-chatmodel").innerHTML = opts(null, `<option value="">First installed model</option>`);
+  const ah = $('[data-s="agenda_hour"]'); if (!ah.options.length) ah.innerHTML = [...Array(24).keys()].map(h => `<option value="${h}">${new Date(2000, 0, 1, h).toLocaleTimeString([], {hour: "numeric"})}</option>`).join("");
+  $$("[data-s]").forEach(el => {
+    const k = el.dataset.s; if (el.type === "checkbox") el.checked = set[k] === "1"; else el.value = set[k];
+    el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
+  });
+  const ai = st.counts.ai || {};
+  $("#status").innerHTML = `<div class="stat">
+      <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
+      <div><b>${st.counts.notes}</b><span>notes · ${ai.pending || 0} waiting for AI</span></div>
+      <div><b>${st.models.length}</b><span>local models</span></div>
+      <div><b>${new Date(st.started).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})}</b><span>running since</span></div></div>
+    <div class="row" style="margin-top:12px;gap:16px">
+      <span class="st ${st.ollama ? "ok" : "bad"}"><i></i>Ollama ${st.ollama ? "running" : "not running"}</span>
+      <span class="st ${st.orca ? "ok" : "bad"}"><i></i>Orca ${st.orca ? "installed" : "missing"}</span>
+      <span class="st ${st.claude_mcp ? "ok" : "bad"}"><i></i>Claude connection ${st.claude_mcp ? "set up" : "missing"}</span>
+      <span class="st ok"><i></i>Pop-up service running</span>
+      <span class="muted small" style="margin-left:auto">Data: ${esc(st.data)}</span></div>`;
+}
+async function testPopup() { await api("/api/test-popup", {method: "POST"}); toast("A test pop-up will appear in a few seconds"); }
+async function reorgAll() { const j = await api("/api/notes/reorganize-all", {method: "POST"}); toast(`Re-organizing ${j.queued} notes in the background`); pollStatus(); }
+
+// ================= HELP =================
+const HELP = [
+  ["start", "Getting started", `<p>Daybook is your personal command center — reminders, daily routine, notes and a private AI chat. Everything runs on this PC; nothing is sent to the cloud.</p>
+    <ol><li><b>Today</b> shows what's happening now, what's next, your schedule, your daily log and what's coming up.</li>
+    <li>Add things with <b>＋ New</b> (top right) or the hotkeys below — from anywhere in Windows.</li>
+    <li>When something is due, a <b>pop-up</b> appears bottom-right and keeps ringing until you press <b>Done</b> or <b>Snooze</b>.</li>
+    <li>Daybook opens by itself when you sign in. Closing the window is fine — pop-ups keep working.</li></ol>`],
+  ["keys", "Hotkeys", `<table>
+    <tr><td><span class="kb">Ctrl Alt D</span></td><td>Open Daybook (works anywhere in Windows)</td></tr>
+    <tr><td><span class="kb">Ctrl Alt R</span></td><td>Quick reminder box</td></tr>
+    <tr><td><span class="kb">Ctrl Alt N</span></td><td>Quick note → today's daily log</td></tr>
+    <tr><td><span class="kb">Ctrl Alt A</span></td><td>Agenda pop-out</td></tr>
+    <tr><td><span class="kb">Ctrl Alt C</span></td><td>Open Chat</td></tr>
+    <tr><td><span class="kb">Ctrl K</span></td><td>Search everything / jump anywhere (inside Daybook)</td></tr>
+    <tr><td><span class="kb">Alt 1 – 6</span></td><td>Switch pages: Today, Calendar, Reminders, Notes, Chat, Settings</td></tr>
+    <tr><td><span class="kb">?</span></td><td>This help page</td></tr>
+    <tr><td><span class="kb">Ctrl S</span></td><td>Save the note you're editing</td></tr>
+    <tr><td><span class="kb">Esc</span></td><td>Close a window or the search</td></tr></table>`],
+  ["reminders", "Reminders & routine", `<p>Write reminders the way you'd say them. Daybook shows a preview of what it understood before you save.</p>
+    <table><tr><td><code>call mom sunday at 5pm</code></td><td>One-time, Sunday 5:00 PM</td></tr>
+    <tr><td><code>take meds every day at 9am</code></td><td>Repeats daily</td></tr><tr><td><code>gym weekdays at 6am</code></td><td>Mon–Fri</td></tr>
+    <tr><td><code>pay rent on the 1st every month</code></td><td>Monthly on the 1st</td></tr><tr><td><code>water plants every 3 days</code></td><td>Every 3 days</td></tr>
+    <tr><td><code>in 20 minutes stretch</code></td><td>Relative time</td></tr><tr><td><code>urgent: send invoice tomorrow</code></td><td>Marked important</td></tr></table>
+    <p>No time given? It picks <b>tomorrow 9 AM</b> and tells you. Need it exact? Switch to <b>Exact time</b>.</p>
+    <p><b>Routine blocks</b> are repeating reminders with an end time (e.g. 4:30–6:00 Schedule Facebook uploads). They show as blocks on Today and the Calendar, with a progress bar while they're live.</p>
+    <p><b>Done</b> on a repeating reminder moves it to its next time. <b>Snooze</b> pushes it later. Reminders missed while the PC was off pop up when you sign in.</p>`],
+  ["notes", "Notes & daily log", `<p>Use <b>New note</b> and pick a template — Meeting, YouTube / Learning, Idea, To-do, Journal, Business or Content — so every note has the same easy-to-scan shape.</p>
+    <p>A few seconds after you save, the <b>local AI</b> adds a title, category, tags, a summary, the topics covered and any <b>action items</b>. It never changes your text. Each action item has <b>Remind me</b> — type “friday 2pm” and it becomes a reminder.</p>
+    <p>The <b>daily log</b> is one note per day for quick one-liners (<span class="kb">Ctrl Alt N</span> or the box on Today). Your old notes from <code>F:\\28HRTZ</code> were imported read-only; use Settings → Import now to pick up new files.</p>`],
+  ["chat", "Chat with local AI", `<p>Chat with any model installed in Ollama — pick it at the top. <b>Personas</b> change its style (Coder, Content strategist, Ori script writer…).</p>
+    <p>With <b>Daybook</b> switched on it can read your schedule and notes and create reminders. With <b>Orca</b> on, ask “start a new project: …” and it prepares the project and a brief for Claude — you see a <b>Confirm / Cancel</b> card first. Confirming creates <code>D:\\projects\\name</code>, adds it to Orca and starts Claude on it (that part uses your Claude plan).</p>`],
+  ["claude", "Using Daybook from Claude", `<p>In any Claude Code session you can say things like “remind me Friday at 3 to send the invoice”, “what's on my schedule tomorrow?” or “find my notes about the SDVCC meeting”. Claude talks to Daybook through the <code>reminders</code> connection.</p>`],
+  ["trouble", "Troubleshooting", `<ul><li><b>No pop-ups?</b> Settings → Test a pop-up. If nothing shows, sign out and in (the background service starts at sign-in).</li>
+    <li><b>AI not working / “Ollama not running”?</b> Start the Ollama app from the Start menu.</li>
+    <li><b>Hotkeys don't respond?</b> Sign out and back in once so Windows registers them.</li>
+    <li><b>3 AM alarm while asleep</b> — the PC wakes at 2:58 AM (Windows wake timers must stay allowed).</li></ul>`],
+  ["data", "Your data", `<p>Everything is stored in one file: <code>D:\\projects\\local-reminders\\data\\reminders.db</code>. Back it up by copying that file. Nothing leaves your computer except chat-to-Orca coding work, which runs in Claude.</p>`],
+];
+function renderHelp() {
+  $("#toc").innerHTML = HELP.map(([id, t]) => `<a href="javascript:void 0" onclick="document.getElementById('h-${id}').scrollIntoView({behavior:'smooth'})">${t}</a>`).join("");
+  $("#helpbody").innerHTML = HELP.map(([id, t, h]) => `<div class="hs card" id="h-${id}"><h2>${t}</h2>${h}</div>`).join("");
+}
+
+// ================= palette (Ctrl+K) =================
+const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "cal", () => go("calendar")], ["Go to Reminders", "bell", () => go("reminders")],
+  ["Go to Notes", "note", () => go("notes")], ["Go to Chat", "chat", () => go("chat")], ["Open Settings", "sliders", () => go("settings")], ["Open Help", "help", () => go("help")],
+  ["New reminder", "plus", () => reminderModal()], ["New routine block", "clock", () => blockModal()], ["New note", "plus", () => templateModal()], ["New chat", "chat", () => newChat()],
+  ["Test a pop-up", "bell", () => testPopup()]];
+let palItems = [], palIdx = 0;
+function openPalette() {
+  closeMenu();
+  $("#mhost").innerHTML = `<div class="pal"><input id="pq" placeholder="Search notes, reminders, chats — or type a command" autocomplete="off"><div class="res" id="pres"></div></div>`;
+  $("#scrim").classList.add("on"); const q = $("#pq"); q.focus(); palRender("");
+  q.addEventListener("input", () => debounce("pal", () => palRender(q.value), 180));
+  q.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") { palIdx = Math.min(palIdx + 1, palItems.length - 1); palHi(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { palIdx = Math.max(palIdx - 1, 0); palHi(); e.preventDefault(); }
+    else if (e.key === "Enter" && palItems[palIdx]) { const f = palItems[palIdx].run; closeModal(); f(); }
+  });
+}
+async function palRender(q) {
+  const ql = q.toLowerCase(), cmds = CMDS.filter(c => c[0].toLowerCase().includes(ql)).map(c => ({h: "Commands", t: c[0], i: c[1], run: c[2]}));
+  let found = [];
+  if (q.trim().length > 1) {
+    const r = await api("/api/search?q=" + encodeURIComponent(q));
+    found = [...r.reminders.map(x => ({h: "Reminders", t: x.text, s: dayName(x.due) + " " + tm(x.due), i: "bell", run: () => editReminder(x.id)})),
+      ...r.notes.map(x => ({h: "Notes", t: x.title || "Untitled", s: x.category, i: "note", run: () => openNote(x.id)})),
+      ...r.chats.map(x => ({h: "Chats", t: x.title, i: "chat", run: () => { go("chat", x.id); }}))];
+  }
+  palItems = [...found, ...cmds].slice(0, 30); palIdx = 0; let last = "";
+  $("#pres").innerHTML = palItems.map((x, i) => { const h = x.h !== last ? `<div class="ph">${x.h}</div>` : ""; last = x.h;
+    return h + `<div class="pr" data-i="${i}" onmouseenter="palIdx=${i};palHi()" onclick="palPick(${i})">${ic(x.i)}<span>${esc(x.t)}</span><span class="muted">${esc(x.s || "")}</span></div>`; }).join("")
+    || `<div class="empty">Nothing found</div>`;
+  palHi();
+}
+function palHi() { $$(".pal .pr").forEach(p => p.classList.toggle("on", +p.dataset.i === palIdx)); $(".pal .pr.on")?.scrollIntoView({block: "nearest"}); }
+function palPick(i) { const f = palItems[i].run; closeModal(); f(); }
+
+// ================= menus, keys, status =================
+function toggleMenu(e) { e.stopPropagation(); $("#newmenu").classList.toggle("on"); }
+function closeMenu() { $("#newmenu").classList.remove("on"); }
+document.addEventListener("click", closeMenu);
+document.addEventListener("keydown", e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (e.key === "Escape") { closeModal(); closeMenu(); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === "s" && S.view === "notes" && S.cur) { e.preventDefault(); saveNote(); return; }
+  if (e.altKey && /^[1-6]$/.test(e.key)) { e.preventDefault(); go(["today", "calendar", "reminders", "notes", "chat", "settings"][+e.key - 1]); return; }
+  if (!typing && e.key === "?") go("help");
+});
+async function pollStatus() {
+  try {
+    const [st, rems] = await Promise.all([api("/api/status"), api("/api/reminders")]);
+    $("#st-ai").className = "st " + (st.ollama ? "ok" : "bad"); $("#st-ai").lastChild.textContent = st.ollama ? "Local AI ready" : "Local AI offline";
+    const p = (st.counts.ai || {}).pending || 0; $("#st-org").style.display = p ? "" : "none"; $("#st-org").className = "st ok"; $("#st-org span").textContent = `Organizing ${p} note${p > 1 ? "s" : ""}…`;
+    const ov = rems.filter(r => dt(r.due) < new Date()).length; $("#ov-count").style.display = ov ? "" : "none"; $("#ov-count").textContent = ov; $("#rk").style.display = ov ? "none" : "";
+    $("#ver").textContent = "Daybook " + st.version;
+  } catch { $("#st-ai").className = "st bad"; }
+}
+setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); if (S.view === "today") renderToday(); } }, 30000);
+
+window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
+(async function boot() {
+  paintIcons();
+  S.settings = await api("/api/settings"); await loadMeta();
+  const [v, sub] = location.hash.slice(1).split("/");
+  go(v || "today", sub);
+  if (v === "notes" && sub) openNote(+sub);
+  pollStatus();
+})();
 </script>
 </body>
 </html>

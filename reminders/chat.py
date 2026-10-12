@@ -279,7 +279,7 @@ def new_chat():
     j = request.get_json() or {}
     with _con() as con:
         cur = con.execute("INSERT INTO chats (model, persona, tools, created, updated) VALUES (?,?,?,?,?)",
-                          (j.get("model") or (model_list() or [{"name": "qwen2.5:7b"}])[0]["name"],
+                          (j.get("model") or db.setting("chat_model") or (model_list() or [{"name": "qwen2.5:7b"}])[0]["name"],
                            j.get("persona", "Assistant"), j.get("tools", "daybook,orca"), _now(), _now()))
     return jsonify(get_chat(cur.lastrowid))
 
