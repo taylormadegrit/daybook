@@ -106,6 +106,7 @@ main{padding:18px 20px;max-width:1400px;margin:0 auto}
       </div>
       <div id="t-overdue" class="overdue"></div>
       <div id="t-tl" class="tl"></div>
+      <div id="t-next"></div>
     </div>
     <div class="panel">
       <h2>Daily log</h2>
@@ -210,6 +211,12 @@ async function loadToday() {
     if (!cls && !nextMarked && dayOffset === 0) { cls = "next"; nextMarked = true; }
     return blk(r, now, false, cls);
   }).join("") : `<div class="empty">Nothing scheduled.</div>`;
+  // Coming up: the next reminders after the day being viewed, so startup always shows what's next
+  const endOfDay = new Date(iso + "T23:59");
+  const next = (await api("/api/reminders")).filter(r => dt(r.due) > endOfDay).slice(0, 6);
+  $("#t-next").innerHTML = next.length ? `<h2 style="margin-top:18px">Coming up</h2>` + next.map(r => `<div class="blk next" style="opacity:.9">
+    <span class="t">${dayName(r.due)} ${tm(r.due)}</span><span><span class="x">${esc(r.text)}</span>
+    ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""}${r.priority ? ` <span class="badge imp">important</span>` : ""}</span><span></span></div>`).join("") : "";
   logId = j.log.id;
   $("#l-body").textContent = j.log.body || "Nothing logged yet today.";
   $("#l-ai").textContent = j.log.tags.filter(t => t !== "daily-log").map(t => "#" + t).join("  ");
