@@ -9,10 +9,13 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from reminders import db, ui  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+
+from reminders import db, notes, ui, web  # noqa: E402
 
 POLL_MS = 15_000
-AGENDA_HOUR = 8
+AGENDA_HOUR = 3  # the day starts at 3 AM wake-up
 MAX_POPUPS = 5  # more than this at once → the agenda window lists the rest
 
 # Single instance: a second copy exits immediately
@@ -56,5 +59,32 @@ def poll():
     root.after(POLL_MS, poll)
 
 
+def log_error(e):
+    with open(Path(__file__).resolve().parent / "data" / "daemon.log", "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {e!r}\n")
+
+
+def ai_worker():
+    """Organizes pending notes with the local model, one at a time, in the background."""
+    while True:
+        try:
+            nid = notes.next_pending()
+            if nid:
+                notes.organize(nid)
+                continue
+        except Exception as e:
+            log_error(e)
+        time.sleep(20)
+
+
+def web_server():
+    try:
+        web.serve()
+    except Exception as e:
+        log_error(e)
+
+
+threading.Thread(target=web_server, daemon=True).start()
+threading.Thread(target=ai_worker, daemon=True).start()
 root.after(1000, poll)
 root.mainloop()

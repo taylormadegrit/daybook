@@ -28,6 +28,9 @@ def connect():
         completed TEXT
     )""")
     con.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(reminders)")}
+    if "ends" not in cols:  # time blocks: 'HH:MM' end time shown on the timeline (e.g. 4:30–6:00)
+        con.execute("ALTER TABLE reminders ADD COLUMN ends TEXT NOT NULL DEFAULT ''")
     return con
 
 
@@ -77,12 +80,38 @@ def next_occurrence(due, rule, now=None):
     return nxt
 
 
-def add(text, due, repeat="", priority=0, notes=""):
+def validate_ends(ends):
+    ends = (ends or "").strip()
+    if ends:
+        datetime.strptime(ends, "%H:%M")  # raises on bad input
+    return ends
+
+
+def add(text, due, repeat="", priority=0, notes="", ends=""):
     with connect() as con:
         cur = con.execute(
-            "INSERT INTO reminders (text, due, repeat, priority, notes, created) VALUES (?,?,?,?,?,?)",
-            (text.strip(), fmt(due), validate_repeat(repeat), int(priority), notes, fmt(datetime.now())))
+            "INSERT INTO reminders (text, due, repeat, priority, notes, created, ends) VALUES (?,?,?,?,?,?,?)",
+            (text.strip(), fmt(due), validate_repeat(repeat), int(priority), notes, fmt(datetime.now()),
+             validate_ends(ends)))
         return cur.lastrowid
+
+
+def occurrences_on(day):
+    """Everything scheduled on a calendar day, repeating reminders expanded — for the timeline."""
+    start = datetime(day.year, day.month, day.day)
+    end = start + timedelta(days=1)
+    out = []
+    for r in list_open():
+        due = parse_dt(r["due"])
+        if r["repeat"] and due < start:
+            due = next_occurrence(due, r["repeat"], start - timedelta(minutes=1))
+        while due < end:
+            if due >= start:
+                out.append((due, r))
+            if not r["repeat"]:
+                break
+            due = next_occurrence(due, r["repeat"], due)
+    return sorted(out, key=lambda x: x[0])
 
 
 def get(rid):
@@ -128,11 +157,14 @@ def snooze(rid, until):
 
 
 def update(rid, **fields):
-    allowed = {k: v for k, v in fields.items() if k in ("text", "due", "repeat", "priority", "notes") and v is not None}
+    allowed = {k: v for k, v in fields.items()
+               if k in ("text", "due", "repeat", "priority", "notes", "ends") and v is not None}
     if "due" in allowed and isinstance(allowed["due"], datetime):
         allowed["due"] = fmt(allowed["due"])
     if "repeat" in allowed:
         allowed["repeat"] = validate_repeat(allowed["repeat"])
+    if "ends" in allowed:
+        allowed["ends"] = validate_ends(allowed["ends"])
     if not allowed:
         return
     with connect() as con:
@@ -160,4 +192,5 @@ def describe(r):
     due = parse_dt(r["due"])
     rep = f" (repeats {r['repeat']})" if r["repeat"] else ""
     pri = " [!]" if r["priority"] else ""
-    return f"#{r['id']} {due.strftime('%a %b %d %I:%M %p')}{rep}{pri}: {r['text']}"
+    ends = f"–{datetime.strptime(r['ends'], '%H:%M').strftime('%I:%M %p')}" if r["ends"] else ""
+    return f"#{r['id']} {due.strftime('%a %b %d %I:%M %p')}{ends}{rep}{pri}: {r['text']}"

@@ -6,11 +6,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from reminders import ui  # noqa: E402
 
+mode = sys.argv[1] if len(sys.argv) > 1 else ""
+if mode == "dashboard":  # Ctrl+Alt+D
+    import webbrowser
+    webbrowser.open("http://localhost:8503")
+    sys.exit(0)
+
 root = tk.Tk()
 root.withdraw()
-if len(sys.argv) > 1 and sys.argv[1] == "agenda":
+if mode == "agenda":    # Ctrl+Alt+A
     ui.AgendaWindow(root)
-else:
+elif mode == "note":    # Ctrl+Alt+N
+    ui.QuickNote(root)
+else:                   # Ctrl+Alt+R
     ui.QuickAdd(root)
 
 

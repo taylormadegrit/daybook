@@ -113,6 +113,18 @@ def _parse_with_dateparser(text, now):
     return {"text": task[:1].upper() + task[1:], "due": due, "repeat": rep, "priority": 0}
 
 
+def when(phrase, now=None):
+    """A bare time phrase ('tomorrow 10am', 'in 3 hours', 'friday 2pm') → future datetime.
+    Exact date math first; the AI parser only if that fails."""
+    now = now or datetime.now().replace(second=0, microsecond=0)
+    dt = resolve_when(phrase, now)
+    if dt is None:
+        dt = parse("x " + phrase, now)["due"]
+    while dt <= now:
+        dt += timedelta(days=1)
+    return dt
+
+
 def parse(text, now=None):
     """Returns dict(text, due: datetime, repeat, priority, engine). Never returns a due in the past."""
     now = now or datetime.now().replace(second=0, microsecond=0)

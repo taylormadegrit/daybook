@@ -110,7 +110,7 @@ class ReminderPopup(tk.Toplevel):
         if not text:
             return
         try:
-            until = nlp.parse("x " + text)["due"]
+            until = nlp.when(text)
         except Exception:
             until = datetime.now() + timedelta(minutes=10)
         self._snooze(until)
@@ -138,8 +138,11 @@ class AgendaWindow(tk.Toplevel):
         for w in self.body.winfo_children():
             w.destroy()
         now = datetime.now()
-        tk.Label(self.body, text=now.strftime("%A, %B %d").replace(" 0", " "), bg=BG, fg=FG,
-                 font=(FONT, 16, "bold")).pack(anchor="w")
+        head = tk.Frame(self.body, bg=BG)
+        head.pack(fill="x")
+        tk.Label(head, text=now.strftime("%A, %B %d").replace(" 0", " "), bg=BG, fg=FG,
+                 font=(FONT, 16, "bold")).pack(side="left")
+        _btn(head, "Open Daybook ↗", lambda: __import__("webbrowser").open("http://localhost:8503")).pack(side="right")
         rows = db.list_open(until=now + timedelta(days=14))
         if not rows:
             tk.Label(self.body, text="Nothing scheduled in the next 2 weeks. 🎉", bg=BG, fg=MUTED,
@@ -161,11 +164,42 @@ class AgendaWindow(tk.Toplevel):
                 last_day = day
             card = tk.Frame(frame, bg=CARD)
             card.pack(fill="x", pady=2)
-            txt = due.strftime("%I:%M %p").lstrip("0") + "   " + r["text"] + ("   ↻" if r["repeat"] else "")
+            ends = "–" + datetime.strptime(r["ends"], "%H:%M").strftime("%I:%M %p").lstrip("0") if r["ends"] else ""
+            txt = due.strftime("%I:%M %p").lstrip("0") + ends + "   " + r["text"] + ("   ↻" if r["repeat"] else "")
             tk.Label(card, text=txt, bg=CARD, fg=FG, font=(FONT, 10), anchor="w", width=40,
                      wraplength=330, justify="left").pack(side="left", padx=8, pady=6)
             _btn(card, "✕", lambda i=r["id"]: (db.delete(i), self.render())).pack(side="right", padx=(0, 6))
             _btn(card, "✓", lambda i=r["id"]: (db.complete(i), self.render()), OK, "#000").pack(side="right", padx=4)
+
+
+class QuickNote(tk.Toplevel):
+    """Ctrl+Alt+N: one line straight into today's daily log (the AI tags it later)."""
+
+    def __init__(self, master, on_exit=None):
+        super().__init__(master)
+        from . import notes
+        self.notes = notes
+        self.title("Quick note")
+        self.configure(bg=BG)
+        self.attributes("-topmost", True)
+        self.resizable(False, False)
+        tk.Label(self, text="Note to today's log", bg=BG, fg=MUTED, font=(FONT, 10)).pack(anchor="w", padx=16, pady=(12, 2))
+        self.entry = tk.Entry(self, bg=CARD, fg=FG, insertbackground=FG, relief="flat", font=(FONT, 14), width=44)
+        self.entry.pack(padx=16, ipady=6)
+        self.status = tk.Label(self, text="Enter = save · keep typing more · Esc = close", bg=BG, fg=MUTED, font=(FONT, 9))
+        self.status.pack(anchor="w", padx=16, pady=(6, 12))
+        self.entry.bind("<Return>", lambda e: self.save())
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.update_idletasks()
+        self.geometry(f"+{(self.winfo_screenwidth() - self.winfo_reqwidth()) // 2}+{self.winfo_screenheight() // 3}")
+        self.after(50, lambda: (self.lift(), self.focus_force(), self.entry.focus_set()))
+
+    def save(self):
+        text = self.entry.get().strip()
+        if text:
+            self.notes.append_to_log(text)
+            self.status.config(text=f"✓ Logged: {text[:60]}", fg=OK)
+            self.entry.delete(0, "end")
 
 
 class QuickAdd(tk.Toplevel):

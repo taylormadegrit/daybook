@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daybook</title>
+<style>
+:root{--bg:#121418;--panel:#1a1d23;--card:#22262e;--line:#2e333d;--fg:#eef0f3;--muted:#98a0ad;--accent:#7c9cff;--ok:#3ecf8e;--warn:#ffb454;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#0b0d12;border-color:var(--accent);font-weight:600}
+button.ok{background:var(--ok);color:#06140d;border-color:var(--ok)}
+button.ghost{background:none;border-color:transparent;color:var(--muted)}
+button.ghost:hover{color:var(--fg)}
+input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+header{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px;letter-spacing:.3px}
+header h1 span{color:var(--accent)}
+nav{display:flex;gap:4px}
+nav button{background:none;border:none;color:var(--muted);padding:6px 14px}
+nav button.on{color:var(--fg);background:var(--card)}
+#clock{margin-left:auto;color:var(--muted)}
+#aistat{color:var(--muted);font-size:12px}
+main{padding:18px 20px;max-width:1400px;margin:0 auto}
+.page{display:none}.page.on{display:block}
+.cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel h2{margin:0 0 10px;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.muted{color:var(--muted)}.small{font-size:12px}
+.badge{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.imp{color:var(--warn);border-color:var(--warn)}
+/* timeline */
+.tl{position:relative;margin-top:6px}
+.blk{display:grid;grid-template-columns:118px 1fr auto;gap:10px;align-items:center;padding:10px 12px;margin:6px 0;border-radius:10px;background:var(--card);border-left:4px solid var(--line)}
+.blk.past{opacity:.5}
+.blk.live{border-left-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
+.blk.next{border-left-color:var(--accent)}
+.blk .t{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.blk .x{font-weight:600}
+.overdue .blk{border-left-color:var(--bad)}
+/* log */
+.log{white-space:pre-wrap;background:var(--card);border-radius:10px;padding:12px;min-height:120px;max-height:52vh;overflow:auto}
+/* notes */
+.notes{display:grid;grid-template-columns:220px 340px minmax(0,1fr);gap:14px;height:calc(100vh - 100px)}
+.side,.list,.editor{overflow:auto}
+.side .cat{display:flex;justify-content:space-between;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.side .cat:hover,.side .cat.on{background:var(--card);color:var(--fg)}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--card);border:1px solid var(--line);cursor:pointer;color:var(--muted)}
+.tag.on,.tag:hover{border-color:var(--accent);color:var(--fg)}
+.item{padding:10px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);margin-bottom:8px;cursor:pointer}
+.item:hover{border-color:var(--accent)}
+.item.on{border-color:var(--accent);background:var(--card)}
+.item .ti{font-weight:600;margin-bottom:2px}
+.item .su{color:var(--muted);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.editor .panel{min-height:100%}
+#n-title{font-size:18px;font-weight:600;width:100%;background:none;border-color:transparent;padding:4px 0}
+#n-title:focus{border-color:transparent;border-bottom:1px solid var(--accent);border-radius:0}
+#n-body{width:100%;min-height:42vh;resize:vertical;font-family:Consolas,"Cascadia Mono",monospace;font-size:13.5px;line-height:1.55}
+.ai{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.ai h3{margin:10px 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.act{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.act input{width:150px;padding:4px 8px;font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:40px 10px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);padding:10px 16px;border-radius:10px;display:none;z-index:20}
+.rem{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--card);margin:6px 0}
+.adv{display:grid;grid-template-columns:2fr 1.2fr 1fr .8fr auto auto;gap:8px;margin-top:10px}
+@media (max-width:1000px){.cols,.notes{grid-template-columns:1fr;height:auto}.adv{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Day<span>book</span></h1>
+  <nav>
+    <button data-p="today" class="on">Today</button>
+    <button data-p="notes">Notes</button>
+    <button data-p="rem">Reminders</button>
+  </nav>
+  <span id="aistat"></span>
+  <span id="clock"></span>
+</header>
+
+<main>
+<!-- TODAY -->
+<section class="page on" id="p-today">
+  <div class="row" style="margin-bottom:14px">
+    <button class="ghost" onclick="shiftDay(-1)">◀</button>
+    <h2 id="t-date" style="margin:0;font-size:20px"></h2>
+    <button class="ghost" onclick="shiftDay(1)">▶</button>
+    <button class="ghost" onclick="dayOffset=0;loadToday()">Today</button>
+  </div>
+  <div class="cols">
+    <div class="panel">
+      <h2>Schedule</h2>
+      <div class="row">
+        <input id="t-add" class="grow" placeholder="Add: “dentist 2:30pm”, “walk every day at 6am”…">
+        <input id="t-ends" style="width:110px" placeholder="ends (6:00)" title="Optional end time for a time block">
+        <button class="primary" onclick="quickRem('t-add','t-ends')">Add</button>
+      </div>
+      <div id="t-overdue" class="overdue"></div>
+      <div id="t-tl" class="tl"></div>
+    </div>
+    <div class="panel">
+      <h2>Daily log</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input id="l-add" class="grow" placeholder="Jot something down… (Enter)">
+        <button onclick="addLog()">Log</button>
+      </div>
+      <div id="l-body" class="log"></div>
+      <div class="row small muted" style="margin-top:8px"><span id="l-ai"></span>
+        <button class="ghost small" style="margin-left:auto" onclick="openNote(logId)">Open in Notes →</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- NOTES -->
+<section class="page" id="p-notes">
+  <div class="notes">
+    <div class="side">
+      <div class="row" style="margin-bottom:10px">
+        <select id="tpl" class="grow"><option value="">Blank note</option></select>
+        <button class="primary" onclick="newNote()">New</button>
+      </div>
+      <div id="cats"></div>
+      <h2 class="muted small" style="margin:14px 0 4px;letter-spacing:1px">TAGS</h2>
+      <div id="tagcloud" class="tags"></div>
+      <h2 class="muted small" style="margin:14px 0 4px;letter-spacing:1px">DATE</h2>
+      <input type="date" id="f-from" style="width:100%;margin-bottom:6px" onchange="loadNotes()">
+      <input type="date" id="f-to" style="width:100%" onchange="loadNotes()">
+      <button class="ghost small" style="margin-top:12px" onclick="importOld()">Import new files from F:\28HRTZ</button>
+    </div>
+    <div class="list">
+      <input id="q" style="width:100%;margin-bottom:10px" placeholder="Search all notes…" oninput="debounce(loadNotes,250)()">
+      <div id="nlist"></div>
+    </div>
+    <div class="editor"><div class="panel" id="ed"><div class="empty">Pick a note or press <b>New</b>.</div></div></div>
+  </div>
+</section>
+
+<!-- REMINDERS -->
+<section class="page" id="p-rem">
+  <div class="panel">
+    <h2>New reminder</h2>
+    <div class="row">
+      <input id="r-nat" class="grow" placeholder="Plain English: “pay rent on the 1st every month”, “urgent: call Ori tomorrow 10am”">
+      <button class="primary" onclick="quickRem('r-nat')">Add</button>
+    </div>
+    <div class="adv">
+      <input id="r-text" placeholder="…or exact: what">
+      <input id="r-due" type="datetime-local">
+      <select id="r-rep"><option value="">once</option><option>daily</option><option>weekdays</option><option>weekly</option><option>monthly</option><option>yearly</option></select>
+      <input id="r-ends" placeholder="ends HH:MM">
+      <label class="small muted"><input type="checkbox" id="r-pri"> important</label>
+      <button onclick="exactRem()">Add exact</button>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:14px"><h2>Upcoming</h2><div id="rlist"></div></div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = async (url, opt = {}) => {
+  const r = await fetch(url, {headers: {"Content-Type": "application/json"}, ...opt,
+    body: opt.body ? JSON.stringify(opt.body) : undefined});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const toast = (m) => { const t = $("#toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); };
+const dt = s => new Date(s);
+const tm = s => dt(s).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+const hm = s => { if (!s) return ""; const [h, m] = s.split(":"); const d = new Date(); d.setHours(+h, +m); return d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); };
+const dayName = s => dt(s).toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"});
+let timers = {}; const debounce = (f, ms) => () => { clearTimeout(timers[f.name]); timers[f.name] = setTimeout(f, ms); };
+let META = {}, dayOffset = 0, logId = null, cur = null, filt = {category: "", tag: ""};
+
+// ---------- nav ----------
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => show(b.dataset.p));
+function show(p) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+  document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id === "p-" + p));
+  location.hash = p;
+  ({today: loadToday, notes: loadNotes, rem: loadRems})[p]();
+}
+setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", hour: "numeric", minute: "2-digit"}), 1000);
+
+// ---------- today ----------
+function shiftDay(n) { dayOffset += n; loadToday(); }
+async function loadToday() {
+  const d = new Date(); d.setDate(d.getDate() + dayOffset);
+  const iso = d.toLocaleDateString("en-CA");
+  const j = await api("/api/today?date=" + iso);
+  $("#t-date").textContent = d.toLocaleDateString([], {weekday: "long", month: "long", day: "numeric"});
+  const now = dt(j.now);
+  $("#t-overdue").innerHTML = j.overdue.length ? `<h2 style="margin-top:14px;color:var(--bad)">Overdue</h2>` + j.overdue.map(r => blk(r, now, true)).join("") : "";
+  let nextMarked = false;
+  $("#t-tl").innerHTML = j.timeline.length ? j.timeline.map(r => {
+    const start = dt(r.due), end = r.ends ? new Date(start.toDateString() + " " + r.ends) : new Date(+start + 15 * 60000);
+    let cls = end < now ? "past" : (start <= now ? "live" : "");
+    if (!cls && !nextMarked && dayOffset === 0) { cls = "next"; nextMarked = true; }
+    return blk(r, now, false, cls);
+  }).join("") : `<div class="empty">Nothing scheduled.</div>`;
+  logId = j.log.id;
+  $("#l-body").textContent = j.log.body || "Nothing logged yet today.";
+  $("#l-ai").textContent = j.log.tags.filter(t => t !== "daily-log").map(t => "#" + t).join("  ");
+}
+function blk(r, now, over, cls = "") {
+  const range = tm(r.due) + (r.ends ? " – " + hm(r.ends) : "");
+  const btns = r.is_current ? `<span class="row" style="gap:4px">
+      <button class="ok" title="Done" onclick="remDone(${r.id})">✓</button>
+      <button title="Snooze 10 min" onclick="remSnooze(${r.id},10)">+10m</button></span>` : `<span></span>`;
+  return `<div class="blk ${cls}"><span class="t">${over ? dayName(r.due) + " " : ""}${range}</span>
+    <span><span class="x">${esc(r.text)}</span> ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""}
+    ${r.priority ? `<span class="badge imp">important</span>` : ""}${r.notes ? `<div class="small muted">${esc(r.notes)}</div>` : ""}</span>${btns}</div>`;
+}
+async function quickRem(id, endsId) {
+  const v = $("#" + id).value.trim(); if (!v) return;
+  try {
+    const r = await api("/api/reminders", {method: "POST", body: {natural: v, ends: endsId ? $("#" + endsId).value.trim() : ""}});
+    toast(`✓ ${r.text} — ${dayName(r.due)} ${tm(r.due)}${r.repeat ? " (" + r.repeat + ")" : ""}`);
+    $("#" + id).value = ""; if (endsId) $("#" + endsId).value = "";
+    refresh();
+  } catch (e) { toast("⚠ " + e.message); }
+}
+async function remDone(id) { const j = await api(`/api/reminders/${id}/done`, {method: "POST"}); toast(j.result === "done" ? "Done ✓" : "Done ✓ — " + j.result); refresh(); }
+async function remSnooze(id, m) { await api(`/api/reminders/${id}/snooze`, {method: "POST", body: {minutes: m}}); toast(`Snoozed ${m} min`); refresh(); }
+async function addLog() {
+  const v = $("#l-add").value.trim(); if (!v) return;
+  await api("/api/log", {method: "POST", body: {text: v}}); $("#l-add").value = ""; loadToday();
+}
+$("#l-add").addEventListener("keydown", e => e.key === "Enter" && addLog());
+$("#t-add").addEventListener("keydown", e => e.key === "Enter" && quickRem("t-add", "t-ends"));
+$("#r-nat").addEventListener("keydown", e => e.key === "Enter" && quickRem("r-nat"));
+function refresh() { const p = document.querySelector("nav button.on").dataset.p; ({today: loadToday, notes: loadNotes, rem: loadRems})[p](); }
+
+// ---------- reminders ----------
+async function loadRems() {
+  const rs = await api("/api/reminders");
+  $("#rlist").innerHTML = rs.length ? rs.map(r => `<div class="rem">
+    <span class="muted small">${dayName(r.due)} · ${tm(r.due)}${r.ends ? "–" + hm(r.ends) : ""}</span>
+    <span><b>${esc(r.text)}</b> ${r.repeat ? `<span class="badge">↻ ${r.repeat}</span>` : ""} ${r.priority ? `<span class="badge imp">important</span>` : ""}
+      ${r.notes ? `<div class="small muted">${esc(r.notes)}</div>` : ""}</span>
+    <span class="row" style="gap:4px"><button class="ok" onclick="remDone(${r.id})">✓</button>
+      <button onclick="remSnooze(${r.id},60)">+1h</button>
+      <button onclick="editRem(${r.id})">Edit</button>
+      <button class="ghost" onclick="delRem(this,${r.id})">Delete</button></span></div>`).join("") : `<div class="empty">No reminders yet.</div>`;
+}
+async function exactRem() {
+  const text = $("#r-text").value.trim(), due = $("#r-due").value;
+  if (!text || !due) return toast("Fill in what + when");
+  try {
+    await api("/api/reminders", {method: "POST", body: {text, due, repeat: $("#r-rep").value, ends: $("#r-ends").value.trim(), priority: $("#r-pri").checked ? 1 : 0}});
+    $("#r-text").value = ""; toast("Added ✓"); loadRems();
+  } catch (e) { toast("⚠ " + e.message); }
+}
+function delRem(btn, id) {
+  if (btn.dataset.sure) return api(`/api/reminders/${id}`, {method: "DELETE"}).then(loadRems);
+  btn.dataset.sure = 1; btn.textContent = "Sure?"; btn.style.color = "var(--bad)";
+}
+async function editRem(id) {
+  const rs = await api("/api/reminders"); const r = rs.find(x => x.id === id);
+  $("#r-text").value = r.text; $("#r-due").value = r.due; $("#r-rep").value = r.repeat; $("#r-ends").value = r.ends; $("#r-pri").checked = !!r.priority;
+  const b = document.querySelector(".adv button");
+  b.textContent = "Save changes"; b.onclick = async () => {
+    try {
+      await api(`/api/reminders/${id}`, {method: "PATCH", body: {text: $("#r-text").value, due: $("#r-due").value, repeat: $("#r-rep").value, ends: $("#r-ends").value.trim(), priority: $("#r-pri").checked ? 1 : 0}});
+      b.textContent = "Add exact"; b.onclick = exactRem; $("#r-text").value = ""; toast("Saved ✓"); loadRems();
+    } catch (e) { toast("⚠ " + e.message); }
+  };
+  window.scrollTo(0, 0);
+}
+
+// ---------- notes ----------
+async function loadMeta() {
+  META = await api("/api/meta");
+  $("#tpl").innerHTML = `<option value="">Blank note</option>` + Object.keys(META.templates).map(k => `<option>${k}</option>`).join("");
+  const total = Object.values(META.counts).reduce((a, b) => a + b, 0);
+  $("#cats").innerHTML = `<div class="cat ${!filt.category ? "on" : ""}" onclick="setCat('')"><span>All notes</span><span>${total}</span></div>` +
+    META.categories.map(c => `<div class="cat ${filt.category === c ? "on" : ""}" onclick="setCat('${c}')"><span>${c}</span><span>${META.counts[c] || 0}</span></div>`).join("");
+  $("#tagcloud").innerHTML = META.tags.map(([t, n]) => `<span class="tag ${filt.tag === t ? "on" : ""}" onclick="setTag('${esc(t)}')">#${esc(t)} <span class="muted">${n}</span></span>`).join("");
+  const p = META.ai.pending || 0;
+  $("#aistat").textContent = p ? `🧠 AI organizing ${p} note${p > 1 ? "s" : ""}…` : "";
+}
+function setCat(c) { filt.category = c; loadNotes(); }
+function setTag(t) { filt.tag = filt.tag === t ? "" : t; loadNotes(); }
+async function loadNotes() {
+  await loadMeta();
+  const qs = new URLSearchParams({q: $("#q").value, category: filt.category, tag: filt.tag, from: $("#f-from").value, to: $("#f-to").value});
+  const ns = await api("/api/notes?" + qs);
+  $("#nlist").innerHTML = ns.length ? ns.map(n => `<div class="item ${cur && cur.id === n.id ? "on" : ""}" onclick="openNote(${n.id})">
+    <div class="ti">${esc(n.title || "Untitled")}</div>
+    <div class="row small muted" style="gap:6px;margin-bottom:3px"><span>${dayName(n.note_date + "T12:00")}</span>
+      ${n.category ? `<span class="badge">${esc(n.category)}</span>` : ""}${n.ai_status === "pending" ? `<span class="badge">🧠…</span>` : ""}</div>
+    <div class="su">${esc(n.summary || n.body.slice(0, 160))}</div></div>`).join("") : `<div class="empty">No notes match.</div>`;
+}
+async function openNote(id) {
+  if (!id) return;
+  if (!document.querySelector("#p-notes").classList.contains("on")) show("notes");
+  cur = await api("/api/notes/" + id);
+  renderEditor(); loadNotes();
+}
+function renderEditor() {
+  const n = cur;
+  $("#ed").innerHTML = `
+    <input id="n-title" value="${esc(n.title)}" placeholder="Title">
+    <div class="row" style="margin:8px 0 12px">
+      <select id="n-cat"><option value="">Category…</option>${META.categories.map(c => `<option ${c === n.category ? "selected" : ""}>${c}</option>`).join("")}</select>
+      <input type="date" id="n-date" value="${n.note_date}">
+      <input id="n-tags" class="grow" value="${esc(n.tags.join(", "))}" placeholder="tags, comma separated">
+      <span class="small muted" id="n-saved"></span>
+    </div>
+    <textarea id="n-body" placeholder="Write…">${esc(n.body)}</textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" onclick="saveNote()">Save <span class="small">(Ctrl+S)</span></button>
+      <button onclick="aiNote()">🧠 Organize with AI</button>
+      <span class="small muted">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
+      <button class="ghost" style="margin-left:auto" onclick="delNote(this)">Delete</button>
+    </div>
+    <div class="ai">${n.ai_status === "pending" ? `<div class="muted">🧠 The local AI will organize this note shortly…</div>` : ""}
+      ${n.summary ? `<h3>Summary</h3><div>${esc(n.summary)}</div>` : ""}
+      ${n.topics.length > 1 ? `<h3>Topics</h3><div class="tags">${n.topics.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${n.actions.length ? `<h3>Action items</h3>` + n.actions.map((a, i) => `<div class="act"><span class="grow">☐ ${esc(a)}</span>
+        <input id="aw${i}" placeholder="when? e.g. tomorrow 9am"><button onclick="actRemind(${i})">⏰ Remind me</button></div>`).join("") : ""}
+    </div>`;
+  ["n-title", "n-cat", "n-date", "n-tags"].forEach(i => $("#" + i).addEventListener("change", () => saveNote(false)));
+}
+async function saveNote(reorg = true) {
+  if (!cur) return;
+  const body = {title: $("#n-title").value, category: $("#n-cat").value, note_date: $("#n-date").value,
+    tags: $("#n-tags").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean), body: $("#n-body").value, reorganize: reorg && $("#n-body").value !== cur.body};
+  cur = await api("/api/notes/" + cur.id, {method: "PATCH", body});
+  $("#n-saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+  loadNotes();
+}
+async function newNote() {
+  const tpl = $("#tpl").value;
+  cur = await api("/api/notes", {method: "POST", body: {title: "", category: tpl, body: tpl ? META.templates[tpl] : ""}});
+  renderEditor(); loadNotes(); $("#n-title").focus();
+}
+async function aiNote() { if (!cur) return; await saveNote(false); toast("🧠 Organizing…"); cur = await api(`/api/notes/${cur.id}/organize`, {method: "POST"}); renderEditor(); loadNotes(); toast("Organized ✓"); }
+async function actRemind(i) {
+  const when = $("#aw" + i).value.trim() || "tomorrow 9am";
+  const r = await api(`/api/notes/${cur.id}/remind`, {method: "POST", body: {text: cur.actions[i], when}});
+  toast(`⏰ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`);
+}
+function delNote(btn) {
+  if (btn.dataset.sure) return api("/api/notes/" + cur.id, {method: "DELETE"}).then(() => { cur = null; $("#ed").innerHTML = `<div class="empty">Deleted.</div>`; loadNotes(); });
+  btn.dataset.sure = 1; btn.textContent = "Delete — sure?"; btn.style.color = "var(--bad)";
+}
+async function importOld() { toast("Importing…"); const j = await api("/api/import", {method: "POST"}); toast(`Imported ${j.added} new note(s)`); loadNotes(); }
+document.addEventListener("keydown", e => { if (e.ctrlKey && e.key === "s" && cur && document.querySelector("#p-notes.on")) { e.preventDefault(); saveNote(); } });
+setInterval(() => { if (document.visibilityState === "visible") { loadMeta(); if (document.querySelector("#p-today.on")) loadToday(); } }, 30000);
+
+loadMeta().then(() => show(location.hash.slice(1) || "today"));
+</script>
+</body>
+</html>
