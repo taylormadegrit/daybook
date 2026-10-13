@@ -138,7 +138,7 @@ function partitionFor(profile) { return "persist:daybook-" + String(profile || "
 const prepared = new Set();
 // Ad blocker for the in-app browser (ads + trackers, YouTube ads included). Block lists are cached on disk,
 // and a copy ships inside the app, so it works with no internet from the very first launch.
-const ADB = {blocker: null, on: true, blocked: 0, sessions: new Set()};
+const ADB = {blocker: null, on: loadState().adblock !== false, blocked: 0, sessions: new Set()};
 const ADB_CACHE = path.join(app.getPath("userData"), "adblock-engine.bin");
 async function adblockInit() {
   try {
@@ -154,15 +154,29 @@ async function adblockInit() {
     if (!ADB.blocker && fs.existsSync(ADB_CACHE)) ADB.blocker = ElectronBlocker.deserialize(new Uint8Array(fs.readFileSync(ADB_CACHE)));
     if (!ADB.blocker) return;
     ADB.blocker.on("request-blocked", () => { ADB.blocked++; });
+    const getCosmetics = ADB.blocker.getCosmeticsFilters.bind(ADB.blocker);
+    ADB.blocker.getCosmeticsFilters = opts => {
+      const r = getCosmetics(opts);
+      if (/(^|\.)youtube\.com$/.test(opts.hostname || "")) r.scripts = [];
+      else r.scripts = (r.scripts || []).map(js => `{\n${js}\n}`);
+      return r;
+    };
     ADB.on = loadState().adblock !== false;
-    if (ADB.on) for (const s of ADB.sessions) ADB.blocker.enableBlockingInSession(s);
+    if (ADB.on) for (const s of ADB.sessions) adblockEnable(s);
   } catch (e) { console.error("adblock", e); }
 }
-function adblockSession(s) { ADB.sessions.add(s); if (ADB.blocker && ADB.on) try { ADB.blocker.enableBlockingInSession(s); } catch {} }
+const ADB_IPC = ["@ghostery/adblocker/inject-cosmetic-filters", "@ghostery/adblocker/is-mutation-observer-enabled"];
+function adblockEnable(s) {  // one blocker, many profiles: clear its page handlers before each enable so none fail
+  if (!ADB.blocker) return;
+  try { ADB_IPC.forEach(c => ipcMain.removeHandler(c)); ADB.blocker.enableBlockingInSession(s); } catch (e) { console.error("adblock enable", e); }
+}
+function adblockDisable(s) { try { ADB.blocker.disableBlockingInSession(s); } catch {} }
+function adblockSession(s) { ADB.sessions.add(s); if (ADB.blocker && ADB.on) adblockEnable(s); }
+ipcMain.on("browser:adblock-on", e => { e.returnValue = ADB.on; });
 ipcMain.handle("browser:adblock", (_e, on) => {
   if (typeof on === "boolean" && ADB.blocker) {
     ADB.on = on; fs.writeFileSync(STATE, JSON.stringify({...loadState(), adblock: on}));
-    for (const s of ADB.sessions) try { on ? ADB.blocker.enableBlockingInSession(s) : ADB.blocker.disableBlockingInSession(s); } catch {}
+    for (const s of ADB.sessions) on ? adblockEnable(s) : adblockDisable(s);
   }
   return {ready: !!ADB.blocker, on: ADB.on, blocked: ADB.blocked};
 });
