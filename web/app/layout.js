@@ -1,5 +1,5 @@
 // ================= LAYOUT: Simple · Balanced · Power, or fully custom =================
-const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["browser", "Browser"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"], ["research", "Research"],
+const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["browser", "Browser"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"], ["research", "Library"],
   ["clock", "Clock"], ["desktop", "Desktop"], ["chat", "Chat"], ["models", "Models"]];
 const PRESETS_LAYOUT = {
   simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "browser", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,

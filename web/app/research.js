@@ -2,10 +2,11 @@
 const ZR = {st: null, items: [], cur: null, col: "", q: "", style: null, mode: "live"};
 const zStyle = () => ZR.style || store.get("daybook-cite-style", "apa");
 async function renderResearch() {
+  if (PL.tab === "pdfs") return renderPdfLibrary();
   ZR.st = await api("/api/zotero");
   const s = ZR.st, host = $("#research");
-  if (!s.installed) { host.innerHTML = `<div class="empty" style="padding-top:12vh"><b>Zotero isn't installed</b>Get it free from <a href="https://www.zotero.org/download/" target="_blank" rel="noopener">zotero.org/download</a>, then come back.</div>`; return; }
-  host.innerHTML = `<div class="zr">
+  if (!s.installed) { host.innerHTML = `<div class="lib-head">${libTabs()}</div><div class="empty" style="padding-top:12vh"><b>Zotero isn't installed</b>Get it free from <a href="https://www.zotero.org/download/" target="_blank" rel="noopener">zotero.org/download</a>, then come back.</div>`; return; }
+  host.innerHTML = `<div class="lib-head">${libTabs()}</div><div class="zr">
     <div class="zcol">
       <button class="btn pri" style="width:100%;justify-content:center" onclick="zAddModal()">${ic("plus")}Add a source</button>
       ${s.running ? "" : `<div class="obs-card" style="margin-top:10px"><b>Zotero is closed</b><p class="small muted">Search still works from your saved library. Open Zotero for citations, PDFs and adding sources.</p><button class="btn sm" onclick="zLaunch()">${ic("play")}Open Zotero</button></div>`}

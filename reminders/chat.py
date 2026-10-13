@@ -3,6 +3,9 @@
 import re
 import html
 import json
+from pathlib import Path
+import subprocess
+import os
 import threading
 import urllib.request
 import uuid
@@ -166,13 +169,111 @@ def ollama(path, body=None, stream=False):
         return json.loads(resp.read())
 
 
-def model_list():
+def model_list(include_claude=True):
     try:
-        return [{"name": m["name"], "size": m["size"], "params": m["details"].get("parameter_size"),
-                 "tools": "tools" in (m.get("capabilities") or []), "vision": "vision" in (m.get("capabilities") or [])}
-                for m in ollama("/api/tags")["models"]]
+        local = [{"name": m["name"], "size": m["size"], "params": m["details"].get("parameter_size"),
+                  "tools": "tools" in (m.get("capabilities") or []), "vision": "vision" in (m.get("capabilities") or [])}
+                 for m in ollama("/api/tags")["models"]]
     except Exception:
-        return []
+        local = []
+    if include_claude and claude_cli():
+        local += [{"name": f"claude:{k}", "label": label, "params": "Claude", "tools": True, "vision": False, "cloud": True}
+                  for k, label in CLAUDE_MODELS]
+    return local
+
+
+# ---------- Claude (through the Claude Code CLI the user is signed in to) ----------
+CLAUDE_MODELS = [("sonnet", "Claude Sonnet — your Claude account"), ("opus", "Claude Opus — your Claude account"),
+                 ("haiku", "Claude Haiku — fast, your Claude account")]
+CLAUDE_TOOLS = "mcp__reminders WebSearch WebFetch"            # Daybook's own tools + web lookups
+CLAUDE_BLOCKED = "Bash Edit Write NotebookEdit MultiEdit"      # never touch files or run commands from chat
+PROCS = {}
+
+
+def claude_cli():
+    import shutil
+    for c in (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude.exe"), os.path.join(os.environ.get("APPDATA", ""), "npm", "claude.cmd")):
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def generate_claude(cid):
+    chat = get_chat(cid)
+    alias = chat["model"].split(":", 1)[1] or "sonnet"
+    msgs = [m for m in history(cid) if m["role"] in ("user", "assistant")]
+    last_user = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
+    session = next((m["meta"].get("claude_session") for m in reversed(history(cid)) if m["meta"].get("claude_session")), None)
+    if session:
+        prompt = last_user
+    else:  # first Claude turn in this chat: include the conversation so far (it may have started on a local model)
+        earlier = msgs[:-1][-20:]
+        prompt = ("Conversation so far:\n" + "\n".join(f"{m['role'].upper()}: {m['content'][:2000]}" for m in earlier) + "\n\nUSER: " + last_user) if earlier else last_user
+    system = (BASE.format(now=datetime.now().strftime("%A %Y-%m-%d %H:%M")) + "\n\n" + PERSONAS.get(chat["persona"], PERSONAS["Assistant"])
+              + "\n\nYou are inside the user's Daybook app. Use the `reminders` tools for their schedule, reminders and notes. Reply in Markdown.")
+    cmd = [claude_cli(), "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--model", alias,
+           "--append-system-prompt", system, "--allowedTools", *CLAUDE_TOOLS.split(), "--disallowedTools", *CLAUDE_BLOCKED.split()]
+    if session:
+        cmd += ["--resume", session]
+    STOP[cid] = False
+    text, sid, usage = "", session, {}
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                                errors="replace", cwd=str(db.DB_PATH.parent), creationflags=0x08000000)
+    except Exception as e:
+        yield sse("error", {"message": f"Couldn't start Claude: {e}"})
+        return
+    PROCS[cid] = proc
+    proc.stdin.write(prompt)
+    proc.stdin.close()
+    for line in proc.stdout:
+        if STOP.get(cid):
+            proc.kill()
+            break
+        try:
+            j = json.loads(line)
+        except Exception:
+            continue
+        t = j.get("type")
+        if t == "system" and j.get("session_id"):
+            sid = j["session_id"]
+        elif t == "stream_event":
+            ev = j.get("event", {})
+            if ev.get("type") == "content_block_delta":
+                d = ev.get("delta", {})
+                if d.get("type") == "text_delta":
+                    text += d["text"]
+                    yield sse("token", {"t": d["text"]})
+                elif d.get("type") == "thinking_delta":
+                    yield sse("think", {"t": d.get("thinking", "")})
+            elif ev.get("type") == "message_stop" and text and not text.endswith("\n\n"):
+                text += "\n\n"
+                yield sse("token", {"t": "\n\n"})
+        elif t == "assistant":
+            for c in j.get("message", {}).get("content", []):
+                if c.get("type") == "tool_use":
+                    name = c.get("name", "").replace("mcp__reminders__", "")
+                    yield sse("tool", {"name": name, "args": c.get("input", {})})
+        elif t == "user":
+            for c in j.get("message", {}).get("content", []):
+                if isinstance(c, dict) and c.get("type") == "tool_result":
+                    res = c.get("content")
+                    res = res if isinstance(res, str) else " ".join(x.get("text", "") for x in (res or []) if isinstance(x, dict))
+                    yield sse("tool_result", {"name": "", "result": res[:600]})
+        elif t == "result":
+            sid = j.get("session_id") or sid
+            usage = {"cost_usd": j.get("total_cost_usd"), "turns": j.get("num_turns"), "duration_ms": j.get("duration_ms")}
+            if j.get("is_error") and not text:
+                yield sse("error", {"message": "Claude: " + str(j.get("result") or j.get("subtype"))[:300]})
+    proc.wait(timeout=10)
+    PROCS.pop(cid, None)
+    if proc.returncode not in (0, None) and not text:
+        err = (proc.stderr.read() or "")[-400:]
+        yield sse("error", {"message": "Claude didn't answer — " + (err.strip() or "is Claude Code signed in? Run `claude` once in a terminal.")})
+        return
+    if text.strip():
+        add_msg(cid, "assistant", text.strip(), {"model": chat["model"], "claude_session": sid, "stats": usage})
+    yield sse("done", {"stats": usage})
 
 
 def build_messages(chat):
@@ -198,6 +299,9 @@ PENDING = {}  # confirm id → (chat id, tool name, args)
 
 def generate(cid):
     chat = get_chat(cid)
+    if chat["model"].startswith("claude:"):
+        yield from generate_claude(cid)
+        return
     model_has_tools = next((m["tools"] for m in model_list() if m["name"] == chat["model"]), False)
     tools = tool_schemas(chat["tools"].split(",")) if model_has_tools else []
     STOP[cid] = False
@@ -259,7 +363,8 @@ def auto_title(cid):
     try:
         chat = get_chat(cid)
         first = next((m["content"] for m in history(cid) if m["role"] == "user"), "")
-        r = ollama("/api/generate", {"model": chat["model"], "stream": False, "options": {"num_ctx": 2048},
+        local = chat["model"] if not chat["model"].startswith("claude:") else (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"]
+        r = ollama("/api/generate", {"model": local, "stream": False, "options": {"num_ctx": 2048},
                                      "prompt": f"Give a 2-5 word title for a chat that starts with: \"{first[:500]}\". "
                                                "Reply with the title only, no quotes."})
         title = r["response"].strip().strip('"').split("\n")[0][:60]
@@ -288,7 +393,7 @@ def new_chat():
     j = request.get_json() or {}
     with _con() as con:
         cur = con.execute("INSERT INTO chats (model, persona, tools, created, updated) VALUES (?,?,?,?,?)",
-                          (j.get("model") or db.setting("chat_model") or (model_list() or [{"name": "qwen2.5:7b"}])[0]["name"],
+                          (j.get("model") or db.setting("chat_model") or (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"],
                            j.get("persona", "Assistant"), j.get("tools", "daybook,orca"), _now(), _now()))
     return jsonify(get_chat(cur.lastrowid))
 
@@ -338,6 +443,11 @@ def regenerate(cid):
 @bp.post("/api/chats/<int:cid>/stop")
 def stop(cid):
     STOP[cid] = True
+    if cid in PROCS:
+        try:
+            PROCS[cid].kill()
+        except Exception:
+            pass
     return jsonify(ok=True)
 
 

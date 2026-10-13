@@ -1,5 +1,6 @@
 """The Daybook app window: Chrome in --app mode (own window, no tabs). Reused instead of duplicated."""
 import ctypes
+import os
 import subprocess
 import time
 import webbrowser
@@ -52,8 +53,27 @@ def raise_window(h):
     u.SetForegroundWindow(h)
 
 
+DESKTOP_DEV = Path(__file__).resolve().parent.parent / "desktop"
+DESKTOP_EXE = [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Daybook" / "Daybook.exe", Path(r"D:\Applications\Daybook\Daybook.exe")]
+
+
+def desktop_cmd(view):
+    """The Daybook desktop app (installed build, or the dev copy in ./desktop)."""
+    for exe in DESKTOP_EXE:
+        if exe.exists():
+            return [str(exe), f"--view={view}"]
+    electron = DESKTOP_DEV / "node_modules" / "electron" / "dist" / "electron.exe"
+    if electron.exists():
+        return [str(electron), str(DESKTOP_DEV), f"--view={view}"]
+    return None
+
+
 def open_app(view="today", wait=True):
     """Bring Daybook forward (opening it if needed). `view`: today, chat, notes…"""
+    cmd = desktop_cmd(view)
+    if cmd:  # the desktop app is single-instance: a second launch just shows the window on that page
+        subprocess.Popen(cmd, creationflags=0x00000008)
+        return
     h = find_window()
     if h and view == "today":
         raise_window(h)

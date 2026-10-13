@@ -197,7 +197,9 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "discord_hooks": "",        # JSON [{name, url}] — Discord channel webhooks (kept on this PC only)
     "folders": "",              # JSON pinned folders
     "workflows": "",            # JSON workflows (folders + apps + sites opened together)
-    "games_dir": "D:\Games\Daybook",  # where free games are downloaded
+    "games_dir": r"D:\Games\Daybook",  # where free games are downloaded
+    "web_profiles": "",         # JSON in-app browser profiles [{id, name, color}]
+    "pdf_folders": "",          # JSON folders the PDF library scans ('' = sensible defaults)
 }
 
 

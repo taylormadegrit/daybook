@@ -1,0 +1,50 @@
+{
+  "name": "daybook",
+  "productName": "Daybook",
+  "version": "1.6.0",
+  "description": "Daybook — Local AI Hub for notes, reminders, scheduling and your whole desktop",
+  "main": "main.js",
+  "author": "Taylor",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.daybook.app",
+    "productName": "Daybook",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "browser-preload.js",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend-dist/daybook-backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/daybook.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Daybook"
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.10.3",
+    "electron-builder": "^26.15.3"
+  }
+}

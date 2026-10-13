@@ -3,3 +3,8 @@ data/
 __pycache__/
 *.pyc
 ai-libs/
+desktop/node_modules/
+desktop/dist/
+backend-dist/
+build/
+*.spec.bak

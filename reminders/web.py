@@ -43,6 +43,9 @@ app.register_blueprint(dock_bp)
 from .zotero import bp as zotero_bp  # noqa: E402
 
 app.register_blueprint(zotero_bp)
+from .pdflib import bp as pdflib_bp  # noqa: E402
+
+app.register_blueprint(pdflib_bp)
 BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 

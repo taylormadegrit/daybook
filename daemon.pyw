@@ -121,5 +121,8 @@ stt.preload()  # warm the speech model so dictation is quick
 from reminders import dock  # noqa: E402
 
 dock.start()  # keeps docked browser windows tiled inside the Daybook window
+from reminders import pdflib  # noqa: E402
+
+root.after(20000, pdflib.scan_bg)  # refresh the PDF library shortly after start
 root.after(1000, poll)
 root.mainloop()

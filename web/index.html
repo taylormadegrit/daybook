@@ -351,7 +351,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
     <div class="navi" data-v="memos"><svg class="i" data-i="mic"></svg>Voice memos<span class="k">Alt 5</span></div>
     <div class="navi" data-v="studio"><svg class="i" data-i="spark"></svg>AI Studio<span class="k">Alt I</span></div>
-    <div class="navi" data-v="research"><svg class="i" data-i="book"></svg>Research<span class="k">Alt R</span></div>
+    <div class="navi" data-v="research"><svg class="i" data-i="book"></svg>Library<span class="k">Alt R</span></div>
     <div class="navi" data-v="clock"><svg class="i" data-i="timer"></svg>Clock<span class="cnt" id="tm-count" style="display:none"></span><span class="k">Alt 6</span></div>
     <div class="navi" data-v="desktop"><svg class="i" data-i="sticky"></svg>Desktop<span class="k">Alt 7</span></div>
     <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 8</span></div>
@@ -626,6 +626,8 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/studio.js"></script>
 <script src="/app/browser.js"></script>
 <script src="/app/research.js"></script>
+<script src="/app/webpanes.js"></script>
+<script src="/app/library.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -690,7 +692,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {research: ["Research", "Your Zotero library — sources, citations and PDFs"], browser: ["Browser", "Your real browser profiles, docked inside Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Your real browser profiles, docked inside Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -981,7 +983,8 @@ const TOOL_LABEL = {day_schedule: "Checked your schedule", add_reminder: "Create
 const cinput = $("#cinput");
 async function enterChat(sub) {
   if (!S.models.length) { const m = await api("/api/chat/models"); S.models = m.models; S.personas = m.personas;
-    $("#model").innerHTML = S.models.map(x => `<option value="${x.name}">${x.name}${x.params ? " · " + x.params : ""}</option>`).join("") || `<option>No models — start Ollama</option>`;
+    const opt = x => `<option value="${x.name}">${x.label || x.name + (x.params ? " · " + x.params : "")}</option>`, loc = S.models.filter(x => !x.cloud), cl = S.models.filter(x => x.cloud);
+    $("#model").innerHTML = (loc.length ? `<optgroup label="On this PC (private)">${loc.map(opt).join("")}</optgroup>` : "") + (cl.length ? `<optgroup label="Claude — via Claude Code">${cl.map(opt).join("")}</optgroup>` : "") || `<option>No models — start Ollama</option>`;
     $("#persona").innerHTML = S.personas.map(p => `<option>${p}</option>`).join("");
     if (S.settings.chat_model) $("#model").value = S.settings.chat_model; }
   await loadChats();
@@ -1448,6 +1451,7 @@ setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); 
 
 window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
 (async function boot() {
+  if (window.desktop) document.body.classList.add("desktop");
   paintIcons(); trackFields(); sceneInit(); dockInit();
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();

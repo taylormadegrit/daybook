@@ -1,6 +1,7 @@
 // ================= BROWSER WORKSPACE: real browser windows docked inside Daybook =================
 const BW = {data: null, poll: 0, ro: null, lastSent: ""};
 async function renderBrowser() {
+  if (window.desktop) return renderBrowserDesktop();
   if (!LP.data) LP.data = await api("/api/launchpad");
   BW.data = await api("/api/dock");
   const profiles = LP.data.browsers.flatMap(b => b.profiles.map(p => ({b, p})));
@@ -52,6 +53,7 @@ async function bwFocus(h) { await api("/api/dock/focus", {method: "POST", body: 
 // Tell the dock where the stage is. Docked windows are real windows on top of Daybook, so they hide
 // whenever a menu, dialog or search is open, or you're on another page.
 function dockSync(force) {
+  if (window.desktop) return bdSync(force);
   const st = $("#bw-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || (H && H.editing);
   const visible = S.view === "browser" && st && !overlay && document.visibilityState === "visible";
