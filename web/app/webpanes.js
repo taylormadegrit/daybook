@@ -3,12 +3,13 @@
 const BD = {panes: [], focus: null, layout: store.get("daybook-bd-layout", "auto"), ro: null, restored: false, bound: false, last: "", ratios: (() => { try { return JSON.parse(localStorage.getItem("daybook-bd-ratios") || "{}"); } catch (e) { return {}; } })()};
 BD.chrome = [];
 const bdAll = () => BD.panes.concat(BD.chrome.map(c => ({id: -c.hwnd, chrome: c, profile: "chrome:" + c.profile, title: c.title.replace(/ - Google Chrome$/, "") || c.label, url: "", loading: false})));
-async function bdChromeRefresh() { try { BD.chrome = await api("/api/dock/embedded"); } catch (e) { BD.chrome = []; } }
+async function bdWin() { if (!BD.win) BD.win = await desktop.info(); return BD.win; }
+async function bdChromeRefresh() { try { const w = await bdWin(); BD.chrome = await api("/api/dock/embedded?parent=" + w.hwnd); } catch (e) { BD.chrome = []; } }
 function bdClose(id) { return id < 0 ? api("/api/dock/embed/release", {method: "POST", body: {hwnd: -id, close: true}}).then(() => setTimeout(async () => { await bdChromeRefresh(); bdPaint(); }, 400)) : desktop.browser.close(id); }
 async function bdChromeOpen(b, p) {
   $$(".menu").forEach(x => x.classList.remove("on")); if (S.view !== "browser") go("browser");
   toast("Opening your Chrome profile inside Daybook…");
-  try { const j = await api("/api/dock/embed/open", {method: "POST", body: {browser: b, profile: p}}); await bdChromeRefresh(); BD.focus = -j.hwnd; bdPaint(); }
+  try { const w = await bdWin(); const j = await api("/api/dock/embed/open", {method: "POST", body: {browser: b, profile: p, parent: w.hwnd}}); await bdChromeRefresh(); BD.focus = -j.hwnd; bdPaint(); }
   catch (e) { toast(e.message); }
 }
 async function bdChromePop(id) { await api("/api/dock/embed/release", {method: "POST", body: {hwnd: -id}}); await bdChromeRefresh(); bdPaint(); }
@@ -32,7 +33,7 @@ async function renderBrowserDesktop() {
     desktop.browser.onUpdate(d => {
       BD.panes = d.panes; if (d.focus) BD.focus = d.focus; if (d.toast) toast(d.toast);
       if (!BD.panes.find(p => p.id === BD.focus)) BD.focus = (BD.panes[BD.panes.length - 1] || {}).id;
-      try { localStorage.setItem("daybook-bd-session", JSON.stringify(BD.panes.map(p => ({profile: p.profile, url: p.url})).filter(p => /^https?:/.test(p.url)))); } catch (e) {}
+      if (BD.win && BD.win.main) try { localStorage.setItem("daybook-bd-session", JSON.stringify(BD.panes.map(p => ({profile: p.profile, url: p.url})).filter(p => /^https?:/.test(p.url)))); } catch (e) {}
       if (S.view === "browser") bdPaint();
     });
     desktop.browser.onShortcut(d => {
@@ -42,9 +43,10 @@ async function renderBrowserDesktop() {
   }
   BD.panes = await desktop.browser.list(); await bdChromeRefresh();
   clearInterval(BD.poll); BD.poll = setInterval(async () => { if (S.view !== "browser") return; const n = BD.chrome.length; await bdChromeRefresh(); if (n !== BD.chrome.length || BD.chrome.length) bdPaint(); }, 2500);
-  if (!BD.restored) {  // reopen last session's pages
+  const me = await bdWin();
+  if (!BD.restored) {  // reopen last session's pages (main window only — extra windows start fresh)
     BD.restored = true;
-    if (!BD.panes.length) {
+    if (!BD.panes.length && me.main) {
       let saved = []; try { saved = JSON.parse(localStorage.getItem("daybook-bd-session") || "[]"); } catch (e) {}
       for (const p of saved.slice(0, 8)) await desktop.browser.open(p.profile, p.url);
       BD.panes = await desktop.browser.list();
@@ -166,7 +168,7 @@ function bdSync(force) {
     if (id < 0) items.push({hwnd: -id, ...rr}); else rects[id] = rr; });
   const key = JSON.stringify({visible, rects, items}); if (!force && key === BD.last) return; BD.last = key;
   desktop.browser.layout({visible, rects});
-  if (BD.chrome.length || items.length) fetch("/api/dock/embed/place", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({visible, items, dpr: devicePixelRatio})}).catch(() => {});
+  if (BD.chrome.length || items.length) fetch("/api/dock/embed/place", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({visible, items, dpr: devicePixelRatio, parent: BD.win && BD.win.hwnd})}).catch(() => {});
 }
 async function bdNew(profile, url) {
   if (S.view !== "browser") go("browser");

@@ -589,3 +589,5 @@ body.scened .card{backdrop-filter:blur(12px) saturate(1.15)}
 .menu.net-menu .obs-card{padding:12px;border-radius:12px}
 .main{overflow:hidden}
 .menu.net-menu{max-height:calc(100vh - 60px);overflow:auto}
+
+body:not(.desktop) .desk-only{display:none}

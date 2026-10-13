@@ -328,28 +328,33 @@ NORMAL_STYLE = 0x16CF0000  # visible overlapped window with caption, frame, min/
 
 def adopt():
     """After a service restart: pick up browser windows that are still inside the Daybook window."""
-    me = _daybook()
-    if not me:
-        return
-    found = []
+    tops = []
 
-    def cb(h, _):
-        if u32.GetParent(h) == me and _cls(h) in ("Chrome_WidgetWin_1", "MozillaWindowClass") and _exe(h) in BROWSER_EXES:
-            found.append(h)
+    def top_cb(h, _):
+        if _title(h) == appwin.TITLE and _cls(h) == "Chrome_WidgetWin_1":
+            tops.append(h)
         return True
-    u32.EnumChildWindows(me, ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
-    for h in found:
-        if h not in EMB:
-            EMB[h] = {"style": NORMAL_STYLE, "exstyle": u32.GetWindowLongPtrW(h, -20) | 0x40000, "rect": [200, 120, 1100, 760],
-                      "label": "Chrome", "browser": "chrome", "profile": "", "shown": None}
+    u32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(top_cb), 0)
+    for me in tops:
+        found = []
+
+        def cb(h, _, me=me):
+            if u32.GetParent(h) == me and _cls(h) in ("Chrome_WidgetWin_1", "MozillaWindowClass") and _exe(h) in BROWSER_EXES:
+                found.append(h)
+            return True
+        u32.EnumChildWindows(me, ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
+        for h in found:
+            if h not in EMB:
+                EMB[h] = {"style": NORMAL_STYLE, "exstyle": u32.GetWindowLongPtrW(h, -20) | 0x40000, "rect": [200, 120, 1100, 760],
+                          "label": "Chrome", "browser": "chrome", "profile": "", "shown": None, "parent": me}
 
 
-def embed(hwnd, label="", browser="", profile=""):
-    me = _daybook()
+def embed(hwnd, label="", browser="", profile="", parent=None):
+    me = parent if parent and u32.IsWindow(parent) else _daybook()
     if not me or not u32.IsWindow(hwnd) or hwnd in EMB:
         return
     style, ex = u32.GetWindowLongPtrW(hwnd, -16), u32.GetWindowLongPtrW(hwnd, -20)
-    EMB[hwnd] = {"style": style, "exstyle": ex, "rect": _rect(hwnd), "label": label, "browser": browser, "profile": profile, "shown": None}
+    EMB[hwnd] = {"style": style, "exstyle": ex, "rect": _rect(hwnd), "label": label, "browser": browser, "profile": profile, "shown": None, "parent": me}
     if u32.IsZoomed(hwnd) or u32.IsIconic(hwnd):
         u32.ShowWindow(hwnd, 9)
     u32.ShowWindow(hwnd, 0)
@@ -364,8 +369,8 @@ def release(hwnd, close=False):
     e = EMB.pop(hwnd, None)
     if not e or not u32.IsWindow(hwnd):
         return
-    me = _daybook()
-    if me:
+    me = e.get("parent") or _daybook()
+    if me and u32.IsWindow(me):
         _link_input(hwnd, me, False)
     u32.SetParent(hwnd, None)
     u32.SetWindowLongPtrW(hwnd, -16, e["style"])
@@ -378,14 +383,16 @@ def release(hwnd, close=False):
         u32.SetForegroundWindow(hwnd)
 
 
-def place(items, visible, dpr):
+def place(items, visible, dpr, parent=None):
     """items: [{hwnd, x, y, w, h}] in page CSS pixels (the Daybook page fills the window's client area)."""
-    me = _daybook()
     for hw in list(EMB):
         if not u32.IsWindow(hw):  # closed from inside Chrome
             EMB.pop(hw, None)
     want = {int(i["hwnd"]): i for i in items}
     for hw, e in EMB.items():
+        if parent and e.get("parent") != parent:
+            continue  # another Daybook window's Chrome
+        me = e.get("parent") or _daybook()
         i = want.get(hw)
         if not visible or not i or not me:
             if e["shown"] is not False:
@@ -402,21 +409,21 @@ def place(items, visible, dpr):
         e["shown"] = True
 
 
-def open_embedded(browser, profile, url=""):
+def open_embedded(browser, profile, url="", parent=None):
     hw = open_profile(browser, profile, url, dock=False)
     from . import launchpad
     b = next((x for x in launchpad.browsers() if x["id"] == browser), {"name": browser, "profiles": []})
     p = next((x for x in b["profiles"] if x["id"] == profile), {"name": profile, "color": b.get("color", "#888")})
-    embed(hw, p.get("name", profile), browser, profile)
+    embed(hw, p.get("name", profile), browser, profile, parent)
     return hw
 
 
 @bp.get("/api/dock/embedded")
 def d_embedded():
-    if not EMB:
-        adopt()
+    adopt()
+    parent = int(request.args.get("parent") or 0)
     return jsonify([{"hwnd": hw, "label": e["label"], "browser": e["browser"], "profile": e["profile"], "title": _title(hw)}
-                    for hw, e in list(EMB.items()) if u32.IsWindow(hw)])
+                    for hw, e in list(EMB.items()) if u32.IsWindow(hw) and (not parent or e.get("parent") == parent)])
 
 
 @bp.post("/api/dock/embed/<action>")
@@ -424,11 +431,17 @@ def d_embed(action):
     j = request.get_json() or {}
     try:
         if action == "open":
-            return jsonify(hwnd=open_embedded(j.get("browser"), j.get("profile"), j.get("url", "")))
+            return jsonify(hwnd=open_embedded(j.get("browser"), j.get("profile"), j.get("url", ""), int(j.get("parent") or 0) or None))
         if action == "place":
-            place(j.get("items", []), bool(j.get("visible")), float(j.get("dpr", 1)))
+            place(j.get("items", []), bool(j.get("visible")), float(j.get("dpr", 1)), int(j.get("parent") or 0) or None)
         elif action == "release":
-            for hw in ([*EMB] if j.get("all") else [int(j.get("hwnd", 0))]):
+            if j.get("all"):
+                targets = [*EMB]
+            elif j.get("parent"):
+                targets = [hw for hw, e in EMB.items() if e.get("parent") == int(j["parent"])]
+            else:
+                targets = [int(j.get("hwnd", 0))]
+            for hw in targets:
                 release(hw, close=bool(j.get("close")))
         else:
             return jsonify(error="unknown action"), 400

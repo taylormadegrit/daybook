@@ -366,6 +366,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
       <div class="muted small" id="ver"></div>
       <div class="seg sm lay-pick" title="Layout: how much Daybook shows"><button data-m="simple" onclick="pickLayout('simple', false)">Simple</button><button data-m="balanced" onclick="pickLayout('balanced', false)">Balanced</button><button data-m="power" onclick="pickLayout('power', false)">Power</button></div>
+      <button class="navcollapse desk-only" title="Open another Daybook window — e.g. for your other screen (Ctrl+Shift+N)" onclick="newAppWindow()"><svg class="i sm" data-i="ext"></svg>New window</button>
       <button class="navcollapse" title="Reorder pages, move the sidebar to any side" onclick="sidebarModal()"><svg class="i sm" data-i="sidebar"></svg>Customize sidebar</button>
       <button class="navcollapse" title="Collapse / expand the sidebar (Ctrl B)" onclick="setSlim(!$('.app').classList.contains('slim'))"><svg class="i sm" data-i="left"></svg>Collapse sidebar</button>
     </div>
@@ -1389,6 +1390,7 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
   ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
   ["Go to Research (Zotero)", "book", () => go("research")], ["Add a source to Zotero", "book", () => { go("research"); setTimeout(zAddModal, 400); }], ["Open Zotero", "book", () => api("/api/zotero/launch", {method: "POST"})],
+  ["Open a new window (other screen)", "ext", () => newAppWindow()],
   ["Go to Browser", "globe", () => go("browser")], ["Customize sidebar", "sidebar", () => sidebarModal()], ["Move sidebar to the top", "sidebar", () => saveLayoutCfg({navPos: "top"})], ["Move sidebar to the left", "sidebar", () => saveLayoutCfg({navPos: "left"})],
   ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
   ["Games library", "gamepad", () => go("games")], ["Free games", "gamepad", () => { GM.view = "free"; go("games"); }], ["Wi-Fi & network", "globe", () => netToggle()], ["Speed test", "zap", () => { netToggle(); setTimeout(netSpeed, 600); }], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
@@ -1425,6 +1427,10 @@ function palHi() { $$(".pal .pr").forEach(p => p.classList.toggle("on", +p.datas
 function palPick(i) { const f = palItems[i].run; closeModal(); f(); }
 
 // ================= menus, keys, status =================
+function newAppWindow(view) {
+  if (!window.desktop) { window.open(location.href, "_blank", "width=1300,height=850"); return; }
+  desktop.newWindow(view || S.view); toast("Opening another Daybook window…");
+}
 function toggleMenu(e) { e.stopPropagation(); $("#newmenu").classList.toggle("on"); }
 function closeMenu() { $("#newmenu").classList.remove("on"); }
 document.addEventListener("click", closeMenu);
@@ -1435,6 +1441,7 @@ document.addEventListener("keydown", e => {
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); go("browser"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "g") { e.preventDefault(); go("games"); return; }
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); newAppWindow(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "r") { e.preventDefault(); go("research"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }

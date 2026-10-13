@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("desktop", {
   isDesktop: true,
   info: () => ipcRenderer.invoke("app:info"),
   settings: s => ipcRenderer.invoke("app:settings", s),
+  newWindow: view => ipcRenderer.invoke("app:newWindow", view),
   browser: {
     open: (profile, url) => ipcRenderer.invoke("browser:open", {profile, url}),
     close: id => ipcRenderer.invoke("browser:close", id),
