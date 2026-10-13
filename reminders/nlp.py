@@ -83,6 +83,44 @@ def detect_repeat(text):
 URGENT = re.compile(r"\b(urgent|asap|important|critical|don'?t forget|must)\b", re.I)
 
 
+DAYPART = re.compile(r"\b(tonight|tomorrow night|this (morning|afternoon|evening)|(today|tomorrow) (morning|afternoon|evening|night))\b")
+CLOCK = re.compile(r"\b(?:at|by|@)?\s*(\d{1,2})(?::(\d\d))?\s*(am|pm)?\b")
+
+
+def _daypart_with_time(p):
+    """'tonight at 11pm' / 'this evening at 7' / 'tomorrow morning 6:30' → 'today 11:00pm' / 'today 7:00pm' / 'tomorrow 6:30am'.
+    (The aliases alone turned 'tonight at 11pm' into 'today 8pm 11pm', which resolved to *now*.)"""
+    m = DAYPART.search(p)
+    if not m:
+        return p
+    rest = (p[:m.start()] + " " + p[m.end():]).strip()
+    c = next((c for c in CLOCK.finditer(rest) if c.group(1) and (c.group(2) or c.group(3) or re.search(r"\b(at|by|@)\s*$", rest[:c.start(1)]))), None)
+    if not c:
+        return p
+    hour, minute, ampm = int(c.group(1)), c.group(2) or "00", c.group(3)
+    word = m.group(0)
+    if not ampm and hour <= 12:
+        ampm = "am" if "morning" in word else "pm"
+    day = "tomorrow" if "tomorrow" in word else "today"
+    return f"{day} {hour}:{minute}{ampm}"
+
+
+WHEN_WORDS = re.compile(
+    r"\b(?:(?:next|this)\s+)?(?:today|tonight|tomorrow(?:\s+(?:morning|afternoon|evening|night))?|this\s+(?:morning|afternoon|evening)|"
+    r"(?:mon|tues|wednes|thurs|fri|satur|sun)day|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?|"
+    r"the\s+\d{1,2}(?:st|nd|rd|th)|in\s+\d+\s+(?:minutes?|mins?|hours?|hrs?|days?|weeks?))\b"
+    r"|(?:\b(?:at|by|@)\s*)?\b\d{1,2}(?::\d\d)?\s*(?:am|pm)\b|\d{1,2}:\d\d|\b(?:at|by)\s+\d{1,2}(?::\d\d)?\b|\bnoon\b|\bmidnight\b", re.I)
+
+
+def when_words(text):
+    """The words in a request that say when — found exactly in the text (the AI sometimes drops or changes them)."""
+    found = [m.group(0).strip() for m in WHEN_WORDS.finditer(text)]
+    for t in re.findall(r"(?<![\d:])\d{1,2}:\d\d(?![\d:])", text):  # "6:30" with no am/pm
+        if not any(t in f for f in found):
+            found.append(t)
+    return " ".join(found)
+
+
 def resolve_when(phrase, now):
     """Exact date math (qwen is unreliable at weekdays): plain-English phrase → datetime or None."""
     import dateparser
@@ -90,6 +128,13 @@ def resolve_when(phrase, now):
     if not phrase:
         return None
     p = phrase.lower()
+    bare = re.fullmatch(r"\s*(?:at|by|@)\s+(\d{1,2})(?::(\d\d))?\s*", p)
+    if bare and 1 <= int(bare.group(1)) <= 12:  # "at 5" → the next 5:00 (5 pm if it's past 5 am)
+        h, mi = int(bare.group(1)), int(bare.group(2) or 0)
+        cands = [now.replace(hour=h % 12 + add, minute=mi) for add in (0, 12)]
+        cands += [c + timedelta(days=1) for c in cands]
+        return min(c for c in cands if c > now)
+    p = _daypart_with_time(p)
     for pat, rep in ALIASES:
         p = re.sub(pat, rep, p)
     # "the 1st" / "15th" with no month → next time that day of the month comes round
@@ -117,10 +162,12 @@ def resolve_when(phrase, now):
 def _parse_with_ollama(text, now):
     prompt = f"""Split this reminder request into JSON: "{text}"
 Fields:
-- "task": what to be reminded of, short imperative, sentence case, without any date/time/repeat words (e.g. "Call mom")
+- "task": what to be reminded of, in the person's own words (keep their verb, e.g. "text" stays "text"), sentence case,
+  without any date/time/repeat words (e.g. "Call mom")
 - "when": the exact words from the request that say WHEN (date and/or time), without repeat words like "every".
   Examples: "sunday at 5pm", "in 20 minutes", "october 19", "tomorrow", "at 9am", "the 1st". "" if none.
-- "repeat": "" or one of daily, weekdays, weekly, monthly, yearly, or every:<n>:<minutes|hours|days|weeks>
+- "repeat": "" unless the request says it repeats ("every", "daily", "weekly"…); then one of daily, weekdays, weekly,
+  monthly, yearly, or every:<n>:<minutes|hours|days|weeks>. "next monday" is NOT a repeat.
 Reply with JSON only."""
     out = _ask_ollama(prompt)
     task = str(out.get("task", "")).strip()
@@ -172,6 +219,17 @@ def parse(text, now=None):
     if not result or not result["text"]:
         result = {"text": text.strip(), "due": None, "repeat": "", "priority": 0, "engine": "none"}
     rule, phrase = detect_repeat(text)
+    exact = when_words(re.sub(re.escape(phrase), " ", text, flags=re.I) if rule else text)
+    if exact:  # the time written in the request beats the model's reading of it
+        try:
+            d = resolve_when(exact, now)
+            if d:
+                result["due"] = d
+                result["when_words"] = exact
+        except Exception:
+            pass
+    if not rule and not re.search(r"\b(every|each|daily|weekly|monthly|yearly|annually|weekdays|mon(day)?\s*-\s*fri)", text, re.I):
+        result["repeat"] = ""  # the model sometimes invents a repeat ("next monday" → weekly)
     if rule:  # deterministic beats the model's guess
         result["repeat"] = rule
         result["text"] = re.sub(re.escape(phrase), "", result["text"], flags=re.I).strip(" ,.") or result["text"]
