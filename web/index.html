@@ -1460,8 +1460,9 @@ function newAppWindow(view) {
 function toggleMenu(e) { e.stopPropagation(); $("#newmenu").classList.toggle("on"); }
 function closeMenu() { $("#newmenu").classList.remove("on"); }
 document.addEventListener("click", closeMenu);
+if (window.desktop && desktop.onAppKey) desktop.onAppKey(k => document.dispatchEvent(new KeyboardEvent("keydown", {key: k.key, ctrlKey: k.ctrl, altKey: k.alt, shiftKey: k.shift, bubbles: true, cancelable: true})));
 document.addEventListener("keydown", e => {
-  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   if (lpKeys(e)) { e.preventDefault(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }

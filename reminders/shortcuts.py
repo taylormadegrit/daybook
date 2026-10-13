@@ -9,7 +9,7 @@ from . import paths
 
 HOTKEYS = [("New Reminder", "add", "R"), ("Quick Note", "note", "N"), ("Agenda", "agenda", "A"), ("Daybook Chat", "chat", "C"),
            ("Sticky Note", "sticky", "S"), ("Show Sticky Notes", "peek", "W"), ("Annotate Screen", "annotate", "P")]
-MARK = paths.DATA / "shortcuts.v1"
+MARK = paths.DATA / "shortcuts.v2"  # v2: no .lnk hotkeys (the Daybook app registers them itself)
 
 
 def ensure():
@@ -21,6 +21,6 @@ def ensure():
     lines = ["$ws = New-Object -ComObject WScript.Shell"]
     for name, mode, key in HOTKEYS:
         lines.append(f"$l = $ws.CreateShortcut('{folder / (name + '.lnk')}'); $l.TargetPath = '{sys.executable}'; $l.Arguments = '{mode}'; "
-                     f"$l.Hotkey = 'Alt+Ctrl+{key}'; $l.IconLocation = '{ico},0'; $l.WorkingDirectory = '{Path(sys.executable).parent}'; $l.Save()")
+                     f"$l.Hotkey = ''; $l.IconLocation = '{ico},0'; $l.WorkingDirectory = '{Path(sys.executable).parent}'; $l.Save()")
     subprocess.run(["powershell", "-NoProfile", "-Command", "; ".join(lines)], creationflags=0x08000000, timeout=60)
     MARK.write_text(sys.executable)

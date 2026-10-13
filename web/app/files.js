@@ -260,6 +260,8 @@ function fdFolderItems(id, path) {
 document.addEventListener("keydown", e => {
   if (S.view !== "launchpad" || LP.view !== "folders" || $("#scrim").classList.contains("on")) return;
   if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.altKey && !/^Arrow/.test(e.key)) return;  // Alt+letters are Daybook's page shortcuts
+  if (e.target !== document.body && !(e.target.closest && e.target.closest("#fh"))) return;  // focus is elsewhere (a button, a menu…)
   const p = fdPane(FD.focus); if (!p) { if (e.ctrlKey && e.key.toLowerCase() === "t") { e.preventDefault(); fdNewPane(); } return; }
   const sel = [...p.sel], k = e.key, ctl = e.ctrlKey || e.metaKey;
   const act = {

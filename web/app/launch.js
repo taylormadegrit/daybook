@@ -83,7 +83,7 @@ function lpAllApps() {
 }
 function lpClock() { const c = $("#lp-clock"); if (c) c.textContent = new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); }
 function lpKeys(e) {
-  if (S.view !== "launchpad" || LP.view !== "home" || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || $("#scrim").classList.contains("on")) return false;
+  if (S.view !== "launchpad" || LP.view !== "home" || e.altKey || e.ctrlKey || e.metaKey || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || $("#scrim").classList.contains("on")) return false;
   const rows = lpRows(); let {row: r, col: c} = LP;
   if (e.key === "ArrowRight") c = Math.min(c + 1, rows[r].length - 1);
   else if (e.key === "ArrowLeft") c = Math.max(c - 1, 0);

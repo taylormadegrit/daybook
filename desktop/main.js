@@ -1,6 +1,6 @@
 // Daybook desktop app — native windows around the local Daybook service, plus real in-app browser panes.
 // You can open several Daybook windows (e.g. one per screen); each has its own page, browser panes and embedded Chrome.
-const {app, BrowserWindow, WebContentsView, ipcMain, session, shell, Tray, Menu, nativeImage, dialog, screen, desktopCapturer} = require("electron");
+const {app, BrowserWindow, WebContentsView, ipcMain, session, shell, Tray, Menu, nativeImage, dialog, screen, desktopCapturer, globalShortcut} = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
@@ -347,6 +347,9 @@ function openPane(profile, url, owner) {
     else if ((i.control && k === "r") || k === "f5") { e.preventDefault(); wc.reload(); }
     else if (i.alt && k === "arrowleft") { e.preventDefault(); wc.navigationHistory.goBack(); }
     else if (i.alt && k === "arrowright") { e.preventDefault(); wc.navigationHistory.goForward(); }
+    else if ((i.control && !i.alt && (k === "k" || k === "." || (i.shift && k === "n"))) || (i.alt && !i.control && /^([0-9]|[lbigkrmswp])$/.test(k))) {
+      e.preventDefault(); owner.webContents.send("app:key", {key: i.key, ctrl: i.control, alt: i.alt, shift: i.shift});  // Daybook's own shortcuts
+    }
   });
   wc.on("render-process-gone", () => sendPanes(owner, {toast: "A page crashed — press reload"}));
   wc.on("context-menu", (_e, m) => {
@@ -474,8 +477,34 @@ setInterval(async () => {
   } finally { watching = false; }
 }, 20000);
 
+// ---- system-wide hotkeys (work in any app while Daybook runs in the tray) ----
+// Ctrl+Alt+S is left out on purpose: on this PC another tool (a screenshot script) already uses it.
+const HOTKEYS = {"Control+Alt+R": "add", "Control+Alt+N": "note", "Control+Alt+A": "agenda", "Control+Alt+C": "view:chat", "Control+Alt+D": "view:today",
+  "Control+Alt+W": "post:/api/stickies/peek", "Control+Alt+P": "post:/api/annotate"};
+const HOTKEY_STATE = {};
+function helperSpawn(mode) {  // the small quick-add / quick-note / agenda windows
+  const packed = path.join(process.resourcesPath || "", "backend", "daybook-backend.exe");
+  const [exe, args] = app.isPackaged && fs.existsSync(packed) ? [packed, [mode]] : [path.join(DEV_ROOT, "venv", "Scripts", "pythonw.exe"), [path.join(DEV_ROOT, "quickadd.pyw"), mode]];
+  try { spawn(exe, args, {detached: true, stdio: "ignore", windowsHide: false}).unref(); } catch (e) { console.error("hotkey", mode, e); }
+}
+function registerHotkeys() {
+  const extra = loadState().hotkeySticky;  // optional: a key for "new sticky note" chosen in Settings
+  const map = {...HOTKEYS, ...(extra ? {[extra]: "post:/api/stickies"} : {})};
+  for (const [acc, act] of Object.entries(map)) {
+    const ok = globalShortcut.register(acc, () => {
+      if (act.startsWith("view:")) showWindow(act.slice(5));
+      else if (act.startsWith("post:")) post(act.slice(5), act.endsWith("/api/stickies") ? {color: "lemon"} : {});
+      else helperSpawn(act);
+    });
+    HOTKEY_STATE[acc] = ok ? "on" : "taken";  // "taken" = another app already owns this key
+  }
+}
+ipcMain.handle("app:hotkeys", () => HOTKEY_STATE);
+app.on("will-quit", () => globalShortcut.unregisterAll());
+
 app.whenReady().then(async () => {
   adblockInit();
+  registerHotkeys();
   // mic + screen capture for voice/video notes inside Daybook's own pages
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));
   session.defaultSession.setDisplayMediaRequestHandler(async (req, cb) => {
