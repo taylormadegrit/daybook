@@ -344,6 +344,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
   <nav class="nav">
     <div class="brand"><img src="/brand/icon-64.png" alt="" class="logo"><div>Daybook<small>Local AI Hub</small></div></div>
     <div class="navi" data-v="today"><svg class="i" data-i="home"></svg>Today<span class="k">Alt 1</span></div>
+    <div class="navi" data-v="launchpad"><svg class="i" data-i="grid"></svg>Launchpad<span class="k">Alt L</span></div>
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
@@ -360,6 +361,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="st" id="st-claude" style="cursor:pointer" onclick="go('settings')"><i></i><span>Claude</span></div>
       <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
       <div class="muted small" id="ver"></div>
+      <div class="seg sm lay-pick" title="Layout: how much Daybook shows"><button data-m="simple" onclick="pickLayout('simple', false)">Simple</button><button data-m="balanced" onclick="pickLayout('balanced', false)">Balanced</button><button data-m="power" onclick="pickLayout('power', false)">Power</button></div>
       <button class="navcollapse" title="Collapse / expand the sidebar (Ctrl B)" onclick="setSlim(!$('.app').classList.contains('slim'))"><svg class="i sm" data-i="left"></svg>Collapse sidebar</button>
     </div>
   </nav>
@@ -495,15 +497,20 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- LAUNCHPAD -->
+    <section class="view" id="v-launchpad"><div class="pad"><div class="lp" id="lp"></div></div></section>
+
     <!-- VOICE MEMOS -->
     <section class="view" id="v-memos"><div class="pad" style="max-width:1600px;padding-bottom:0">
       <div class="memos">
         <div class="mcol">
           <div class="card" style="margin-bottom:12px"><div class="recbig"><button class="recbtn" id="recbtn" title="Record (click again to stop)" onclick="memoRecToggle()"><i></i></button>
-            <div style="flex:1;min-width:0"><div id="rect" class="small" style="margin-bottom:4px">Tap to record</div><canvas class="recwave" id="recwave"></canvas></div></div>
+            <div style="flex:1;min-width:0"><div id="rect" class="small" style="margin-bottom:4px">Tap to record a voice memo</div><canvas class="recwave" id="recwave"></canvas></div>
+            <button class="btn" title="Record a video note — camera, screen or OBS" onclick="videoRecModal()"><svg class="i sm" data-i="rec"></svg>Video</button></div>
             <div class="drop" id="mdrop" onclick="memoImportPick()"><b>📱 Import from your phone</b><br>Drop m4a / mp3 / wav files here or click to choose<br><span style="font-size:11.5px">iPhone: Voice Memos → ••• → Share → Save to Files / AirDrop · Android: Recorder → Share</span></div>
             <input type="file" id="mfile" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.opus,.flac,.amr,.3gp,.caf" multiple style="display:none" onchange="memoImport(this.files);this.value=''"></div>
           <input class="f" id="mq" placeholder="Search names, labels and what was said…" oninput="debounce('mq',renderMemos,250)" style="margin-bottom:8px">
+          <div class="seg sm" id="mkinds" style="margin-bottom:8px"></div>
           <div class="lblchips" id="mlabels" style="margin-bottom:6px"></div>
           <div id="mlist"></div>
         </div>
@@ -550,6 +557,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3><div class="themes" id="themes"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3><div id="layoutset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice & microphone</h3><div id="voiceset"></div></div>
       <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude</h3><div id="claude"></div></div>
       <div class="set">
@@ -596,6 +604,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/clock.js"></script>
 <script src="/app/home.js"></script>
 <script src="/app/notesx.js"></script>
+<script src="/app/launch.js"></script>
+<script src="/app/video.js"></script>
+<script src="/app/layout.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -638,6 +649,7 @@ const ICONS = {
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
   layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
+  rec: "M23 7l-7 5 7 5zM1 5h15v14H1z",
   mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
   play: "M6 4l14 8-14 8z", pause: "M7 4h3v16H7zM14 4h3v16h-3z",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
@@ -659,7 +671,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {memos: ["Voice memos", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -673,7 +685,7 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => renderLaunchpad(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
@@ -749,7 +761,9 @@ function renderWelcome() {
       <div class="tip"><b>Pop-ups that persist</b>They ring every few minutes until you press Done or Snooze.</div>
       <div class="tip"><b>Notes that organize themselves</b>The local AI adds titles, tags, summaries and action items.</div>
       <div class="tip"><b>Hotkeys anywhere</b><span class="kbd">Ctrl Alt R</span> reminder · <span class="kbd">Ctrl Alt N</span> note · <span class="kbd">Ctrl K</span> search</div>
-    </div><div class="row"><button class="btn pri" onclick="dismissWelcome()">Got it</button><button class="btn ghost" onclick="go('help')">Open the guide</button></div></div>`;
+    </div><div class="row" style="margin-bottom:12px"><span class="small muted">How should Daybook look?</span>
+      <button class="btn sm" onclick="pickLayout('simple')">Simple</button><button class="btn sm" onclick="pickLayout('balanced')">Balanced</button><button class="btn sm" onclick="pickLayout('power')">Power user</button></div>
+    <div class="row"><button class="btn pri" onclick="dismissWelcome()">Got it</button><button class="btn ghost" onclick="go('help')">Open the guide</button></div></div>`;
 }
 async function dismissWelcome() { await saveSetting("welcome_seen", "1"); renderWelcome(); }
 async function addLog() {
@@ -1205,7 +1219,7 @@ async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
 async function renderSettings() {
-  renderVoiceSettings();
+  renderVoiceSettings(); renderLayoutSettings();
   const [st, set] = await Promise.all([api("/api/status"), api("/api/settings")]); S.settings = set;
   const opts = (sel, extra) => (extra || "") + st.models.map(m => `<option value="${m.name}">${m.name}${m.params ? " · " + m.params : ""}</option>`).join("");
   $("#s-aimodel").innerHTML = opts(); $("#s-chatmodel").innerHTML = opts(null, `<option value="">First installed model</option>`);
@@ -1257,6 +1271,9 @@ async function reorgAll() { const j = await api("/api/notes/reorganize-all", {me
 // ================= HELP =================
 const HELP = [
   ["home", "Your home page", `<p><b>Edit home</b> (top of Today) makes the widgets wiggle: drag them to move, ⤢ to make one full width, ✕ to remove, and <b>＋ Add widget</b> for more — timers, stopwatch, alarms, world clock, voice memos, recent notes, ambience, breathe and more. <b>Customize</b> picks an animated background (fireplace, rainy window, firefly forest, ocean sunset, starry night, snowfall, spring meadow) with matching ambient sound, or your own picture or video. Click an empty part of the background — the scenes react.</p>`],
+  ["launchpad", "Launchpad — browsers, accounts & apps", `<p><b>Launchpad</b> (<span class="kb">Alt L</span>) shows every browser profile on this PC — Chrome, Edge, Brave, Comet, Firefox and more — with the account signed in to it, plus your pinned apps. Hover or use the arrow keys to look, click or Enter to open. Each profile has one-click links (Gmail, YouTube Studio, Drive…) that open <b>in that profile</b>, or type any site. <b>All apps</b> lists everything installed; ☆ pins it. Daybook only reads profile names and pictures — never passwords, cookies or history.</p>`],
+  ["video", "Video notes & OBS", `<p>On <b>Voice & video</b>, press <b>Video</b>: record your <b>camera</b> or your <b>screen</b> right in Daybook (no setup), or use <b>OBS Studio</b> for your full scenes. The first time, press <b>Connect OBS</b> (with OBS closed) — it switches on OBS's local, password-protected remote control. After that, Rec / Pause / Stop work from Daybook and the recording shows up as a video note, transcribed and searchable. OBS recordings stay in OBS's own folder.</p>`],
+  ["layout", "Simple or power user", `<p>Pick <b>Simple</b>, <b>Balanced</b> or <b>Power</b> at the bottom of the sidebar or in Settings → Layout. Simple hides the extra pages, shortcut badges and tools; Power packs in every page, shortcut and more widgets. Then fine-tune: which pages show in the sidebar, density, hints, quick tools and the page Daybook opens to.</p>`],
   ["clock", "Clock — timers, alarms, stopwatch, world clock", `<p>Works like the iPhone Clock app. <b>Timers</b>: set hours/minutes/seconds or tap a preset (🎯 Focus 25, ☕ Break 5…); run several at once, pause, +1 min, and your recent timers are one tap away. On the Today schedule, the ⏱ button starts a timer for that task. <b>Alarms</b>: time, repeat days, label, sound and snooze. Alarms and timers ring with a sound and a pop-up <b>even when the Daybook window is closed</b>. <b>Stopwatch</b>: laps with fastest in green and slowest in red; it keeps running if you close the window. <b>World clock</b>: add any city.</p>`],
   ["voice", "Voice: dictation & voice memos", `<p><b>Dictation</b>: press <span class="kb">Alt M</span> or any 🎤 button, talk, then press Done — the words appear where you were typing. Pick your microphone in Settings → Voice. Speech is turned into text <b>on this PC</b> (Whisper) — audio never leaves it.</p>
     <p><b>Voice memos</b>: press the red button to record, then name, label and date it like a journal entry. Untitled memos get a title from the local AI. To bring in phone recordings: <b>iPhone</b> Voice Memos → ••• → Share → Save to Files / AirDrop / email to yourself; <b>Android</b> Recorder → Share. Then drop the m4a / mp3 files on the Voice memos page. Every memo is searchable by what was said, and <b>Save as note</b> turns it into a journal note.</p>`],
@@ -1327,6 +1344,8 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to Voice memos", "mic", () => go("memos")], ["Record a voice memo", "mic", () => { go("memos"); setTimeout(memoRecToggle, 250); }], ["Import phone recordings", "up", () => { go("memos"); setTimeout(memoImportPick, 250); }],
   ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
   ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
+  ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
+  ["Simple layout", "grid", () => pickLayout("simple")], ["Balanced layout", "grid", () => pickLayout("balanced")], ["Power user layout", "grid", () => pickLayout("power")], ["Layout settings", "sliders", () => go("settings")],
   ["Focus mode (notes)", "expand", () => { go("notes"); focusMode(); }], ["Collapse sidebar", "sidebar", () => setSlim(!$(".app").classList.contains("slim"))], ["Dictate (speech to text)", "mic", () => dictate()], ["Voice settings", "mic", () => go("settings")]];
 let palItems = [], palIdx = 0;
 function openPalette() {
@@ -1364,6 +1383,8 @@ function closeMenu() { $("#newmenu").classList.remove("on"); }
 document.addEventListener("click", closeMenu);
 document.addEventListener("keydown", e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (lpKeys(e)) { e.preventDefault(); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
   if (e.ctrlKey && e.key === ".") { e.preventDefault(); if (S.view !== "notes") go("notes"); focusMode(); return; }
@@ -1392,8 +1413,9 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);
+  applyLayout();
   const [v, sub] = location.hash.slice(1).split("/");
-  go(v || "today", sub);
+  go(v || layoutCfg().start || "today", sub);
   if (v === "notes" && sub) openNote(+sub);
   pollStatus(); clockFetch(); setInterval(() => document.visibilityState === "visible" && !C.poll && clockFetch(), 15000);
   micFor($("#cinput"), $("#cmic"), "send");

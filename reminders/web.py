@@ -22,6 +22,9 @@ app.register_blueprint(memos_bp)
 from .launchpad import bp as launchpad_bp  # noqa: E402
 
 app.register_blueprint(launchpad_bp)
+from .obs import bp as obs_bp  # noqa: E402
+
+app.register_blueprint(obs_bp)
 BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 

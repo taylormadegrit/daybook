@@ -37,6 +37,8 @@ const WIDGETS = {
     html: () => `<div class="card"><h3>${ic("note")}Recent notes<button class="btn sm" onclick="templateModal()">${ic("plus")}New</button></h3><div id="w-notes"></div></div>`,
     after: async () => { const ns = await api("/api/notes?q="); const el = $("#w-notes"); if (!el) return;
       el.innerHTML = ns.slice(0, 5).map(n => `<div class="cat" onclick="openNote(${n.id})">${ic(CAT_ICON[n.category] || "note")}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.title || "Untitled")}</span><span class="c">${dayName(n.note_date + "T12:00")}</span></div>`).join("") || `<div class="empty">No notes yet</div>`; }},
+  launchpad: {name: "Launchpad", icon: "grid", desc: "Your browser profiles and pinned apps — one click to open",
+    html: () => `<div class="card"><h3>${ic("grid")}Launchpad<button class="btn sm ghost" onclick="go('launchpad')">Open</button></h3><div id="w-lp"></div></div>`, after: () => lpWidget()},
   ambience: {name: "Ambience", icon: "palette", desc: "Pick a relaxing scene and play its sound",
     html: () => `<div class="card"><h3>${ic("palette")}Ambience<button class="btn sm ghost" onclick="customizeModal()">More</button></h3><div id="w-amb"></div></div>`, after: () => renderAmbWidget()},
   breathe: {name: "Breathe", icon: "spark", desc: "A 1-minute box-breathing exercise (4-4-4-4) to reset",

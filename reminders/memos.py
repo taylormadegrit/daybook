@@ -13,7 +13,8 @@ from . import db
 
 bp = Blueprint("memos", __name__)
 MEMO_DIR = Path(__file__).resolve().parent.parent / "data" / "memos"
-AUDIO_EXT = {".m4a", ".mp3", ".wav", ".webm", ".ogg", ".opus", ".aac", ".flac", ".mp4", ".3gp", ".amr", ".caf", ".qta"}
+AUDIO_EXT = {".m4a", ".mp3", ".wav", ".webm", ".ogg", ".opus", ".aac", ".flac", ".mp4", ".3gp", ".amr", ".caf", ".qta", ".mkv", ".mov"}
+VIDEO_EXT = {".mkv", ".mov", ".mp4"}  # .webm can be either — the uploader says which
 LABELS = ["Journal", "Idea", "Meeting", "To-do", "Lyrics", "Content", "Personal", "Learning"]
 JOBS = queue.Queue()
 TS = "%Y-%m-%dT%H:%M:%S"
@@ -26,7 +27,15 @@ def _con():
         duration REAL NOT NULL DEFAULT 0, size INTEGER NOT NULL DEFAULT 0, transcript TEXT NOT NULL DEFAULT '',
         notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', source TEXT NOT NULL DEFAULT 'recorded',
         starred INTEGER NOT NULL DEFAULT 0, auto_title INTEGER NOT NULL DEFAULT 0, note_id INTEGER, created TEXT NOT NULL)""")
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(memos)")}
+    if "kind" not in cols:  # video notes (built-in recorder / OBS) share the library
+        con.execute("ALTER TABLE memos ADD COLUMN kind TEXT NOT NULL DEFAULT 'audio'")
+        con.execute("ALTER TABLE memos ADD COLUMN path TEXT NOT NULL DEFAULT ''")  # external file (OBS) — left in place
     return con
+
+
+def media(m):
+    return Path(m["path"]) if m.get("path") else MEMO_DIR / m["file"]
 
 
 def _dict(r):
@@ -53,21 +62,38 @@ def _duration(path):
         return 0
 
 
-def add(data, filename, title="", labels=(), memo_date=None, source="recorded"):
+def add(data, filename, title="", labels=(), memo_date=None, source="recorded", kind=None):
     ext = Path(filename).suffix.lower() or ".webm"
+    kind = kind if kind in ("audio", "video") else ("video" if ext in VIDEO_EXT else "audio")
     if ext not in AUDIO_EXT:
         raise ValueError(f"{ext} isn't an audio format Daybook knows")
     MEMO_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now().strftime(TS)
     with _con() as con:
-        cur = con.execute("INSERT INTO memos (title, labels, memo_date, file, original, size, source, auto_title, created) "
-                          "VALUES (?,?,?,?,?,?,?,?,?)",
+        cur = con.execute("INSERT INTO memos (title, labels, memo_date, file, original, size, source, auto_title, created, kind) "
+                          "VALUES (?,?,?,?,?,?,?,?,?,?)",
                           (title.strip(), json.dumps([lbl for lbl in labels if lbl]), memo_date or now, "", filename,
-                           len(data), source, int(not title.strip()), now))
+                           len(data), source, int(not title.strip()), now, kind))
         mid = cur.lastrowid
         fname = f"memo{mid}{ext}"
         (MEMO_DIR / fname).write_bytes(data)
         con.execute("UPDATE memos SET file=?, duration=? WHERE id=?", (fname, _duration(MEMO_DIR / fname), mid))
+    JOBS.put(mid)
+    return mid
+
+
+def add_file(path, title="", labels=(), source="obs"):
+    """Index a recording that already exists on disk (e.g. OBS output) without copying it."""
+    p = Path(path)
+    now = datetime.now().strftime(TS)
+    with _con() as con:
+        cur = con.execute("INSERT INTO memos (title, labels, memo_date, file, original, size, source, auto_title, created, kind, path, duration) "
+                          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                          (title.strip(), json.dumps([lbl for lbl in labels if lbl]),
+                           datetime.fromtimestamp(p.stat().st_mtime).strftime(TS), p.name, p.name, p.stat().st_size, source,
+                           int(not title.strip()), now, "video" if p.suffix.lower() in VIDEO_EXT | {".webm", ".flv", ".ts"} else "audio",
+                           str(p), _duration(p)))
+        mid = cur.lastrowid
     JOBS.put(mid)
     return mid
 
@@ -86,13 +112,17 @@ def update(mid, **f):
 def delete(mid):
     m = get(mid)
     if m:
-        (MEMO_DIR / m["file"]).unlink(missing_ok=True)
+        if not m["path"]:  # OBS recordings stay where OBS saved them
+            (MEMO_DIR / m["file"]).unlink(missing_ok=True)
         with _con() as con:
             con.execute("DELETE FROM memos WHERE id=?", (mid,))
 
 
-def listing(q="", label=""):
+def listing(q="", label="", kind=""):
     sql, args = "SELECT * FROM memos WHERE 1=1", []
+    if kind:
+        sql += " AND kind=?"
+        args.append(kind)
     if q:
         sql += " AND (title LIKE ? OR transcript LIKE ? OR notes LIKE ? OR labels LIKE ?)"
         args += [f"%{q}%"] * 4
@@ -142,8 +172,8 @@ def worker():
         with _con() as con:
             con.execute("UPDATE memos SET status='working' WHERE id=?", (mid,))
         try:
-            p = MEMO_DIR / m["file"]
-            res = stt.transcribe(p.read_bytes(), p.suffix)
+            p = media(m)
+            res = stt.transcribe(p, p.suffix)
             with _con() as con:
                 con.execute("UPDATE memos SET transcript=?, status='done', duration=CASE WHEN duration=0 THEN ? ELSE duration END "
                             "WHERE id=?", (res["text"], res["seconds"], mid))
@@ -163,7 +193,7 @@ def start_worker():
 
 @bp.get("/api/memos")
 def memos_list():
-    return jsonify(items=listing(request.args.get("q", ""), request.args.get("label", "")),
+    return jsonify(items=listing(request.args.get("q", ""), request.args.get("label", ""), request.args.get("kind", "")),
                    labels=all_labels(), suggested=LABELS)
 
 
@@ -184,7 +214,7 @@ def memos_add():
                 stem = Path(f.filename).stem
                 title = "" if stem.lower().startswith(("new recording", "recording", "voice", "audio", "memo", "rec_", "ptt-")) else stem
             added.append(add(f.read(), f.filename, title, json.loads(request.form.get("labels", "[]")),
-                             when or None, request.form.get("source", "recorded")))
+                             when or None, request.form.get("source", "recorded"), request.form.get("kind")))
         except Exception as e:
             errors.append(f"{f.filename}: {e}")
     return jsonify(added=added, errors=errors)
@@ -223,15 +253,24 @@ def memo_to_note(mid):
     if not m:
         return jsonify(error="not found"), 404
     when = datetime.strptime(m["memo_date"][:19], TS)
-    body = (f"🎙️ Voice memo · {when:%b %d, %Y %I:%M %p} · {int(m['duration'] // 60)}:{int(m['duration'] % 60):02d}\n\n"
+    body = (f"{'🎬 Video note' if m['kind'] == 'video' else '🎙️ Voice memo'} · {when:%b %d, %Y %I:%M %p} · {int(m['duration'] // 60)}:{int(m['duration'] % 60):02d}\n\n"
             + (m["transcript"] or "") + (f"\n\n## My notes\n{m['notes']}" if m["notes"] else ""))
     cat = {"Journal": "Journal", "Idea": "Idea", "Meeting": "Meeting", "To-do": "To-do", "Content": "Content",
            "Learning": "YouTube / Learning", "Personal": "Personal"}
     nid = notes.add(body, m["title"], next((cat[lbl] for lbl in m["labels"] if lbl in cat), "Journal"),
-                    [lbl.lower() for lbl in m["labels"]] + ["voice-memo"], when.date().isoformat())
+                    [lbl.lower() for lbl in m["labels"]] + ["video-note" if m["kind"] == "video" else "voice-memo"], when.date().isoformat())
     with _con() as con:
         con.execute("UPDATE memos SET note_id=? WHERE id=?", (nid, mid))
     return jsonify(note_id=nid)
+
+
+@bp.get("/memo-media/<int:mid>")
+def memo_media(mid):
+    from flask import send_file
+    m = get(mid)
+    if not m or not media(m).exists():
+        return ("", 404)
+    return send_file(media(m), conditional=True)
 
 
 @bp.get("/memo-audio/<path:name>")

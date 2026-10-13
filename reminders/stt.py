@@ -54,10 +54,15 @@ def preload():
 
 
 def transcribe(data, suffix=".webm"):
+    """`data` = audio/video bytes, or a Path to a file on disk (big videos are read straight from disk)."""
     lang = db.setting("stt_language") or ""
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-        f.write(data)
-        path = f.name
+    temp = not isinstance(data, Path)
+    if temp:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(data)
+            path = f.name
+    else:
+        path = str(data)
     try:
         with _lock:
             model = _get()
@@ -68,7 +73,8 @@ def transcribe(data, suffix=".webm"):
             text = " ".join(s.text.strip() for s in segs).strip()
         return {"text": text, "language": info.language, "seconds": round(info.duration, 1)}
     finally:
-        Path(path).unlink(missing_ok=True)
+        if temp:
+            Path(path).unlink(missing_ok=True)
 
 
 def status():

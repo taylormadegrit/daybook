@@ -192,6 +192,8 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "stt_model": "small.en",    # local speech-to-text model (faster-whisper)
     "stt_language": "",         # '' = auto (multilingual model only)
     "home": "",                 # JSON: home widgets, scene, sounds
+    "layout": "",               # JSON: Simple / Balanced / Power + custom sidebar, density, hints
+    "launch_apps": "",          # JSON list of app ids pinned on the Launchpad
 }
 
 

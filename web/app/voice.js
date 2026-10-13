@@ -150,10 +150,12 @@ async function micTest() {
 }
 
 // ================= VOICE MEMOS page =================
-const M = {items: [], labels: [], suggested: [], cur: null, label: "", audio: null, peaks: null, recBlob: null};
+const M = {items: [], labels: [], suggested: [], cur: null, label: "", kind: "", audio: null, peaks: null, recBlob: null, recKind: "audio"};
+const memoURL = m => "/memo-media/" + m.id;
 const MEMO_LABEL_COLOR = {Journal: "var(--a1)", Idea: "var(--warn)", Meeting: "var(--a2)", "To-do": "var(--ok)", Lyrics: "var(--a3)", Content: "var(--a3)", Personal: "var(--a2)", Learning: "var(--ok)"};
 async function renderMemos() {
-  const qs = new URLSearchParams({q: ($("#mq") || {}).value || "", label: M.label});
+  const qs = new URLSearchParams({q: ($("#mq") || {}).value || "", label: M.label, kind: M.kind});
+  $("#mkinds").innerHTML = [["", "All"], ["audio", "Voice"], ["video", "Video"]].map(([k, l]) => `<button class="${M.kind === k ? "on" : ""}" onclick="M.kind='${k}';renderMemos()">${l}</button>`).join("");
   const j = await api("/api/memos?" + qs); M.items = j.items; M.labels = j.labels; M.suggested = j.suggested;
   $("#mlabels").innerHTML = `<span class="tag ${!M.label ? "on" : ""}" onclick="M.label='';renderMemos()">All</span>` +
     j.labels.map(([l, n]) => `<span class="tag ${M.label === l ? "on" : ""}" onclick="M.label=M.label==='${esc(l)}'?'':'${esc(l)}';renderMemos()">${esc(l)} · ${n}</span>`).join("");
@@ -162,7 +164,7 @@ async function renderMemos() {
     const d = new Date(m.memo_date), mh = d.toLocaleDateString([], {month: "long", year: "numeric"});
     const head = mh !== month ? `<div class="grouph">${month = mh}</div>` : "";
     return head + `<div class="memo ${M.cur && M.cur.id === m.id ? "on" : ""}" onclick="openMemo(${m.id})">
-      <div class="mt"><b>${m.starred ? "★ " : ""}${esc(m.title || (m.status === "done" ? "Untitled memo" : "New memo"))}</b><span class="small muted">${mmss(m.duration)}</span></div>
+      <div class="mt">${m.kind === "video" ? `<span title="Video note" style="color:var(--a3)">${ic("rec")}</span>` : ""}<b>${m.starred ? "★ " : ""}${esc(m.title || (m.status === "done" ? "Untitled memo" : "New memo"))}</b><span class="small muted">${mmss(m.duration)}</span></div>
       <div class="mm"><span>${d.toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"})} · ${tm(m.memo_date)}</span>
         ${m.labels.map(l => `<span class="badge" style="color:${MEMO_LABEL_COLOR[l] || "var(--fg2)"}">${esc(l)}</span>`).join("")}
         ${m.status === "pending" || m.status === "working" ? `<span class="badge ai">Transcribing…</span>` : m.status === "error" ? `<span class="badge" style="color:var(--bad)">error</span>` : ""}
@@ -178,7 +180,7 @@ async function memoRecToggle() {
     clearInterval(V.tick); const blob = await stopRecording(); V.mode = null; btn.classList.remove("on");
     $("#rect").textContent = "Tap to record";
     if (!blob || blob.size < 2000) return toast("Too short — nothing saved");
-    M.recBlob = blob; memoSaveModal(blob, (Date.now() - V.start) / 1000);
+    M.recBlob = blob; M.recKind = "audio"; memoSaveModal(blob, (Date.now() - V.start) / 1000);
     return;
   }
   if (V.mode) return;
@@ -203,7 +205,7 @@ function memoSaveModal(blob, secs) {
   setTimeout(() => $("#ms-title").focus(), 50);
 }
 async function memoUpload() {
-  const fd = new FormData(); fd.append("audio", M.recBlob, "memo.webm");
+  const fd = new FormData(); fd.append("audio", M.recBlob, M.recKind === "video" ? "video-note.webm" : "memo.webm"); fd.append("kind", M.recKind || "audio");
   fd.append("title", $("#ms-title").value); fd.append("labels", JSON.stringify(pickedLabels("ms-lbl")));
   fd.append("date", $("#ms-date").value ? $("#ms-date").value + ":00" : ""); fd.append("source", "recorded");
   closeModal(); toast("Saved — transcribing…");
@@ -243,10 +245,10 @@ async function openMemo(id, quiet) {
     <div class="row small muted" style="gap:10px;margin-top:4px"><input class="f" type="datetime-local" style="width:auto;padding:4px 8px" value="${m.memo_date.slice(0, 16)}" onchange="memoSave({memo_date:this.value+':00'})">
       <span>${mmss(m.duration)} · ${(m.size / 1048576).toFixed(1)} MB · ${m.source === "imported" ? "📱 " + esc(m.original) : "recorded in Daybook"}</span>
       <span id="m-status">${memoStatus(m)}</span></div>
-    <div class="player"><button class="pp" id="m-pp" onclick="memoPlay()">${ic("play", "i")}</button>
+    ${m.kind === "video" ? `<video class="mvid" src="${memoURL(m)}" controls preload="metadata"></video><div class="row small muted" style="margin:-4px 0 10px">${m.source === "obs" ? "Recorded with OBS · " + esc(m.path) : ""}</div>` : `<div class="player"><button class="pp" id="m-pp" onclick="memoPlay()">${ic("play", "i")}</button>
       <div style="flex:1;min-width:0"><canvas class="wave" id="m-wave"></canvas><div class="ptimes"><span id="m-cur">0:00</span><span>${mmss(m.duration)}</span></div></div>
       <div class="col" style="display:flex;flex-direction:column;gap:4px"><button class="btn sm" onclick="memoSkip(-15)">−15s</button><button class="btn sm" onclick="memoSkip(15)">+15s</button></div>
-      <select class="f" style="width:auto" onchange="M.audio&&(M.audio.playbackRate=+this.value)"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>
+      <select class="f" style="width:auto" onchange="M.audio&&(M.audio.playbackRate=+this.value)"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>`}
     <label class="small muted">Labels</label>${labelPicker("m-lbl", m.labels)}
     <div class="row" style="margin:14px 0 6px"><b>Transcript</b><div class="sp"></div><button class="btn sm ghost" onclick="navigator.clipboard.writeText($('#m-trans').value);toast('Copied')">${ic("copy")}Copy</button></div>
     <textarea class="f" id="m-trans" placeholder="${m.status === "done" ? "No speech found" : "Transcribing on this PC…"}" onchange="memoSave({transcript:this.value})">${esc(m.transcript)}</textarea>
@@ -256,12 +258,13 @@ async function openMemo(id, quiet) {
       <button class="btn pri" onclick="memoToNote()">${ic("note")}${m.note_id ? "Save again as note" : "Save as note"}</button>
       <button class="btn" onclick="memoSave({starred:${m.starred ? 0 : 1}}).then(()=>openMemo(${m.id}))">${m.starred ? "★ Starred" : "☆ Star"}</button>
       <button class="btn" onclick="api('/api/memos/${m.id}/retranscribe',{method:'POST'}).then(()=>{toast('Transcribing again…');renderMemos();openMemo(${m.id})})">${ic("rep")}Re-transcribe</button>
-      <a class="btn ghost" href="/memo-audio/${encodeURIComponent(m.file)}" download="${esc((m.title || "memo").replace(/[\\/:*?"<>|]/g, ""))}${m.file.slice(m.file.lastIndexOf("."))}">${ic("down")}Download</a>
+      <a class="btn ghost" href="${memoURL(m)}" download="${esc((m.title || "memo").replace(/[\\/:*?"<>|]/g, ""))}${m.file.slice(m.file.lastIndexOf("."))}">${ic("down")}Download</a>
       <div class="sp"></div><button class="btn ghost danger" onclick="memoDel(this)">${ic("trash")}Delete</button></div>`;
   $("#m-lbl").addEventListener("click", () => setTimeout(() => memoSave({labels: pickedLabels("m-lbl")}), 0));
   $("#m-lbl input").addEventListener("keydown", e => e.key === "Enter" && setTimeout(() => memoSave({labels: pickedLabels("m-lbl")}), 0));
   micFor($("#m-notes"), $("#m-notes").parentElement, "iconbtn inmicbtn");
-  M.audio = new Audio("/memo-audio/" + encodeURIComponent(m.file)); M.audio.preload = "auto";
+  if (m.kind === "video") { M.audio = null; return; }
+  M.audio = new Audio(memoURL(m)); M.audio.preload = "auto";
   M.audio.ontimeupdate = () => { $("#m-cur") && ($("#m-cur").textContent = mmss(M.audio.currentTime)); drawWave(); };
   M.audio.onended = M.audio.onpause = M.audio.onplay = () => { $("#m-pp") && ($("#m-pp").innerHTML = ic(M.audio.paused ? "play" : "pause", "i")); };
   $("#m-wave").onclick = e => { const r = e.target.getBoundingClientRect(), d = M.audio.duration || m.duration; if (d) { M.audio.currentTime = (e.clientX - r.left) / r.width * d; drawWave(); } };
@@ -270,7 +273,7 @@ async function openMemo(id, quiet) {
 const memoStatus = m => m.status === "done" ? "✓ transcribed" : m.status === "error" ? `<span style="color:var(--bad)">couldn't transcribe</span>` : `<span class="badge ai">Transcribing…</span>`;
 async function loadPeaks(m) {
   try {
-    const buf = await (await fetch("/memo-audio/" + encodeURIComponent(m.file))).arrayBuffer();
+    const buf = await (await fetch(memoURL(m))).arrayBuffer();
     const ac = new OfflineAudioContext(1, 1, 44100), ab = await ac.decodeAudioData(buf), ch = ab.getChannelData(0), n = 160, step = Math.floor(ch.length / n) || 1;
     const peaks = []; for (let i = 0; i < n; i++) { let p = 0; for (let j = i * step; j < (i + 1) * step && j < ch.length; j += 16) p = Math.max(p, Math.abs(ch[j])); peaks.push(p); }
     const mx = Math.max(...peaks, .01); if (M.cur && M.cur.id === m.id) { M.peaks = peaks.map(p => p / mx); drawWave(); }
