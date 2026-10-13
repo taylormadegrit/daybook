@@ -56,7 +56,7 @@ async function newNote(key) {
 const NP = {f: store.get("daybook-np-f", "1") === "1", l: store.get("daybook-np-l", "1") === "1"};
 function notesPanels() {
   const n = $("#v-notes .notes"); if (!n) return;
-  n.classList.toggle("nf", !NP.f); n.classList.toggle("nl", !NP.l);
+  n.classList.toggle("np-nf", !NP.f); n.classList.toggle("np-nl", !NP.l);  // ("nl" collided with the Settings nav-list rows → display:flex)
   $$(".np-f").forEach(b => b.classList.toggle("on", NP.f)); $$(".np-l").forEach(b => b.classList.toggle("on", NP.l));
 }
 function togglePanel(k) {

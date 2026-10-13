@@ -24,10 +24,10 @@
 
 /* ---- notes panels ---- */
 .notes{transition:grid-template-columns .2s}
-.notes.nf{grid-template-columns:0 330px minmax(0,1fr)}
-.notes.nl{grid-template-columns:220px 0 minmax(0,1fr)}
-.notes.nf.nl{grid-template-columns:0 0 minmax(0,1fr)}
-.notes.nf>.ncol:nth-child(1),.notes.nl>.ncol:nth-child(2){overflow:hidden;opacity:0;pointer-events:none;margin-right:-14px}
+.notes.np-nf{grid-template-columns:0 330px minmax(0,1fr)}
+.notes.np-nl{grid-template-columns:220px 0 minmax(0,1fr)}
+.notes.np-nf.np-nl{grid-template-columns:0 0 minmax(0,1fr)}
+.notes.np-nf>.ncol:nth-child(1),.notes.np-nl>.ncol:nth-child(2){overflow:hidden;opacity:0;pointer-events:none;margin-right:-14px}
 .ntools{display:flex;gap:4px;align-items:center;margin-bottom:10px}
 .ntools .iconbtn.on{color:var(--a2);background:var(--card2)}
 .edbar{display:flex;align-items:center;gap:6px;margin:0 0 8px}
@@ -194,7 +194,7 @@ body.scened .hello h2,body.scened .hello p{text-shadow:0 2px 14px rgba(0,0,0,.75
 .frm label{margin-top:4px}
 .menu.cols .kbd{white-space:nowrap}.menu.cols{min-width:520px}
 .wave{width:100%;display:block}.recwave{display:block}
-.notes.nf.nl #n-body{min-height:calc(100vh - var(--navh, 0px) - 340px)}
+.notes.np-nf.np-nl #n-body{min-height:calc(100vh - var(--navh, 0px) - 340px)}
 
 /* ---- launchpad (console style) ---- */
 #v-launchpad .pad{max-width:none;padding:0;height:calc(100vh - var(--navh, 0px) - 69px);overflow:auto}
@@ -376,11 +376,11 @@ body.lay-comfy .navi{padding:11px 12px;font-size:15px}
 @media(max-height:860px){.navi{padding:6px 11px}.brand{padding-bottom:8px}.navfoot #ver{display:none}}
 /* notes on narrower windows: filters slide away, list + editor stay side by side */
 @media(max-width:1150px){
-  .notes,.notes.nf,.notes.nl{grid-template-columns:0 250px minmax(0,1fr);height:calc(100vh - var(--navh, 0px) - 120px)}
+  .notes,.notes.np-nf,.notes.np-nl{grid-template-columns:0 250px minmax(0,1fr);height:calc(100vh - var(--navh, 0px) - 120px)}
   .notes>.ncol:nth-child(1){overflow:hidden;opacity:0;pointer-events:none;margin-right:-14px}
   .notes.fopen{grid-template-columns:190px 250px minmax(0,1fr)}
   .notes.fopen>.ncol:nth-child(1){opacity:1;pointer-events:auto;margin-right:0;overflow:auto}
-  .notes.nl{grid-template-columns:0 0 minmax(0,1fr)}.notes.nl>.ncol:nth-child(2){overflow:hidden;opacity:0;pointer-events:none;margin-right:-14px}
+  .notes.np-nl{grid-template-columns:0 0 minmax(0,1fr)}.notes.np-nl>.ncol:nth-child(2){overflow:hidden;opacity:0;pointer-events:none;margin-right:-14px}
   .memos{grid-template-columns:320px minmax(0,1fr);height:calc(100vh - var(--navh, 0px) - 120px)}
   .studio-grid{grid-template-columns:1fr}
 }
@@ -513,7 +513,7 @@ body.desktop .clock{display:none}
 .app.slim{grid-template-columns:68px minmax(0,1fr)}.app.nav-right.slim{grid-template-columns:minmax(0,1fr) 68px}
 .app.nav-top,.app.nav-bottom{grid-template-columns:minmax(0,1fr)}
 .notes{grid-template-columns:var(--n1,220px) var(--n2,330px) minmax(0,1fr)}
-.notes.nf{grid-template-columns:0 var(--n2,330px) minmax(0,1fr)}.notes.nl{grid-template-columns:var(--n1,220px) 0 minmax(0,1fr)}.notes.nf.nl{grid-template-columns:0 0 minmax(0,1fr)}
+.notes.np-nf{grid-template-columns:0 var(--n2,330px) minmax(0,1fr)}.notes.np-nl{grid-template-columns:var(--n1,220px) 0 minmax(0,1fr)}.notes.np-nf.np-nl{grid-template-columns:0 0 minmax(0,1fr)}
 .memos{grid-template-columns:var(--m1,380px) minmax(0,1fr)}
 .lib{grid-template-columns:var(--l1,220px) minmax(0,1fr)}
 .zr{grid-template-columns:var(--z1,220px) var(--z2,360px) minmax(0,1fr)}
@@ -529,7 +529,7 @@ body.splitting,body.splitting *{cursor:col-resize!important;user-select:none!imp
 body.splitting.rows,body.splitting.rows *{cursor:row-resize!important}
 body.splitting .app{transition:none}body.splitting .notes{transition:none}
 @media(max-width:1150px){
-  .notes,.notes.nf{grid-template-columns:0 250px minmax(0,1fr)}.notes.fopen{grid-template-columns:190px 250px minmax(0,1fr)}.notes.nl,.notes.nf.nl{grid-template-columns:0 0 minmax(0,1fr)}
+  .notes,.notes.np-nf{grid-template-columns:0 250px minmax(0,1fr)}.notes.fopen{grid-template-columns:190px 250px minmax(0,1fr)}.notes.np-nl,.notes.np-nf.np-nl{grid-template-columns:0 0 minmax(0,1fr)}
   .memos{grid-template-columns:320px minmax(0,1fr)}.zr{grid-template-columns:280px minmax(0,1fr)}.lib{grid-template-columns:minmax(0,1fr)}
   .split-h:not(.nav-split){display:none}
 }
@@ -724,3 +724,6 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .fh-wflink:hover{border-color:var(--a1)}
 [data-style=glass] .wf-card,[data-style=glass] .wf-drive,[data-style=glass] .wfw{background:var(--gl-fill);border-color:var(--gl-edge);box-shadow:var(--gl-rim);backdrop-filter:var(--gl-blur)}
 [data-style=glass] .wf-card{border-top:3px solid var(--c)}
+
+/* Notes: no leftover gaps when both side panels are hidden */
+.notes.np-nf.np-nl{column-gap:0}
