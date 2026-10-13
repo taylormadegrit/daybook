@@ -18,7 +18,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("zotero", __name__)
 API = "http://127.0.0.1:23119"
@@ -45,6 +45,8 @@ def data_dir():
 
 
 def _get(path, params=None, raw=False, timeout=8):
+    if not paths.port_open(23119):
+        raise ConnectionError("Zotero isn't running")
     url = API + path + ("?" + urllib.parse.urlencode(params, doseq=True) if params else "")
     with urllib.request.urlopen(urllib.request.Request(url, headers={"Zotero-API-Version": "3"}), timeout=timeout) as r:
         body = r.read()
@@ -53,6 +55,8 @@ def _get(path, params=None, raw=False, timeout=8):
 
 def status():
     s = {"installed": bool(exe()), "running": False, "api": False, "data_dir": str(data_dir()), "items": 0}
+    if not paths.port_open(23119):
+        return s
     try:
         urllib.request.urlopen(API + "/connector/ping", timeout=2)
         s["running"] = True

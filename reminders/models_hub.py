@@ -56,7 +56,18 @@ def _cpu():
     return {"name": re.sub(r"\s+", " ", name), "threads": os.cpu_count()}
 
 
+_GPU_CACHE = {"t": 0, "v": None}
+
+
 def _gpus():
+    import time
+    if _GPU_CACHE["v"] is not None and time.time() - _GPU_CACHE["t"] < 300:
+        return _GPU_CACHE["v"]
+    _GPU_CACHE["v"], _GPU_CACHE["t"] = _gpus_scan(), time.time()
+    return _GPU_CACHE["v"]
+
+
+def _gpus_scan():
     """NVIDIA via nvidia-smi (ships with the driver); every other GPU via the display-adapter registry keys."""
     gpus = []
     smi = shutil.which("nvidia-smi") or r"C:\Windows\System32\nvidia-smi.exe"

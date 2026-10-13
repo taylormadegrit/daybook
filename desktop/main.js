@@ -254,6 +254,20 @@ app.on("web-contents-created", (_e, wc) => {
   wc.on("did-start-navigation", d => { if (!d.isMainFrame) return; const ua = isGoogleAuth(d.url) ? FIREFOX_UA : CHROME_UA; if (wc.getUserAgent() !== ua) wc.setUserAgent(ua); });
   wc.on("did-create-window", w => w.webContents.setUserAgent(isGoogleAuth(w.webContents.getURL()) ? FIREFOX_UA : CHROME_UA));
 });
+// Watchdog: if Daybook's background service stops answering (crash, killed), start it again and
+// bring back any window that was showing the "service didn't start" page.
+let watching = false, misses = 0;
+setInterval(async () => {
+  if (watching || !wins.size) return;
+  watching = true;
+  try {
+    if (await ping()) { misses = 0; return; }
+    if (++misses < 2) return;  // one slow answer isn't a crash
+    misses = 0;
+    if (await ensureBackend()) for (const w of wins) if (!w.isDestroyed() && w.webContents.getURL().startsWith("data:")) w.loadURL(URL_BASE + "/#today");
+  } finally { watching = false; }
+}, 20000);
+
 app.whenReady().then(async () => {
   // mic + screen capture for voice/video notes inside Daybook's own pages
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));

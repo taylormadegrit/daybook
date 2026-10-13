@@ -40,6 +40,8 @@ def _req(path, body=None, timeout=900):
 
 
 def worker_up():
+    if not paths.port_open(8504):
+        return None
     try:
         return _req("/status", timeout=2)
     except Exception:

@@ -33,3 +33,13 @@ def helper_cmd(*args, console=False):
     if args and args[0] == "mcp":
         return [str(py), str(APP / "mcp_server.py"), *args[1:]]
     return [str(py), str(APP / "quickadd.pyw"), *args]
+
+
+def port_open(port, host="127.0.0.1"):
+    """Is something listening? Windows takes ~2 s to give up on a closed local port, so check quickly first."""
+    import socket
+    try:
+        socket.create_connection((host, port), timeout=0.3).close()
+        return True
+    except OSError:
+        return False
