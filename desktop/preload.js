@@ -6,7 +6,9 @@ contextBridge.exposeInMainWorld("desktop", {
   info: () => ipcRenderer.invoke("app:info"),
   settings: s => ipcRenderer.invoke("app:settings", s),
   newWindow: view => ipcRenderer.invoke("app:newWindow", view),
-  edit: action => ipcRenderer.send("app:edit", action),
+  edit: (action, arg) => ipcRenderer.send("app:edit", action, arg),
+  menu: (items, x, y) => ipcRenderer.invoke("app:menu", items, x, y),           // native menu → id of the picked item
+  onContextParams: fn => ipcRenderer.on("ctx:params", (_e, d) => fn(d)),
   defaultBrowser: action => ipcRenderer.invoke("app:defaultBrowser", action),  // status / "register" / {linkProfile}
   privacy: s => ipcRenderer.invoke("browser:privacy", s),                 // cut / copy / paste / selectAll / undo / redo
   files: {

@@ -104,6 +104,12 @@ async function createWindow(view, opts = {}) {
     webPreferences: {preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, spellcheck: true, plugins: true},
   });
   w._layout = {visible: false, rects: {}};
+  // Daybook's page draws its own right-click menu; for text boxes it lets this event through so it can show
+  // spelling suggestions (Chromium only reports them here).
+  w.webContents.on("context-menu", (_e, m) => {
+    if (!w.isDestroyed()) w.webContents.send("ctx:params", {x: m.x, y: m.y, isEditable: m.isEditable, misspelledWord: m.misspelledWord || "",
+      suggestions: (m.dictionarySuggestions || []).slice(0, 6), canPaste: !!(m.editFlags && m.editFlags.canPaste)});
+  });
   wins.add(w);
   if (main) { win = w; if (st.maximized) w.maximize(); }
   w.once("ready-to-show", () => { if (!main || !process.argv.includes("--hidden")) w.show(); });
@@ -425,7 +431,19 @@ ipcMain.handle("app:settings", (_e, s) => { const st = {...loadState(), ...s}; f
 ipcMain.handle("app:info", e => ({version: app.getVersion(), packaged: app.isPackaged, ...loadState(), startAtLogin: app.getLoginItemSettings().openAtLogin,
   main: ownerOf(e) === win, windows: wins.size, hwnd: hwndOf(ownerOf(e))}));
 const EDIT_ACTIONS = new Set(["cut", "copy", "paste", "selectAll", "undo", "redo", "pasteAndMatchStyle"]);
-ipcMain.on("app:edit", (e, action) => { if (EDIT_ACTIONS.has(action)) e.sender[action](); });
+ipcMain.on("app:edit", (e, action, arg) => {
+  if (EDIT_ACTIONS.has(action)) e.sender[action]();
+  else if (action === "replaceMisspelling" && typeof arg === "string") e.sender.replaceMisspelling(arg);
+  else if (action === "addToDictionary" && typeof arg === "string") e.sender.session.addWordToSpellCheckerDictionary(arg);
+});
+// a native menu, for when Daybook's own (HTML) menu would end up hidden under a web page
+ipcMain.handle("app:menu", (e, items, x, y) => new Promise(res => {
+  let picked = null;
+  const build = list => list.map(it => it === "-" ? {type: "separator"} : it.h ? {label: it.h, enabled: false}
+    : {label: it.t + (it.k ? "\t" + it.k : ""), enabled: !it.off, ...(it.sub ? {submenu: build(it.sub)} : {click: () => { picked = it.id; }})});
+  const m = Menu.buildFromTemplate(build(items || []));
+  m.popup({window: BrowserWindow.fromWebContents(e.sender), x: Math.round(x), y: Math.round(y), callback: () => setTimeout(() => res(picked), 0)});
+}));
 let dragIcon = null;
 ipcMain.on("files:drag", (e, paths) => {
   const files = (Array.isArray(paths) ? paths : [paths]).filter(f => typeof f === "string" && fs.existsSync(f));
