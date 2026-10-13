@@ -25,6 +25,18 @@ app.register_blueprint(launchpad_bp)
 from .obs import bp as obs_bp  # noqa: E402
 
 app.register_blueprint(obs_bp)
+from .discord import bp as discord_bp  # noqa: E402
+
+app.register_blueprint(discord_bp)
+from .games import bp as games_bp  # noqa: E402
+
+app.register_blueprint(games_bp)
+from .folders import bp as folders_bp  # noqa: E402
+
+app.register_blueprint(folders_bp)
+from .studio import bp as studio_bp  # noqa: E402
+
+app.register_blueprint(studio_bp)
 BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 

@@ -349,6 +349,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
     <div class="navi" data-v="memos"><svg class="i" data-i="mic"></svg>Voice memos<span class="k">Alt 5</span></div>
+    <div class="navi" data-v="studio"><svg class="i" data-i="spark"></svg>AI Studio<span class="k">Alt I</span></div>
     <div class="navi" data-v="clock"><svg class="i" data-i="timer"></svg>Clock<span class="cnt" id="tm-count" style="display:none"></span><span class="k">Alt 6</span></div>
     <div class="navi" data-v="desktop"><svg class="i" data-i="sticky"></svg>Desktop<span class="k">Alt 7</span></div>
     <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 8</span></div>
@@ -497,6 +498,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- AI STUDIO -->
+    <section class="view" id="v-studio"><div class="pad" style="max-width:1500px"><div id="studio"></div></div></section>
+
     <!-- LAUNCHPAD -->
     <section class="view" id="v-launchpad"><div class="pad"><div class="lp" id="lp"></div></div></section>
 
@@ -558,6 +562,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3><div class="themes" id="themes"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3><div id="layoutset"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice & microphone</h3><div id="voiceset"></div></div>
       <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude</h3><div id="claude"></div></div>
       <div class="set">
@@ -607,6 +612,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/launch.js"></script>
 <script src="/app/video.js"></script>
 <script src="/app/layout.js"></script>
+<script src="/app/games.js"></script>
+<script src="/app/discord.js"></script>
+<script src="/app/studio.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -649,7 +657,7 @@ const ICONS = {
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
   layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
-  rec: "M23 7l-7 5 7 5zM1 5h15v14H1z",
+  rec: "M23 7l-7 5 7 5zM1 5h15v14H1z", send: "M22 2 11 13M22 2l-7 20-4-9-9-4z",
   mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
   play: "M6 4l14 8-14 8z", pause: "M7 4h3v16H7zM14 4h3v16h-3z",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
@@ -671,7 +679,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -685,7 +693,7 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => renderLaunchpad(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
@@ -919,6 +927,7 @@ function renderEditor() {
     <div class="row" style="margin-top:10px">
       <button class="btn pri" onclick="saveNote()">${ic("check")}Save<span class="kbd" style="border-color:rgba(0,0,0,.25);color:var(--on)">Ctrl S</span></button>
       <button class="btn" onclick="aiNote()">${ic("spark")}Organize with AI</button>
+      <button class="btn" title="Send this note to Discord as a .txt or PDF" onclick="saveNote(false).then(()=>discordSend('note',S.cur.id))">${ic("send")}Discord</button>
       <span class="small muted" id="n-saved">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
       <div class="sp"></div><button class="btn ghost danger" onclick="delNote(this)">${ic("trash")}Delete</button>
     </div>
@@ -1205,7 +1214,7 @@ async function renderDesktop() {
   $("#annodir").innerHTML = `Saved to <code>${esc(a.dir)}</code> · change it in Settings`;
   $("#gallery").innerHTML = a.items.length ? a.items.map(x => `<div class="gi"><img src="/annotations/${encodeURIComponent(x.name)}" loading="lazy" onclick="window.open(this.src,'_blank')">
       <div class="gm"><span>${dayName(x.taken)} ${tm(x.taken)}</span><span style="margin-left:auto">${x.size_kb} KB</span>
-      <button class="iconbtn" title="Delete" onclick="annoDel(this,'${esc(x.name)}')">${ic("trash")}</button></div></div>`).join("")
+      <button class="iconbtn" title="Send to Discord" onclick="discordSend('annotation','${esc(x.name)}')">${ic("send")}</button><button class="iconbtn" title="Delete" onclick="annoDel(this,'${esc(x.name)}')">${ic("trash")}</button></div></div>`).join("")
     : `<div class="empty" style="grid-column:1/-1"><b>No annotations yet</b>Press Annotate screen or <span class="kbd">Ctrl Alt P</span>, draw, then Save.</div>`;
 }
 async function newSticky() { await api("/api/stickies", {method: "POST", body: {color: newColor}}); toast("Sticky note added to your desktop — type, or paste a picture with Ctrl V"); setTimeout(deskRefresh, 300); }
@@ -1219,7 +1228,7 @@ async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
 async function renderSettings() {
-  renderVoiceSettings(); renderLayoutSettings();
+  renderVoiceSettings(); renderLayoutSettings(); renderDiscordSettings();
   const [st, set] = await Promise.all([api("/api/status"), api("/api/settings")]); S.settings = set;
   const opts = (sel, extra) => (extra || "") + st.models.map(m => `<option value="${m.name}">${m.name}${m.params ? " · " + m.params : ""}</option>`).join("");
   $("#s-aimodel").innerHTML = opts(); $("#s-chatmodel").innerHTML = opts(null, `<option value="">First installed model</option>`);
@@ -1272,6 +1281,10 @@ async function reorgAll() { const j = await api("/api/notes/reorganize-all", {me
 const HELP = [
   ["home", "Your home page", `<p><b>Edit home</b> (top of Today) makes the widgets wiggle: drag them to move, ⤢ to make one full width, ✕ to remove, and <b>＋ Add widget</b> for more — timers, stopwatch, alarms, world clock, voice memos, recent notes, ambience, breathe and more. <b>Customize</b> picks an animated background (fireplace, rainy window, firefly forest, ocean sunset, starry night, snowfall, spring meadow) with matching ambient sound, or your own picture or video. Click an empty part of the background — the scenes react.</p>`],
   ["launchpad", "Launchpad — browsers, accounts & apps", `<p><b>Launchpad</b> (<span class="kb">Alt L</span>) shows every browser profile on this PC — Chrome, Edge, Brave, Comet, Firefox and more — with the account signed in to it, plus your pinned apps. Hover or use the arrow keys to look, click or Enter to open. Each profile has one-click links (Gmail, YouTube Studio, Drive…) that open <b>in that profile</b>, or type any site. <b>All apps</b> lists everything installed; ☆ pins it. Daybook only reads profile names and pictures — never passwords, cookies or history.</p>`],
+  ["studio", "AI Studio", `<p><b>AI Studio</b> (<span class="kb">Alt I</span>) uses the AI models already on this PC. <b>Images</b>: describe it, pick a style (Photo, Thumbnail, Anime, Logo…) and a shape, press Create — SDXL-Turbo makes it on your graphics card in seconds, free and private. <b>My voice</b>: type text and it's spoken in a cloned voice (the XTTS model from your Ori Brazil project) using one of your voice samples or any voice memo. Chat and Models are one click away. Everything saves to <code>D:\\Daybook\\Creations</code>; the GPU is freed after 10 idle minutes.</p>`],
+  ["games", "Games", `<p>Launchpad → <b>Games</b> shows every installed Steam and Epic game with its cover art. Play launches it through Steam or Epic with your account. Offline: Steam → <i>Go Offline…</i> once while online; Epic remembers games you've launched online; “Play offline (direct)” starts an Epic game's own .exe. <b>Free & open-source games</b> download from each project's official GitHub releases into <code>D:\\Games\\Daybook</code> — one click to download, one to play.</p>`],
+  ["folders", "Folders & workflows", `<p>Launchpad → <b>Folders</b>: pin the folders you open every day (the Windows picker or one-click suggestions), browse them right inside Daybook, open or reveal files, and send any file to Discord. <b>Workflows</b> open a whole set at once — e.g. “Editing” = your recordings folder + CapCut + YouTube Studio in the right Chrome profile.</p>`],
+  ["discord", "Discord", `<p>Settings → <b>Discord</b>: paste a channel webhook (Edit Channel → Integrations → Webhooks → New Webhook → Copy URL). Then <b>Discord</b> buttons on notes (as .txt or PDF), voice & video notes, images, annotations and files send straight to that channel. Webhooks follow the server's upload limit (10 MB, or 50/100 MB with boosts); big audio/video is compressed to fit. For anything up to <b>500 MB with Nitro</b>, use <b>Copy & open Discord app</b> and paste it into any chat.</p>`],
   ["video", "Video notes & OBS", `<p>On <b>Voice & video</b>, press <b>Video</b>: record your <b>camera</b> or your <b>screen</b> right in Daybook (no setup), or use <b>OBS Studio</b> for your full scenes. The first time, press <b>Connect OBS</b> (with OBS closed) — it switches on OBS's local, password-protected remote control. After that, Rec / Pause / Stop work from Daybook and the recording shows up as a video note, transcribed and searchable. OBS recordings stay in OBS's own folder.</p>`],
   ["layout", "Simple or power user", `<p>Pick <b>Simple</b>, <b>Balanced</b> or <b>Power</b> at the bottom of the sidebar or in Settings → Layout. Simple hides the extra pages, shortcut badges and tools; Power packs in every page, shortcut and more widgets. Then fine-tune: which pages show in the sidebar, density, hints, quick tools and the page Daybook opens to.</p>`],
   ["clock", "Clock — timers, alarms, stopwatch, world clock", `<p>Works like the iPhone Clock app. <b>Timers</b>: set hours/minutes/seconds or tap a preset (🎯 Focus 25, ☕ Break 5…); run several at once, pause, +1 min, and your recent timers are one tap away. On the Today schedule, the ⏱ button starts a timer for that task. <b>Alarms</b>: time, repeat days, label, sound and snooze. Alarms and timers ring with a sound and a pop-up <b>even when the Daybook window is closed</b>. <b>Stopwatch</b>: laps with fastest in green and slowest in red; it keeps running if you close the window. <b>World clock</b>: add any city.</p>`],
@@ -1345,6 +1358,8 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
   ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
   ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
+  ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
+  ["Games library", "play", () => go("launchpad", "games")], ["Free games", "play", () => go("launchpad", "games")], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
   ["Simple layout", "grid", () => pickLayout("simple")], ["Balanced layout", "grid", () => pickLayout("balanced")], ["Power user layout", "grid", () => pickLayout("power")], ["Layout settings", "sliders", () => go("settings")],
   ["Focus mode (notes)", "expand", () => { go("notes"); focusMode(); }], ["Collapse sidebar", "sidebar", () => setSlim(!$(".app").classList.contains("slim"))], ["Dictate (speech to text)", "mic", () => dictate()], ["Voice settings", "mic", () => go("settings")]];
 let palItems = [], palIdx = 0;
@@ -1385,6 +1400,7 @@ document.addEventListener("keydown", e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if (lpKeys(e)) { e.preventDefault(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
   if (e.ctrlKey && e.key === ".") { e.preventDefault(); if (S.view !== "notes") go("notes"); focusMode(); return; }

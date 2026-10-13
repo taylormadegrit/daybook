@@ -1,13 +1,13 @@
 // ================= LAYOUT: Simple · Balanced · Power, or fully custom =================
-const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"],
+const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"],
   ["clock", "Clock"], ["desktop", "Desktop"], ["chat", "Chat"], ["models", "Models"]];
 const PRESETS_LAYOUT = {
-  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "notes", "memos", "clock"], density: "comfy", hints: false, quick: false, status: false,
+  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,
     widgets: ["nownext", "schedule", "timers", "log"]},
   balanced: {name: "Balanced", desc: "Everything, with room to breathe (default)", nav: NAV_PAGES.map(p => p[0]), density: "normal", hints: true, quick: true, status: true,
     widgets: ["nownext", "schedule", "log", "timers", "stickies", "alarms", "upnext", "ambience"]},
   power: {name: "Power", desc: "Dense, every page and shortcut, more widgets", nav: NAV_PAGES.map(p => p[0]), density: "compact", hints: true, quick: true, status: true,
-    widgets: ["nownext", "schedule", "launchpad", "timers", "log", "stopwatch", "alarms", "world", "memos", "notes", "upnext", "stickies"]},
+    widgets: ["nownext", "schedule", "launchpad", "timers", "log", "studio", "games", "folders", "stopwatch", "alarms", "world", "memos", "notes", "upnext", "stickies"]},
 };
 function layoutCfg() { let l = {}; try { l = JSON.parse(S.settings.layout || "{}"); } catch (e) {} return {...PRESETS_LAYOUT.balanced, mode: "balanced", start: "today", ...l}; }
 function applyLayout() {

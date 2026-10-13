@@ -256,6 +256,7 @@ async function openMemo(id, quiet) {
     <div class="inmic"><textarea class="f" id="m-notes" style="min-height:80px" placeholder="Anything to add…" onchange="memoSave({notes:this.value})">${esc(m.notes)}</textarea></div>
     <div class="row" style="margin-top:12px">
       <button class="btn pri" onclick="memoToNote()">${ic("note")}${m.note_id ? "Save again as note" : "Save as note"}</button>
+      <button class="btn" onclick="discordSend('memo',${m.id})">${ic("send")}Discord</button>
       <button class="btn" onclick="memoSave({starred:${m.starred ? 0 : 1}}).then(()=>openMemo(${m.id}))">${m.starred ? "★ Starred" : "☆ Star"}</button>
       <button class="btn" onclick="api('/api/memos/${m.id}/retranscribe',{method:'POST'}).then(()=>{toast('Transcribing again…');renderMemos();openMemo(${m.id})})">${ic("rep")}Re-transcribe</button>
       <a class="btn ghost" href="${memoURL(m)}" download="${esc((m.title || "memo").replace(/[\\/:*?"<>|]/g, ""))}${m.file.slice(m.file.lastIndexOf("."))}">${ic("down")}Download</a>

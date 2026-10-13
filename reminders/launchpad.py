@@ -156,6 +156,9 @@ def scan_apps(force=False):
         seen.add(low)
         shelf = next((c for c, keys in CATEGORY_HINTS.items() if any(k in low for k in keys)), "Other")
         apps.append({"id": _app_id(n), "name": n, "lnk": a["lnk"], "target": tgt, "icon": a.get("icon") or "", "shelf": shelf})
+    for name, exe, shelf in EXTRA_APPS:  # apps that live outside the Start Menu (e.g. unpacked into D:\Applications)
+        if os.path.exists(exe) and _app_id(name) not in {a["id"] for a in apps}:
+            apps.append({"id": _app_id(name), "name": name, "lnk": exe, "target": exe, "icon": "", "shelf": shelf})
     apps.sort(key=lambda x: x["name"].lower())
     APPS_CACHE.parent.mkdir(parents=True, exist_ok=True)
     APPS_CACHE.write_text(json.dumps(apps), encoding="utf-8")
@@ -203,6 +206,9 @@ def pinned():
         return []
 
 
+EXTRA_APPS = [("DaVinci Resolve", r"D:\Applications\Resolve.exe", "Create"),
+              ("DaVinci Resolve", r"C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe", "Create"),
+              ("ArtCraft", r"D:\Applications\ArtCraft\artcraft.exe", "Create")]
 DEFAULT_PINS = ["davinciresolve", "obsstudio", "capcut", "discord", "steam", "blender", "studioone7", "orca", "visualstudiocode", "spotify"]
 
 

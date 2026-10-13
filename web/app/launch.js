@@ -8,7 +8,7 @@ const lpRows = () => {
 };
 async function renderLaunchpad(force) {
   if (!LP.data || force) { $("#lp").innerHTML = `<div class="empty" style="padding-top:20vh"><b>Finding your browsers and apps…</b></div>`; LP.data = await api("/api/launchpad" + (force === "rescan" ? "?rescan=1" : "")); }
-  LP.view === "all" ? lpAllApps() : lpHome();
+  (({all: lpAllApps, games: renderGames, folders: renderFolders})[LP.view] || lpHome)();
 }
 function lpTile(it, r, c) {
   const on = r === LP.row && c === LP.col;
@@ -21,7 +21,7 @@ function lpTile(it, r, c) {
 }
 function lpHome() {
   const rows = lpRows(); LP.row = Math.min(LP.row, 1); LP.col = Math.min(LP.col, rows[LP.row].length - 1);
-  $("#lp").innerHTML = `<div class="lp-top"><div class="lp-tabs"><button class="on">Home</button><button onclick="LP.view='all';renderLaunchpad()">All apps</button></div>
+  $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}
       <div class="sp"></div><button class="iconbtn" title="Rescan browsers & apps" onclick="renderLaunchpad('rescan')">${ic("rep")}</button><span class="lp-clock" id="lp-clock"></span></div>
     <div class="lp-row"><div class="lp-rl">Accounts</div><div class="lp-tiles" id="lp-r0">${rows[0].map((it, c) => lpTile(it, 0, c)).join("") || `<span class="muted small">No browsers found</span>`}</div></div>
     <div class="lp-row"><div class="lp-rl">Apps</div><div class="lp-tiles" id="lp-r1">${rows[1].map((it, c) => lpTile(it, 1, c)).join("")}</div></div>
@@ -71,7 +71,7 @@ async function lpMove(c, d) { const ids = LP.data.pinned.map(a => a.id); [ids[c]
 function lpAllApps() {
   const shelves = ["All", "Create", "Work", "Play", "Social", "Other"], pins = new Set(LP.data.pinned.map(a => a.id)), q = LP.q.toLowerCase();
   const list = LP.data.apps.filter(a => (LP.shelf === "All" || a.shelf === LP.shelf) && a.name.toLowerCase().includes(q));
-  $("#lp").innerHTML = `<div class="lp-top"><div class="lp-tabs"><button onclick="LP.view='home';renderLaunchpad()">Home</button><button class="on">All apps</button></div>
+  $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}
       <input class="f" style="max-width:280px;margin-left:12px" placeholder="Search ${LP.data.apps.length} apps…" value="${esc(LP.q)}" oninput="LP.q=this.value;debounce('lpq',lpAllApps,150)" id="lp-q">
       <div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
     <div class="row" style="margin:6px 0 16px;gap:6px">${shelves.map(s => `<button class="chipb ${LP.shelf === s ? "on" : ""}" onclick="LP.shelf='${s}';lpAllApps()">${s}</button>`).join("")}</div>
@@ -99,4 +99,8 @@ async function lpWidget() {
   const rows = lpRows();
   el.innerHTML = `<div class="lp-mini">${rows[0].slice(0, 8).map((it, c) => lpTile(it, 0, c)).join("")}</div><div class="lp-mini">${rows[1].slice(0, -1).slice(0, 8).map((it, c) => lpTile(it, 1, c)).join("")}</div>`;
   $$("#w-lp .lpt").forEach(t => { t.onmouseenter = null; t.onfocus = null; t.classList.remove("on"); });
+}
+
+function lpTabs() {
+  return `<div class="lp-tabs">${[["home", "Home"], ["games", "Games"], ["folders", "Folders"], ["all", "All apps"]].map(([k, l]) => `<button class="${LP.view === k ? "on" : ""}" onclick="LP.view='${k}';history.replaceState(null,'','#launchpad/${k}');renderLaunchpad()">${l}</button>`).join("")}</div>`;
 }

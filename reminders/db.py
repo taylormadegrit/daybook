@@ -194,6 +194,10 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "home": "",                 # JSON: home widgets, scene, sounds
     "layout": "",               # JSON: Simple / Balanced / Power + custom sidebar, density, hints
     "launch_apps": "",          # JSON list of app ids pinned on the Launchpad
+    "discord_hooks": "",        # JSON [{name, url}] — Discord channel webhooks (kept on this PC only)
+    "folders": "",              # JSON pinned folders
+    "workflows": "",            # JSON workflows (folders + apps + sites opened together)
+    "games_dir": "D:\Games\Daybook",  # where free games are downloaded
 }
 
 
