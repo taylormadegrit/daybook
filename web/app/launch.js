@@ -103,5 +103,5 @@ async function lpWidget() {
 }
 
 function lpTabs() {
-  return `<div class="lp-tabs">${[["home", "Home"], ["games", "Games"], ["folders", "Folders"], ["all", "All apps"]].map(([k, l]) => `<button class="${LP.view === k ? "on" : ""}" onclick="LP.view='${k}';history.replaceState(null,'','#launchpad/${k}');renderLaunchpad()">${l}</button>`).join("")}</div>`;
+  return `<div class="lp-tabs">${[["home", "Home"], ["games", "Games"], ["folders", "Folders"], ["all", "All apps"]].map(([k, l]) => `<button class="${LP.view === k ? "on" : ""}" onclick="${k === "games" ? "go('games')" : `LP.view='${k}';history.replaceState(null,'','#launchpad/${k}');renderLaunchpad()`}">${l}</button>`).join("")}</div>`;
 }

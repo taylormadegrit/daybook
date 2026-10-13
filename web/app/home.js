@@ -44,7 +44,7 @@ const WIDGETS = {
   studio: {name: "AI Studio", icon: "spark", desc: "Type a prompt, get an image — made on your GPU",
     html: () => `<div class="card"><h3>${ic("spark")}AI Studio<button class="btn sm ghost" onclick="go('studio')">Open</button></h3><div id="w-studio"></div></div>`, after: () => studioWidget()},
   games: {name: "Games", icon: "play", desc: "Your recent Steam & Epic games — one click to play",
-    html: () => `<div class="card"><h3>${ic("play")}Games<button class="btn sm ghost" onclick="go('launchpad','games')">Library</button></h3><div id="w-games"></div></div>`, after: () => gamesWidget()},
+    html: () => `<div class="card"><h3>${ic("play")}Games<button class="btn sm ghost" onclick="go('games')">Library</button></h3><div id="w-games"></div></div>`, after: () => gamesWidget()},
   folders: {name: "Folders & workflows", icon: "note", desc: "Your pinned folders and one-click workflows",
     html: () => `<div class="card"><h3>📁 Folders<button class="btn sm ghost" onclick="go('launchpad','folders')">Manage</button></h3><div id="w-folders"></div></div>`, after: () => foldersWidget()},
   ambience: {name: "Ambience", icon: "palette", desc: "Pick a relaxing scene and play its sound",

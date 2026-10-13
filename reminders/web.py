@@ -46,12 +46,15 @@ app.register_blueprint(zotero_bp)
 from .pdflib import bp as pdflib_bp  # noqa: E402
 
 app.register_blueprint(pdflib_bp)
+from .network import bp as network_bp  # noqa: E402
+
+app.register_blueprint(network_bp)
 BG_DIR = paths.DATA / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.5"
+VERSION = "1.6.1"
 
 
 @app.get("/chat")

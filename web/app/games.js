@@ -8,10 +8,12 @@ const gmPh = (name, wide) => `<div class="gph ${wide ? "wide" : ""}" style="--h:
 const gmArt = (g, wide) => `<img src="/game-art/${g.id}?name=${encodeURIComponent(g.name)}${wide ? "&wide=1" : ""}" alt="" loading="lazy" onerror="this.outerHTML=gmPh(this.dataset.n,${!!wide})" data-n="${esc(g.name)}">`;
 const playedText = g => !g.last ? "" : (d => { const days = Math.floor((Date.now() - d) / 864e5); return days < 1 ? "Played today" : days < 2 ? "Played yesterday" : days < 30 ? `Played ${days} days ago` : "Played " + new Date(d).toLocaleDateString([], {month: "short", year: "numeric"}); })(g.last * 1000);
 
+const gmHost = () => S.view === "games" ? $("#lp-games") : $("#lp");
 async function renderGames(refresh) {
   if (!GM.data || refresh) GM.data = await api("/api/games");
+  const other = S.view === "games" ? $("#lp") : $("#lp-games"); if (other && other.querySelector("#gm-body")) other.innerHTML = "";
   const d = GM.data, games = d.owned.filter(g => g.kind === "game");
-  $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
+  gmHost().innerHTML = `<div class="lp-top">${S.view === "games" ? `<div class="lp-tabs"><button class="on">Games</button></div>` : lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
     <div class="gm-head">
       <div class="seg gm-views"><button class="${GM.view === "library" ? "on" : ""}" onclick="gmView('library')">${ic("grid")}My library <span class="cnt">${games.length}</span></button>
         <button class="${GM.view === "free" ? "on" : ""}" onclick="gmView('free')">${ic("down")}Get free games <span class="cnt">${d.free.length}</span></button></div>
@@ -20,8 +22,8 @@ async function renderGames(refresh) {
           ${[["recent", "Recently played"], ["az", "A → Z"], ["size", "Largest first"]].map(([k, l]) => `<option value="${k}" ${GM.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
       <button class="iconbtn" title="Refresh" onclick="renderGames(true)">${ic("rep")}</button></div>
     <div id="gm-body"></div>`;
-  paintIcons($("#lp")); lpClock(); gmBody();
-  if (d.free.some(g => g.job && ["starting", "downloading", "extracting"].includes(g.job.state))) { clearTimeout(GM.poll); GM.poll = setTimeout(() => S.view === "launchpad" && LP.view === "games" && renderGames(true), 1500); }
+  paintIcons(gmHost()); lpClock(); gmBody();
+  if (d.free.some(g => g.job && ["starting", "downloading", "extracting"].includes(g.job.state))) { clearTimeout(GM.poll); GM.poll = setTimeout(() => (S.view === "games" || (S.view === "launchpad" && LP.view === "games")) && renderGames(true), 1500); }
 }
 function gmView(v) { GM.view = v; GM.q = ""; store.set("daybook-gm-view", v); renderGames(); }
 function gmBody() { GM.view === "free" ? gmFree() : gmLibrary(); paintIcons($("#gm-body")); }

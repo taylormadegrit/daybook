@@ -7,6 +7,18 @@ import webbrowser
 from ctypes import wintypes
 from pathlib import Path
 
+def _declare_setwindowpos():
+    """HWND_TOPMOST is -1: it must be passed pointer-sized or 64-bit Windows misreads it."""
+    import ctypes
+    from ctypes import wintypes
+    f = ctypes.windll.user32.SetWindowPos
+    f.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+    f.restype = wintypes.BOOL
+
+
+_declare_setwindowpos()
+
+
 URL = "http://localhost:8503/"
 CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
 TITLE = "Daybook"

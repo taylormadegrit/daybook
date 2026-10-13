@@ -20,6 +20,10 @@ FONT = "Segoe UI"
 COMMANDS = queue.Queue()  # web thread → Tk thread ("new"|"show"|"close"|"reload", id)
 HWND_BOTTOM, HWND_TOPMOST, HWND_NOTOPMOST = 1, -1, -2
 u32 = ctypes.windll.user32
+from ctypes import wintypes as _wt  # noqa: E402
+# Declare HWND-sized arguments: passing -1 (HWND_TOPMOST) as a plain int is misread on 64-bit Windows.
+u32.SetWindowPos.argtypes = [_wt.HWND, _wt.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+u32.SetWindowPos.restype = _wt.BOOL
 IMG_DIR = paths.DATA / "sticky_images"
 IMG_RE = re.compile(r"\[\[img:([^\]]+)\]\]")  # pasted pictures are stored in the text as [[img:file.png]]
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
@@ -29,7 +33,7 @@ def _con():
     con = db.connect()
     con.execute("""CREATE TABLE IF NOT EXISTS stickies (id INTEGER PRIMARY KEY, text TEXT NOT NULL DEFAULT '',
         color TEXT NOT NULL DEFAULT 'lemon', x INTEGER, y INTEGER, w INTEGER NOT NULL DEFAULT 260, h INTEGER NOT NULL DEFAULT 220,
-        mode TEXT NOT NULL DEFAULT 'desktop', collapsed INTEGER NOT NULL DEFAULT 0, closed INTEGER NOT NULL DEFAULT 0,
+        mode TEXT NOT NULL DEFAULT 'top', collapsed INTEGER NOT NULL DEFAULT 0, closed INTEGER NOT NULL DEFAULT 0,
         created TEXT NOT NULL, updated TEXT NOT NULL)""")
     return con
 
@@ -38,10 +42,10 @@ def _now():
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def create(text="", color="lemon", x=None, y=None):
+def create(text="", color="lemon", x=None, y=None, mode="top"):
     with _con() as con:
-        cur = con.execute("INSERT INTO stickies (text, color, x, y, created, updated) VALUES (?,?,?,?,?,?)",
-                          (text, color if color in COLORS else "lemon", x, y, _now(), _now()))
+        cur = con.execute("INSERT INTO stickies (text, color, x, y, mode, created, updated) VALUES (?,?,?,?,?,?,?)",
+                          (text, color if color in COLORS else "lemon", x, y, mode if mode in ("top", "desktop") else "top", _now(), _now()))
         return cur.lastrowid
 
 
@@ -86,6 +90,42 @@ def delete_forever(sid):
 
 # ---------------- windows ----------------
 
+def force_foreground(hwnd):
+    """Windows only lets the active app hand out focus; borrow the active thread's input so a note can take it."""
+    k32 = ctypes.windll.kernel32
+    fg = u32.GetForegroundWindow()
+    fg_tid = u32.GetWindowThreadProcessId(fg, None) if fg else 0
+    me = k32.GetCurrentThreadId()
+    if fg_tid and fg_tid != me:
+        u32.AttachThreadInput(me, fg_tid, True)
+    u32.BringWindowToTop(hwnd)
+    u32.SetForegroundWindow(hwnd)
+    if fg_tid and fg_tid != me:
+        u32.AttachThreadInput(me, fg_tid, False)
+
+
+class Tip:
+    def __init__(self, widget, text):
+        self.w, self.text, self.tw = widget, text, None
+        widget.bind("<Enter>", self.show, add="+")
+        widget.bind("<Leave>", self.hide, add="+")
+        widget.bind("<ButtonPress>", self.hide, add="+")
+
+    def show(self, _e=None):
+        if self.tw or not self.text:
+            return
+        x, y = self.w.winfo_rootx() + 4, self.w.winfo_rooty() + self.w.winfo_height() + 4
+        self.tw = tk.Toplevel(self.w)
+        self.tw.overrideredirect(True)
+        self.tw.attributes("-topmost", True)
+        tk.Label(self.tw, text=self.text, bg="#20232b", fg="#eceef4", font=(FONT, 9), padx=7, pady=3).pack()
+        self.tw.geometry(f"+{x}+{y}")
+
+    def hide(self, _e=None):
+        if self.tw:
+            self.tw.destroy()
+            self.tw = None
+
 class Sticky(tk.Toplevel):
     def __init__(self, mgr, row):
         super().__init__(mgr.root)
@@ -104,12 +144,13 @@ class Sticky(tk.Toplevel):
         self.title_lbl = tk.Label(self.head, text="", font=(FONT, 8, "bold"))
         self.title_lbl.pack(side="left")
         self.btns = {}
-        for key, sym, tip in (("close", "✕", "Close note"), ("collapse", "–", "Collapse"),
-                              ("pin", "📌", "Pin on top / send to desktop"), ("new", "＋", "New note")):
+        for key, sym, tip in (("close", "✕", "Close (restore it from Daybook → Desktop)"), ("collapse", "–", "Collapse / expand"),
+                              ("pin", "📌", ""), ("new", "＋", "New note")):
             b = tk.Label(self.head, text=sym, font=(FONT, 10), cursor="hand2", padx=5)
             b.pack(side="right")
             b.bind("<Button-1>", lambda e, k=key: self.action(k))
             self.btns[key] = b
+            b._tip = Tip(b, tip)
         self.text = tk.Text(self, wrap="word", relief="flat", bd=0, padx=10, pady=8, font=(FONT, 11),
                             undo=True, highlightthickness=0)
         self.photos, self.imgfiles = [], {}  # Tk image name → file in IMG_DIR
@@ -123,13 +164,15 @@ class Sticky(tk.Toplevel):
             w.bind("<B1-Motion>", self._move)
             w.bind("<ButtonRelease-1>", self._save_geom)
             w.bind("<Double-Button-1>", lambda e: self.action("collapse"))
+        Tip(self.dot, "Color & options")
         self.dot.bind("<Button-1>", self._color_menu)
         self.head.bind("<Button-3>", self._color_menu)
         self.grip.bind("<ButtonPress-1>", self._start_move)
         self.grip.bind("<B1-Motion>", self._resize)
         self.grip.bind("<ButtonRelease-1>", self._save_geom)
         self.text.bind("<<Modified>>", self._changed)
-        self.text.bind("<Button-1>", lambda e: (self.focus_force(), self.text.focus_set()))
+        self.text.bind("<Button-1>", lambda e: self.take_focus(), add="+")
+        self.bind("<FocusOut>", lambda e: self.after(400, self._settle))
         self.text.bind("<Escape>", lambda e: self.mgr.root.focus())
         for seq in ("<Control-v>", "<Control-V>", "<Shift-Insert>"):
             self.text.bind(seq, self._paste)
@@ -139,10 +182,13 @@ class Sticky(tk.Toplevel):
 
         x = row["x"] if row["x"] is not None else mgr.next_pos()[0]
         y = row["y"] if row["y"] is not None else mgr.next_pos()[1]
-        self.geometry(f"{self.w}x{26 if self.collapsed else self.h}+{x}+{y}")
+        self.update_idletasks()
+        self.geometry(f"{self.w}x{self.head_h() if self.collapsed else self.h}+{x}+{y}")
         if row["x"] is None:
             update(self.sid, x=x, y=y)
         self.paint()
+        self.update_idletasks()
+        self.apply_layer()  # right away, so a new note never flickers behind your windows
         self.after(60, self.apply_layer)
 
     # --- text + pictures ---
@@ -230,6 +276,26 @@ class Sticky(tk.Toplevel):
                 os.startfile(IMG_DIR / self.imgfiles[value])  # full size in the Photos app
                 return "break"
 
+    def head_h(self):
+        return max(26, self.head.winfo_reqheight())
+
+    def take_focus(self):
+        """Click/new note: bring it forward and put the cursor in it (works even when Daybook isn't the active app)."""
+        try:
+            force_foreground(int(self.wm_frame(), 16))
+        except Exception:
+            pass
+        self.lift()
+        self.text.focus_set()
+
+    def _settle(self):
+        """When you leave a desktop-layer note it slips back under your apps."""
+        try:
+            if self.mode != "top" and not self.mgr.peeking and self.focus_get() is None:
+                self.apply_layer()
+        except Exception:
+            pass
+
     # --- look ---
     def paint(self):
         paper, head, ink = COLORS.get(self.color, COLORS["lemon"])
@@ -238,7 +304,12 @@ class Sticky(tk.Toplevel):
             w.configure(bg=head, fg=ink)
         self.text.configure(bg=paper, fg=ink, insertbackground=ink, selectbackground=head)
         self.grip.configure(bg=paper, fg=head)
-        self.btns["pin"].configure(text="📌" if self.mode == "top" else "⇣", fg=ink)
+        self.btns["pin"].configure(text="📌" if self.mode == "top" else "⇩", fg=ink)
+        self.btns["pin"]._tip.text = "Pinned on top — click to tuck it under your apps" if self.mode == "top" else "On the desktop layer — click to pin it on top"
+        if self.collapsed:
+            self.grip.place_forget()
+        else:
+            self.grip.place(relx=1, rely=1, anchor="se")
         first = preview(self.text.get("1.0", "1.end")).strip() or ("🖼 picture" if self.imgfiles else "")
         self.title_lbl.configure(text=(first[:28] + "…" if len(first) > 28 else first) if self.collapsed else "")
 
@@ -266,7 +337,7 @@ class Sticky(tk.Toplevel):
         elif key == "collapse":
             self.collapsed = not self.collapsed
             update(self.sid, collapsed=int(self.collapsed))
-            self.geometry(f"{self.w}x{26 if self.collapsed else self.h}")
+            self.geometry(f"{self.w}x{self.head_h() if self.collapsed else self.h}")
             self.paint()
         elif key == "close":
             self._flush()
@@ -277,8 +348,17 @@ class Sticky(tk.Toplevel):
     def _color_menu(self, e):
         m = tk.Menu(self, tearoff=0)
         for name in COLORS:
-            m.add_command(label=name.title(), command=lambda n=name: self._set_color(n))
-        m.tk_popup(e.x_root, e.y_root)
+            m.add_command(label=("● " if name == self.color else "   ") + name.title(), command=lambda n=name: self._set_color(n))
+        m.add_separator()
+        m.add_command(label="Send to desktop layer" if self.mode == "top" else "Pin on top", command=lambda: self.action("pin"))
+        m.add_command(label="Expand" if self.collapsed else "Collapse", command=lambda: self.action("collapse"))
+        m.add_command(label="New note", command=lambda: self.action("new"))
+        m.add_separator()
+        m.add_command(label="Close note", command=lambda: self.action("close"))
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
 
     def _set_color(self, n):
         self.color = n
@@ -344,9 +424,9 @@ class Manager:
         x = y = None
         if near is not None:
             x, y = near.winfo_x() + 30, near.winfo_y() + 30
-        sid = create(text, color or (near.color if near else "lemon"), x, y)
+        sid = create(text, color or (near.color if near else "lemon"), x, y, "top")
         w = self.open(get(sid))
-        w.after(80, lambda: (w.focus_force(), w.text.focus_set()))
+        w.after(120, w.take_focus)
         return sid
 
     def pump(self):
@@ -356,14 +436,16 @@ class Manager:
                 row = get(sid) if sid else None
                 if cmd == "new":
                     w = self.open(row)
-                    w.after(80, lambda w=w: (w.focus_force(), w.text.focus_set()))
+                    w.after(120, w.take_focus)
                 elif cmd == "show" and row:
                     update(sid, closed=0)
                     w = self.open(get(sid))
-                    w.mode = "top"  # bring it into view once
-                    w.apply_layer()
-                    w.mode = row["mode"]
-                    w.after(1500, w.apply_layer)
+                    if w.collapsed:
+                        w.action("collapse")
+                    u32.SetWindowPos(int(w.wm_frame(), 16), HWND_TOPMOST, 0, 0, 0, 0, 0x0013)  # up front until you click away
+                    w.after(150, w.take_focus)
+                    if w.mode != "top":
+                        u32.SetWindowPos(int(w.wm_frame(), 16), HWND_NOTOPMOST, 0, 0, 0, 0, 0x0013)
                 elif cmd == "close" and sid in self.windows:
                     self.windows[sid].action("close")
                 elif cmd == "peek":
@@ -393,11 +475,14 @@ class Manager:
 
     def keep_layers(self):
         """Desktop-mode notes drift up when clicked — quietly push them back under the apps."""
-        focused = self.root.focus_get()
+        try:
+            focused = self.root.focus_get()
+        except Exception:  # focus is in a menu/tooltip — Tk can't name it
+            focused = None
         for w in list(self.windows.values()):
             try:
                 if not self.peeking and w.mode != "top" and (focused is None or focused.winfo_toplevel() is not w):
                     w.apply_layer()
             except Exception:
                 pass
-        self.root.after(4000, self.keep_layers)
+        self.root.after(4000, self.keep_layers)  # always reschedule

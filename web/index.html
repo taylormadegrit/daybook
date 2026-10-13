@@ -345,6 +345,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="brand"><img src="/brand/icon-64.png" alt="" class="logo"><div>Daybook<small>Local AI Hub</small></div></div>
     <div class="navi" data-v="today"><svg class="i" data-i="home"></svg>Today<span class="k">Alt 1</span></div>
     <div class="navi" data-v="launchpad"><svg class="i" data-i="grid"></svg>Launchpad<span class="k">Alt L</span></div>
+    <div class="navi" data-v="games"><svg class="i" data-i="gamepad"></svg>Games<span class="k">Alt G</span></div>
     <div class="navi" data-v="browser"><svg class="i" data-i="globe"></svg>Browser<span class="k">Alt B</span></div>
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
@@ -380,6 +381,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
         <button class="iconbtn micbtn" id="topmic" title="Dictate into the box you were typing in (Alt M) — or record a voice memo" onclick="V.mode?dictateStop():dictate()"><svg class="i" data-i="mic"></svg></button>
         <button class="iconbtn" title="Timers & alarms (Alt 6)" onclick="go('clock')"><svg class="i" data-i="timer"></svg></button>
       </div>
+      <div style="position:relative"><button class="iconbtn netbtn" id="netbtn" title="Network" onclick="netToggle(event)"></button><div class="menu net-menu" id="netmenu"></div></div>
       <button class="searchbtn" onclick="openPalette()"><svg class="i sm" data-i="search"></svg>Search or jump to…<span class="kbd">Ctrl K</span></button>
       <div style="position:relative">
         <button class="btn pri" onclick="toggleMenu(event)"><svg class="i sm" data-i="plus"></svg>New</button>
@@ -501,6 +503,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- GAMES -->
+    <section class="view" id="v-games"><div class="pad lp-pad"><div class="lp" id="lp-games"></div></div></section>
+
     <!-- RESEARCH (Zotero) -->
     <section class="view" id="v-research"><div class="pad" style="max-width:1700px;padding-bottom:0"><div id="research"></div></div></section>
 
@@ -629,6 +634,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/webpanes.js"></script>
 <script src="/app/library.js"></script>
 <script src="/app/splitters.js"></script>
+<script src="/app/network.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -671,6 +677,7 @@ const ICONS = {
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
   layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
+  gamepad: "M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 0 0-3.98 3.59l-.82 7.43A2.5 2.5 0 0 0 6.36 18l2.14-2.14A2 2 0 0 1 9.91 15h4.18a2 2 0 0 1 1.41.86L17.64 18a2.5 2.5 0 0 0 4.48-1.98l-.82-7.43A4 4 0 0 0 17.32 5z",
   rec: "M23 7l-7 5 7 5zM1 5h15v14H1z", send: "M22 2 11 13M22 2l-7 20-4-9-9-4z", book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5",
   mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
   play: "M6 4l14 8-14 8z", pause: "M7 4h3v16H7zM14 4h3v16h-3z",
@@ -693,7 +700,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {games: ["Games", "Your Steam & Epic library and free games"], research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -707,7 +714,7 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), games: () => renderGames(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene(); dockSync(); setTimeout(splPages, 400);
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
@@ -1384,7 +1391,7 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to Research (Zotero)", "book", () => go("research")], ["Add a source to Zotero", "book", () => { go("research"); setTimeout(zAddModal, 400); }], ["Open Zotero", "book", () => api("/api/zotero/launch", {method: "POST"})],
   ["Go to Browser", "globe", () => go("browser")], ["Customize sidebar", "sidebar", () => sidebarModal()], ["Move sidebar to the top", "sidebar", () => saveLayoutCfg({navPos: "top"})], ["Move sidebar to the left", "sidebar", () => saveLayoutCfg({navPos: "left"})],
   ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
-  ["Games library", "play", () => go("launchpad", "games")], ["Free games", "play", () => go("launchpad", "games")], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
+  ["Games library", "gamepad", () => go("games")], ["Free games", "gamepad", () => { GM.view = "free"; go("games"); }], ["Wi-Fi & network", "globe", () => netToggle()], ["Speed test", "zap", () => { netToggle(); setTimeout(netSpeed, 600); }], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
   ["Simple layout", "grid", () => pickLayout("simple")], ["Balanced layout", "grid", () => pickLayout("balanced")], ["Power user layout", "grid", () => pickLayout("power")], ["Layout settings", "sliders", () => go("settings")],
   ["Focus mode (notes)", "expand", () => { go("notes"); focusMode(); }], ["Collapse sidebar", "sidebar", () => setSlim(!$(".app").classList.contains("slim"))], ["Dictate (speech to text)", "mic", () => dictate()], ["Voice settings", "mic", () => go("settings")]];
 let palItems = [], palIdx = 0;
@@ -1427,6 +1434,7 @@ document.addEventListener("keydown", e => {
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); go("browser"); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "g") { e.preventDefault(); go("games"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "r") { e.preventDefault(); go("research"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
@@ -1453,7 +1461,7 @@ setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); 
 window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
 (async function boot() {
   if (window.desktop) document.body.classList.add("desktop");
-  paintIcons(); trackFields(); sceneInit(); dockInit(); splInit();
+  paintIcons(); trackFields(); sceneInit(); dockInit(); splInit(); netInit();
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);

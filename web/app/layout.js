@@ -1,8 +1,8 @@
 // ================= LAYOUT: Simple · Balanced · Power, or fully custom =================
-const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["browser", "Browser"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"], ["research", "Library"],
+const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["games", "Games"], ["browser", "Browser"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"], ["research", "Library"],
   ["clock", "Clock"], ["desktop", "Desktop"], ["chat", "Chat"], ["models", "Models"]];
 const PRESETS_LAYOUT = {
-  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "browser", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,
+  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "games", "browser", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,
     widgets: ["nownext", "schedule", "timers", "log"]},
   balanced: {name: "Balanced", desc: "Everything, with room to breathe (default)", nav: NAV_PAGES.map(p => p[0]), density: "normal", hints: true, quick: true, status: true,
     widgets: ["nownext", "schedule", "log", "timers", "stickies", "alarms", "upnext", "ambience"]},
@@ -13,7 +13,7 @@ function layoutCfg() {
   let l = {}; try { l = JSON.parse(S.settings.layout || "{}"); } catch (e) {}
   const c = {...PRESETS_LAYOUT.balanced, mode: "balanced", start: "today", ...l};
   // pages added in newer versions show up unless you've hidden them yourself
-  const known = l.navKnown || NAV_PAGES.map(p => p[0]).filter(v => !["browser", "studio", "research"].includes(v));
+  const known = l.navKnown || NAV_PAGES.map(p => p[0]).filter(v => !["browser", "studio", "research", "games"].includes(v));
   c.nav = [...new Set([...c.nav, ...NAV_PAGES.map(p => p[0]).filter(v => !known.includes(v))])];
   return c;
 }

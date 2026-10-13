@@ -16,6 +16,18 @@ except Exception:
 
 from PIL import Image, ImageDraw, ImageFont, ImageGrab, ImageTk  # noqa: E402
 
+def _declare_setwindowpos():
+    """HWND_TOPMOST is -1: it must be passed pointer-sized or 64-bit Windows misreads it."""
+    import ctypes
+    from ctypes import wintypes
+    f = ctypes.windll.user32.SetWindowPos
+    f.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+    f.restype = wintypes.BOOL
+
+
+_declare_setwindowpos()
+
+
 u32 = ctypes.windll.user32
 COLORS = ["#ff3b5c", "#ff9f1c", "#ffd60a", "#2ee59d", "#3aa0ff", "#9b6bff", "#ffffff", "#111111"]
 SIZES = [3, 6, 12]

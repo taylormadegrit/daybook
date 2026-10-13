@@ -310,6 +310,19 @@ def _daybook():
     return appwin.find_window()
 
 
+def _link_input(child, parent, on=True):
+    """A window from another program placed inside Daybook only gets keyboard input if the two windows'
+    UI threads share one input queue — otherwise you can click in Chrome but not type."""
+    try:
+        ct = u32.GetWindowThreadProcessId(child, None)
+        pt = u32.GetWindowThreadProcessId(parent, None)
+        if ct and pt and ct != pt:
+            return bool(u32.AttachThreadInput(ct, pt, bool(on)))
+    except Exception:
+        pass
+    return False
+
+
 NORMAL_STYLE = 0x16CF0000  # visible overlapped window with caption, frame, min/max — how browsers start out
 
 
@@ -343,6 +356,7 @@ def embed(hwnd, label="", browser="", profile=""):
     new = (style & ~(WS_POPUP | WS_CAPTION | WS_THICK | WS_SYS | WS_MIN | WS_MAX)) | WS_CHILD
     u32.SetWindowLongPtrW(hwnd, -16, new)
     u32.SetParent(hwnd, me)
+    EMB[hwnd]["linked"] = _link_input(hwnd, me)
     u32.SetWindowPos(hwnd, None, 0, 0, 10, 10, 0x0020 | 0x0004 | 0x0010)  # FRAMECHANGED | NOZORDER | NOACTIVATE
 
 
@@ -350,6 +364,9 @@ def release(hwnd, close=False):
     e = EMB.pop(hwnd, None)
     if not e or not u32.IsWindow(hwnd):
         return
+    me = _daybook()
+    if me:
+        _link_input(hwnd, me, False)
     u32.SetParent(hwnd, None)
     u32.SetWindowLongPtrW(hwnd, -16, e["style"])
     u32.SetWindowLongPtrW(hwnd, -20, e["exstyle"])
@@ -377,6 +394,9 @@ def place(items, visible, dpr):
             continue
         if u32.GetParent(hw) != me:
             u32.SetParent(hw, me)
+            e["linked"] = False
+        if not e.get("linked"):  # (re)link keyboard input — e.g. after Daybook or the service restarted
+            e["linked"] = _link_input(hw, me)
         # HWND_TOP among Daybook's child windows, so it sits above the page's own render surface
         u32.SetWindowPos(hw, 0, round(i["x"] * dpr), round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr), 0x0010 | 0x0040)
         e["shown"] = True

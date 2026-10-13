@@ -538,3 +538,54 @@ body.splitting .app{transition:none}body.splitting .notes{transition:none}
 .bd-pane.chrome .bd-ph{gap:8px;padding:5px 8px}.bd-ctitle{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 .bd-tab .bd-chrome{flex:none;width:14px;height:14px;font-size:0}
+
+/* ---- network menu ---- */
+.netbtn{position:relative}.netbtn.offline{color:var(--warn)}
+.net-menu{right:0;top:44px;width:min(380px,92vw);padding:10px;display:none}.net-menu.on{display:block}
+.net-menu>div:hover,.net-menu div:hover{background:none}
+.net-h{display:flex;align-items:center;gap:4px;padding:2px 2px 8px}.net-h b{flex:1;font-size:14px}
+.net-cur{padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--line);cursor:default}
+.net-cur b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.net-cur span{font-size:12px;color:var(--muted)}
+.net-cur.off b{color:var(--warn)}
+.net-ic{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--card2);flex:none}
+.net-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;margin-top:10px;font-size:12px}
+.net-grid span{color:var(--muted)}.net-grid b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-list{max-height:min(46vh,360px);overflow:auto;margin-top:2px}
+.net-row{display:flex!important;align-items:center;gap:10px;padding:7px 6px!important;border-radius:9px;cursor:pointer!important}
+.net-row:hover{background:var(--card2)!important}.net-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}
+.net-join{display:flex!important;gap:6px;padding:4px 6px 10px 46px!important;cursor:default!important}.net-join .f{padding:6px 10px}
+/* ---- games page ---- */
+.lp-pad{max-width:none!important;padding:0!important;height:calc(100vh - var(--navh, 0px) - 69px);overflow:auto}
+/* ---- launchpad: names always readable ---- */
+.lp-tiles{padding:12px 6px 46px;scroll-padding:20px}
+.lpt .lbl{opacity:.8;top:calc(100% + 8px);font-size:11.5px;max-width:112px;text-align:center}
+.lpt.on{transform:scale(1.14)}
+.lpt.on .lbl{opacity:1;font-size:10.5px;font-weight:600;max-width:100px}
+.lp-tiles .lpt.on{margin:0 8px}
+.lp-tiles .lpt{margin-bottom:6px}
+.lpg .lbl{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;min-height:2.5em}
+/* ---- title bar with the sidebar on the right ---- */
+body.desktop .app.nav-right .topbar{padding-right:26px}
+body.desktop .app.nav-right .nav{padding-top:42px}
+body.desktop .app.nav-right .nav .brand{-webkit-app-region:drag}
+/* ---- smoother: fewer expensive effects ---- */
+body::before{animation:none}
+.card{backdrop-filter:none}
+body.scened .card{backdrop-filter:blur(12px) saturate(1.15)}
+.view.on{animation:viewin .16s ease-out}
+@keyframes viewin{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view.on{animation:none}*{transition:none!important}}
+/* network panel: don't inherit the New-menu row styling */
+.menu.net-menu div{display:block;padding:0;border-radius:0;gap:0;font-size:inherit;cursor:default}
+.menu.net-menu div:hover{background:none}
+.menu.net-menu .net-h{display:flex;align-items:center;gap:4px;padding:2px 2px 8px}
+.menu.net-menu .net-cur{padding:12px;border-radius:12px}
+.menu.net-menu .row{display:flex;align-items:center}
+.menu.net-menu .net-grid{display:grid}
+.menu.net-menu .net-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:9px;cursor:pointer}
+.menu.net-menu .net-row:hover{background:var(--card2)}
+.menu.net-menu .net-join{display:flex;gap:6px;padding:4px 6px 10px 46px}
+.menu.net-menu .mh{padding:10px 2px 4px}
+.menu.net-menu .obs-card{padding:12px;border-radius:12px}
+.main{overflow:hidden}
+.menu.net-menu{max-height:calc(100vh - 60px);overflow:auto}
