@@ -128,7 +128,7 @@ def detach(hwnd, restore=True):
         u32.SetForegroundWindow(hwnd)
 
 
-def open_profile(browser, profile, url=""):
+def open_profile(browser, profile, url="", dock=True):
     """Start a new window for that profile and dock it as soon as it appears."""
     from . import launchpad
     before = {w["hwnd"] for w in browser_windows()}
@@ -144,7 +144,8 @@ def open_profile(browser, profile, url=""):
         new = [w for w in browser_windows() if w["hwnd"] not in before]
         if new:
             time.sleep(0.4)  # let it finish creating before we move it
-            attach(new[0]["hwnd"], f"{p.get('name', profile)} · {b['name'].replace('Google ', '')}")
+            if dock:
+                attach(new[0]["hwnd"], f"{p.get('name', profile)} · {b['name'].replace('Google ', '')}")
             return new[0]["hwnd"]
     raise RuntimeError("The browser window didn't appear")
 
@@ -291,6 +292,124 @@ def d_action(action):
                 S["focus"] = int(j.get("hwnd", 0))
                 S["last"] = {}
             u32.SetForegroundWindow(S["focus"])
+        else:
+            return jsonify(error="unknown action"), 400
+    except Exception as e:
+        return jsonify(error=str(e)[:200]), 400
+    return jsonify(ok=True)
+
+
+# ---------------- desktop app: real Chrome windows embedded as panes ----------------
+# The Chrome window becomes a child of the Daybook window (SetParent), so it moves, hides and minimizes with Daybook
+# instantly. Its frame styles are saved and restored when you pop it back out.
+EMB = {}  # hwnd → {"style", "exstyle", "rect", "label", "browser", "profile"}
+WS_CHILD, WS_POPUP, WS_CAPTION, WS_THICK, WS_SYS, WS_MIN, WS_MAX = 0x40000000, 0x80000000, 0x00C00000, 0x00040000, 0x00080000, 0x00020000, 0x00010000
+
+
+def _daybook():
+    return appwin.find_window()
+
+
+NORMAL_STYLE = 0x16CF0000  # visible overlapped window with caption, frame, min/max — how browsers start out
+
+
+def adopt():
+    """After a service restart: pick up browser windows that are still inside the Daybook window."""
+    me = _daybook()
+    if not me:
+        return
+    found = []
+
+    def cb(h, _):
+        if u32.GetParent(h) == me and _cls(h) in ("Chrome_WidgetWin_1", "MozillaWindowClass") and _exe(h) in BROWSER_EXES:
+            found.append(h)
+        return True
+    u32.EnumChildWindows(me, ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
+    for h in found:
+        if h not in EMB:
+            EMB[h] = {"style": NORMAL_STYLE, "exstyle": u32.GetWindowLongPtrW(h, -20) | 0x40000, "rect": [200, 120, 1100, 760],
+                      "label": "Chrome", "browser": "chrome", "profile": "", "shown": None}
+
+
+def embed(hwnd, label="", browser="", profile=""):
+    me = _daybook()
+    if not me or not u32.IsWindow(hwnd) or hwnd in EMB:
+        return
+    style, ex = u32.GetWindowLongPtrW(hwnd, -16), u32.GetWindowLongPtrW(hwnd, -20)
+    EMB[hwnd] = {"style": style, "exstyle": ex, "rect": _rect(hwnd), "label": label, "browser": browser, "profile": profile, "shown": None}
+    if u32.IsZoomed(hwnd) or u32.IsIconic(hwnd):
+        u32.ShowWindow(hwnd, 9)
+    u32.ShowWindow(hwnd, 0)
+    new = (style & ~(WS_POPUP | WS_CAPTION | WS_THICK | WS_SYS | WS_MIN | WS_MAX)) | WS_CHILD
+    u32.SetWindowLongPtrW(hwnd, -16, new)
+    u32.SetParent(hwnd, me)
+    u32.SetWindowPos(hwnd, None, 0, 0, 10, 10, 0x0020 | 0x0004 | 0x0010)  # FRAMECHANGED | NOZORDER | NOACTIVATE
+
+
+def release(hwnd, close=False):
+    e = EMB.pop(hwnd, None)
+    if not e or not u32.IsWindow(hwnd):
+        return
+    u32.SetParent(hwnd, None)
+    u32.SetWindowLongPtrW(hwnd, -16, e["style"])
+    u32.SetWindowLongPtrW(hwnd, -20, e["exstyle"])
+    x, y, w, h = e["rect"]
+    u32.SetWindowPos(hwnd, None, x, y, max(w, 900), max(h, 650), 0x0020 | 0x0004 | 0x0040)
+    if close:
+        u32.PostMessageW(hwnd, 0x0010, 0, 0)
+    else:
+        u32.SetForegroundWindow(hwnd)
+
+
+def place(items, visible, dpr):
+    """items: [{hwnd, x, y, w, h}] in page CSS pixels (the Daybook page fills the window's client area)."""
+    me = _daybook()
+    for hw in list(EMB):
+        if not u32.IsWindow(hw):  # closed from inside Chrome
+            EMB.pop(hw, None)
+    want = {int(i["hwnd"]): i for i in items}
+    for hw, e in EMB.items():
+        i = want.get(hw)
+        if not visible or not i or not me:
+            if e["shown"] is not False:
+                u32.ShowWindow(hw, 0)
+                e["shown"] = False
+            continue
+        if u32.GetParent(hw) != me:
+            u32.SetParent(hw, me)
+        # HWND_TOP among Daybook's child windows, so it sits above the page's own render surface
+        u32.SetWindowPos(hw, 0, round(i["x"] * dpr), round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr), 0x0010 | 0x0040)
+        e["shown"] = True
+
+
+def open_embedded(browser, profile, url=""):
+    hw = open_profile(browser, profile, url, dock=False)
+    from . import launchpad
+    b = next((x for x in launchpad.browsers() if x["id"] == browser), {"name": browser, "profiles": []})
+    p = next((x for x in b["profiles"] if x["id"] == profile), {"name": profile, "color": b.get("color", "#888")})
+    embed(hw, p.get("name", profile), browser, profile)
+    return hw
+
+
+@bp.get("/api/dock/embedded")
+def d_embedded():
+    if not EMB:
+        adopt()
+    return jsonify([{"hwnd": hw, "label": e["label"], "browser": e["browser"], "profile": e["profile"], "title": _title(hw)}
+                    for hw, e in list(EMB.items()) if u32.IsWindow(hw)])
+
+
+@bp.post("/api/dock/embed/<action>")
+def d_embed(action):
+    j = request.get_json() or {}
+    try:
+        if action == "open":
+            return jsonify(hwnd=open_embedded(j.get("browser"), j.get("profile"), j.get("url", "")))
+        if action == "place":
+            place(j.get("items", []), bool(j.get("visible")), float(j.get("dpr", 1)))
+        elif action == "release":
+            for hw in ([*EMB] if j.get("all") else [int(j.get("hwnd", 0))]):
+                release(hw, close=bool(j.get("close")))
         else:
             return jsonify(error="unknown action"), 400
     except Exception as e:

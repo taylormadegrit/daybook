@@ -11,6 +11,10 @@ const ICON = path.join(__dirname, "assets", "daybook.ico");
 const STATE = path.join(app.getPath("userData"), "window-state.json");
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/" +
   process.versions.chrome.replace(/\..*/, "") + ".0.0.0 Safari/537.36";
+// Google refuses to sign in inside embedded browsers; it accepts Firefox. So *only* Google's sign-in pages see a
+// Firefox identity (and none of Chromium's client-hint headers). Everything else stays normal Chrome.
+const FIREFOX_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
+const isGoogleAuth = u => /^https:\/\/accounts\.google\.[a-z.]+\//i.test(u || "") || /^https:\/\/(myaccount|gds)\.google\.com\//i.test(u || "");
 let win = null, tray = null, quitting = false, backend = null;
 const panes = new Map(); // id → {view, profile}
 let paneSeq = 1;
@@ -100,7 +104,15 @@ function prepareSession(part) {
   if (prepared.has(part)) return session.fromPartition(part);
   prepared.add(part);
   const s = session.fromPartition(part);
-  s.setUserAgent(CHROME_UA);                                   // so Google & co. treat it as normal Chrome
+  s.setUserAgent(CHROME_UA);                                   // so sites treat it as normal Chrome
+  s.webRequest.onBeforeSendHeaders((d, cb) => {
+    const h = d.requestHeaders;
+    if (isGoogleAuth(d.url) || (d.webContents && isGoogleAuth(d.webContents.getURL()) && /google/.test(d.url))) {
+      h["User-Agent"] = FIREFOX_UA;
+      for (const k of Object.keys(h)) if (/^sec-ch-ua/i.test(k)) delete h[k];
+    }
+    cb({requestHeaders: h});
+  });
   s.setPermissionRequestHandler(async (wc, perm, cb, details) => {
     if (["fullscreen", "clipboard-sanitized-write", "notifications", "pointerLock"].includes(perm)) return cb(true);
     if (["media", "geolocation", "midiSysex", "display-capture"].includes(perm)) {
@@ -195,6 +207,12 @@ ipcMain.handle("app:settings", (_e, s) => { const st = {...loadState(), ...s}; f
 ipcMain.handle("app:info", () => ({version: app.getVersion(), packaged: app.isPackaged, ...loadState(), startAtLogin: app.getLoginItemSettings().openAtLogin}));
 
 // ---------------- start ----------------
+// every page in a browser pane (and sign-in pop-ups): match navigator.userAgent to the headers above
+app.on("web-contents-created", (_e, wc) => {
+  if (wc.getType() === "webview" || !wc.session || wc.session === session.defaultSession) return;
+  wc.on("did-start-navigation", d => { if (!d.isMainFrame) return; const ua = isGoogleAuth(d.url) ? FIREFOX_UA : CHROME_UA; if (wc.getUserAgent() !== ua) wc.setUserAgent(ua); });
+  wc.on("did-create-window", w => w.webContents.setUserAgent(isGoogleAuth(w.webContents.getURL()) ? FIREFOX_UA : CHROME_UA));
+});
 app.whenReady().then(async () => {
   // mic + screen capture for voice/video notes inside Daybook's own pages
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));
@@ -213,5 +231,14 @@ app.whenReady().then(async () => {
   }
   await createWindow(viewArg(process.argv));
 });
-app.on("before-quit", () => { quitting = true; saveState(); });
+let released = false;
+app.on("before-quit", e => {
+  quitting = true; saveState();
+  if (released) return;
+  e.preventDefault();  // hand embedded Chrome windows back to the desktop before this window goes away
+  const done = () => { released = true; app.quit(); };
+  const r = http.request(URL_BASE + "/api/dock/embed/release", {method: "POST", headers: {"Content-Type": "application/json"}}, x => { x.resume(); x.on("end", done); });
+  r.on("error", done); r.setTimeout(2500, () => { r.destroy(); done(); });
+  r.end(JSON.stringify({all: 1}));
+});
 app.on("window-all-closed", e => e.preventDefault()); // stay in the tray

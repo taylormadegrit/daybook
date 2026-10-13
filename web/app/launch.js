@@ -40,7 +40,7 @@ function lpFocus(r, c, fromFocus) {
   $("#lp").style.setProperty("--lpart", art ? `url("${art}")` : "none");
   if (it.type === "profile") {
     h.innerHTML = `<div class="lp-h1">${esc(it.name)}</div><div class="lp-sub">${esc(it.p.account || "")}${it.p.email ? " · " + esc(it.p.email) : ""} <span class="badge">${esc(it.b.name)}</span></div>
-      <div class="row" style="margin-top:16px;gap:8px"><button class="btn pri lg" onclick="bwOpen('${it.b.id}','${esc(it.p.id)}')">${ic("play")}Open in Daybook</button>
+      <div class="row" style="margin-top:16px;gap:8px"><button class="btn pri lg" onclick="window.desktop ? bdChromeOpen('${it.b.id}','${esc(it.p.id)}') : bwOpen('${it.b.id}','${esc(it.p.id)}')">${ic("play")}Open in Daybook</button>
         <button class="btn" onclick="lpBrowser('${it.b.id}','${esc(it.p.id)}')" title="Open as its own separate window">${ic("ext")}Own window</button>
         ${LP.data.quick_links.map(([n, u]) => `<button class="chipb" onclick="bwOpen('${it.b.id}','${esc(it.p.id)}','${u}')">${n}</button>`).join("")}</div>
       <div class="row" style="margin-top:10px;flex-wrap:nowrap;max-width:560px"><input class="f" id="lp-url" placeholder="Open a site in this profile… e.g. canva.com" onkeydown="if(event.key==='Enter'){bwOpen('${it.b.id}','${esc(it.p.id)}',lpUrl(this.value))}"></div>`;
@@ -59,7 +59,7 @@ const lpUrl = v => (v = v.trim()) && !/^https?:/i.test(v) ? "https://" + v : v;
 async function lpBrowser(b, p, url = "") { try { await api("/api/launchpad/browser", {method: "POST", body: {browser: b, profile: p, url}}); toast("Opening…"); } catch (e) { toast(e.message); } }
 async function lpOpen(r, c) {
   const it = lpRows()[r][c]; if (!it) return;
-  if (it.type === "profile") return store.get("daybook-dock", "1") === "1" ? bwOpen(it.b.id, it.p.id) : lpBrowser(it.b.id, it.p.id);
+  if (it.type === "profile") return window.desktop ? bdChromeOpen(it.b.id, it.p.id) : store.get("daybook-dock", "1") === "1" ? bwOpen(it.b.id, it.p.id) : lpBrowser(it.b.id, it.p.id);
   if (it.type === "add") { LP.view = "all"; return renderLaunchpad(); }
   try { await api("/api/launchpad/app/" + it.a.id, {method: "POST"}); toast("Opening " + it.name + "…"); } catch (e) { toast(e.message); }
 }

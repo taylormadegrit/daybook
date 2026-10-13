@@ -628,6 +628,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/research.js"></script>
 <script src="/app/webpanes.js"></script>
 <script src="/app/library.js"></script>
+<script src="/app/splitters.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -707,7 +708,7 @@ function go(v, sub) {
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
   ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
-  applyScene(); dockSync();
+  applyScene(); dockSync(); setTimeout(splPages, 400);
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
 setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
@@ -1452,7 +1453,7 @@ setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); 
 window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
 (async function boot() {
   if (window.desktop) document.body.classList.add("desktop");
-  paintIcons(); trackFields(); sceneInit(); dockInit();
+  paintIcons(); trackFields(); sceneInit(); dockInit(); splInit();
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);

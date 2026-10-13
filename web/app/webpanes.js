@@ -1,6 +1,19 @@
 // ================= DESKTOP APP: real in-app browser panes (Electron WebContentsView) =================
 // Only used inside the Daybook desktop app (window.desktop exists). In a plain browser, browser.js docks Chrome windows instead.
-const BD = {panes: [], focus: null, layout: store.get("daybook-bd-layout", "auto"), ro: null, restored: false, bound: false, last: ""};
+const BD = {panes: [], focus: null, layout: store.get("daybook-bd-layout", "auto"), ro: null, restored: false, bound: false, last: "", ratios: (() => { try { return JSON.parse(localStorage.getItem("daybook-bd-ratios") || "{}"); } catch (e) { return {}; } })()};
+BD.chrome = [];
+const bdAll = () => BD.panes.concat(BD.chrome.map(c => ({id: -c.hwnd, chrome: c, profile: "chrome:" + c.profile, title: c.title.replace(/ - Google Chrome$/, "") || c.label, url: "", loading: false})));
+async function bdChromeRefresh() { try { BD.chrome = await api("/api/dock/embedded"); } catch (e) { BD.chrome = []; } }
+function bdClose(id) { return id < 0 ? api("/api/dock/embed/release", {method: "POST", body: {hwnd: -id, close: true}}).then(() => setTimeout(async () => { await bdChromeRefresh(); bdPaint(); }, 400)) : desktop.browser.close(id); }
+async function bdChromeOpen(b, p) {
+  $$(".menu").forEach(x => x.classList.remove("on")); if (S.view !== "browser") go("browser");
+  toast("Opening your Chrome profile inside Daybook…");
+  try { const j = await api("/api/dock/embed/open", {method: "POST", body: {browser: b, profile: p}}); await bdChromeRefresh(); BD.focus = -j.hwnd; bdPaint(); }
+  catch (e) { toast(e.message); }
+}
+async function bdChromePop(id) { await api("/api/dock/embed/release", {method: "POST", body: {hwnd: -id}}); await bdChromeRefresh(); bdPaint(); }
+const bdKind = (n, layout) => layout === "rows" ? "rows" : (layout === "tabs" || layout === "grid" || (layout === "auto" && n > 3)) ? "" : "cols";
+function bdWeights(n, layout) { const k = bdKind(n, layout) + n, w = BD.ratios[k]; return w && w.length === n ? w : Array(n).fill(1 / n); }
 const BD_COLORS = ["#8b7bff", "#4fd1ff", "#ff7ac6", "#3ee0a0", "#ffbe5c", "#ff6b81", "#a3e635", "#f97316"];
 function webProfiles() {
   try { const p = JSON.parse(S.settings.web_profiles || "[]"); if (p.length) return p; } catch (e) {}
@@ -27,7 +40,8 @@ async function renderBrowserDesktop() {
       if (d.action === "address") { go("browser"); setTimeout(() => { const i = $(`.bd-pane[data-id="${d.id}"] .bd-url`); if (i) { i.focus(); i.select(); } }, 60); }
     });
   }
-  BD.panes = await desktop.browser.list();
+  BD.panes = await desktop.browser.list(); await bdChromeRefresh();
+  clearInterval(BD.poll); BD.poll = setInterval(async () => { if (S.view !== "browser") return; const n = BD.chrome.length; await bdChromeRefresh(); if (n !== BD.chrome.length || BD.chrome.length) bdPaint(); }, 2500);
   if (!BD.restored) {  // reopen last session's pages
     BD.restored = true;
     if (!BD.panes.length) {
@@ -42,7 +56,7 @@ async function renderBrowserDesktop() {
         <button class="iconbtn" title="Add a browser profile (separate logins)" onclick="bdProfileModal()">${ic("plus")}</button></div>
       <div class="sp"></div>
       <div class="seg sm">${[["tabs", "Tabs"], ["auto", "Split"], ["grid", "Grid"], ["rows", "Rows"]].map(([k, l]) => `<button class="${BD.layout === k ? "on" : ""}" onclick="bdLayout('${k}')">${l}</button>`).join("")}</div>
-      <div style="position:relative"><button class="btn sm ghost" title="Open one of your real Chrome profiles in its own window" onclick="bdChromeMenu(event)">${ic("globe")}Chrome profiles</button>
+      <div style="position:relative"><button class="btn sm" title="Your real Chrome profiles — already signed in — inside Daybook" onclick="bdChromeMenu(event)">${ic("globe")}Chrome profiles</button>
         <div class="menu" id="bw-profiles" style="right:0;top:36px;max-height:60vh;overflow:auto;min-width:280px"></div></div></div>
     <div class="bd-tabs" id="bd-tabs"></div>
     <div class="bd-stage" id="bd-stage"></div>`;
@@ -54,27 +68,60 @@ async function renderBrowserDesktop() {
 function bdTiles(n, w, h, layout) {
   const g = 8; if (!n) return [];
   if (layout === "tabs") return [[0, 0, w, h]];
-  if (layout === "rows") { const hh = (h - g * (n - 1)) / n; return [...Array(n)].map((_, i) => [0, i * (hh + g), w, hh]); }
+  if (layout === "rows") { const wt = bdWeights(n, layout), avail = h - g * (n - 1); let y = 0; return wt.map(f => { const t = [0, y, w, avail * f]; y += avail * f + g; return t; }); }
   if (layout === "grid" || (layout === "auto" && n > 3)) {
     const c = Math.ceil(Math.sqrt(n)), r = Math.ceil(n / c), ch = (h - g * (r - 1)) / r;
     return [...Array(n)].map((_, i) => { const row = Math.floor(i / c), inRow = Math.min(c, n - row * c), cw = (w - g * (inRow - 1)) / inRow; return [(i - row * c) * (cw + g), row * (ch + g), cw, ch]; });
   }
-  const cw = (w - g * (n - 1)) / n; return [...Array(n)].map((_, i) => [i * (cw + g), 0, cw, h]);
+  const wt = bdWeights(n, layout), avail = w - g * (n - 1); let x = 0; return wt.map(f => { const t = [x, 0, avail * f, h]; x += avail * f + g; return t; });
+}
+// draggable dividers between panes (side by side, or stacked in Rows)
+function bdDividers(st, tiles, n) {
+  st.querySelectorAll(".split-h").forEach(e => e.remove());
+  const kind = bdKind(n, BD.layout); if (!kind || n < 2) return;
+  for (let i = 0; i < n - 1; i++) {
+    const h = document.createElement("div"); h.className = "split-h" + (kind === "rows" ? " row" : ""); h.title = "Drag to resize · double-click to make them even";
+    const t = tiles[i];
+    if (kind === "rows") Object.assign(h.style, {left: "0", width: "100%", top: (t[1] + t[3] + 4 - 4) + "px"}); else Object.assign(h.style, {left: (t[0] + t[2] + 4 - 4) + "px", top: "0", height: "100%"});
+    h.addEventListener("pointerdown", e => {
+      e.preventDefault(); h.setPointerCapture(e.pointerId); h.classList.add("dragging", "on"); document.body.classList.add("splitting"); if (kind === "rows") document.body.classList.add("rows");
+      const wt = bdWeights(n, BD.layout).slice(), total = kind === "rows" ? st.clientHeight - 8 * (n - 1) : st.clientWidth - 8 * (n - 1), start = kind === "rows" ? e.clientY : e.clientX;
+      h._d = {wt, total, start};
+    });
+    h.addEventListener("pointermove", e => {
+      if (!h._d) return; const {wt, total, start} = h._d, d = ((kind === "rows" ? e.clientY : e.clientX) - start) / total, pair = wt[i] + wt[i + 1];
+      const a = Math.max(0.1, Math.min(pair - 0.1, wt[i] + d)), nw = wt.slice(); nw[i] = a; nw[i + 1] = pair - a;
+      BD.ratios[kind + n] = nw; bdPaint();
+      const t2 = BD.lastTiles[i]; if (t2) { if (kind === "rows") h.style.top = (t2[1] + t2[3]) + "px"; else h.style.left = (t2[0] + t2[2]) + "px"; }
+    });
+    const end = () => { if (!h._d) return; h._d = null; h.classList.remove("dragging", "on"); document.body.classList.remove("splitting", "rows"); bdPaint(); try { localStorage.setItem("daybook-bd-ratios", JSON.stringify(BD.ratios)); } catch (e) {} };
+    h.addEventListener("pointerup", end); h.addEventListener("pointercancel", end);
+    h.addEventListener("dblclick", () => { delete BD.ratios[kind + n]; try { localStorage.setItem("daybook-bd-ratios", JSON.stringify(BD.ratios)); } catch (e) {} bdPaint(); });
+    st.appendChild(h);
+  }
 }
 function bdPaint() {
   const st = $("#bd-stage"); if (!st) return;
-  const panes = BD.panes; if (!panes.find(p => p.id === BD.focus)) BD.focus = (panes[0] || {}).id;
+  const panes = bdAll(); if (!panes.find(p => p.id === BD.focus)) BD.focus = (panes[0] || {}).id;
   const focus = BD.focus;
-  $("#bd-tabs").innerHTML = panes.map(p => { const pr = bdProf(p.profile); return `<div class="bd-tab ${p.id === focus ? "on" : ""}" style="--c:${pr.color}" title="${esc(p.title)}\n${esc(p.url)}" onclick="bdFocus(${p.id})">
-      ${p.loading ? `<span class="spin"></span>` : p.favicon ? `<img src="${esc(p.favicon)}" alt="">` : `<i></i>`}<span>${esc(p.title || "New tab")}</span>${p.audible ? "🔊" : ""}
-      <button title="Close (Ctrl+W)" onclick="event.stopPropagation();desktop.browser.close(${p.id})">${ic("x")}</button></div>`; }).join("")
+  $("#bd-tabs").innerHTML = panes.map(p => { const pr = p.chrome ? {color: "#4285f4"} : bdProf(p.profile); return `<div class="bd-tab ${p.id === focus ? "on" : ""}" style="--c:${pr.color}" title="${esc(p.title)}\n${esc(p.url)}" onclick="bdFocus(${p.id})">
+      ${p.chrome ? `<span class="bd-chrome">C</span>` : p.loading ? `<span class="spin"></span>` : p.favicon ? `<img src="${esc(p.favicon)}" alt="">` : `<i></i>`}<span>${esc(p.chrome ? p.chrome.label + " · " + p.title : p.title || "New tab")}</span>${p.audible ? "🔊" : ""}
+      <button title="Close" onclick="event.stopPropagation();bdClose(${p.id})">${ic("x")}</button></div>`; }).join("")
     + (panes.length ? `<button class="iconbtn" title="New tab (Ctrl+T)" onclick="bdNew((BD.panes.find(p=>p.id===BD.focus)||{}).profile||'personal')">${ic("plus")}</button>` : "");
   const W = st.clientWidth, H = st.clientHeight, shown = BD.layout === "tabs" ? panes.filter(p => p.id === focus) : panes;
-  const tiles = bdTiles(shown.length, W, H, BD.layout), have = new Set();
+  const tiles = bdTiles(shown.length, W, H, BD.layout), have = new Set(); BD.lastTiles = tiles;
   st.querySelector(".bd-empty") && panes.length && st.querySelector(".bd-empty").remove();
   shown.forEach((p, i) => {
     have.add(String(p.id));
     let el = st.querySelector(`.bd-pane[data-id="${p.id}"]`);
+    if (!el && p.chrome) {
+      el = document.createElement("div"); el.className = "bd-pane chrome"; el.dataset.id = p.id;
+      el.innerHTML = `<div class="bd-ph"><span class="bd-chrome">C</span><b class="bd-ctitle"></b><span class="bd-pbadge" style="--c:#4285f4"></span><span class="sp"></span>
+        <button class="iconbtn" title="Pop out into its own window" onclick="bdChromePop(${p.id})">${ic("ext")}</button>
+        <button class="iconbtn" title="Close this Chrome window" onclick="bdClose(${p.id})">${ic("x")}</button></div><div class="bd-body"></div>`;
+      el.addEventListener("mousedown", () => { if (BD.focus !== p.id) { BD.focus = p.id; bdMarkFocus(); } });
+      st.appendChild(el); paintIcons(el);
+    }
     if (!el) {
       el = document.createElement("div"); el.className = "bd-pane"; el.dataset.id = p.id;
       el.innerHTML = `<div class="bd-ph">
@@ -91,6 +138,10 @@ function bdPaint() {
       st.appendChild(el); paintIcons(el);
     }
     const [x, y, w, h] = tiles[i]; Object.assign(el.style, {left: x + "px", top: y + "px", width: w + "px", height: h + "px"});
+    if (p.chrome) {
+      el.querySelector(".bd-ctitle").textContent = p.title; el.querySelector(".bd-pbadge").textContent = "Chrome · " + p.chrome.label;
+      el.classList.toggle("on", p.id === focus); return;
+    }
     const pr = bdProf(p.profile), u = el.querySelector(".bd-url");
     if (document.activeElement !== u) u.value = p.url && !p.url.startsWith("about:") ? p.url : "";
     el.querySelector('[data-a="back"]').disabled = !p.canBack; el.querySelector('[data-a="forward"]').disabled = !p.canFwd;
@@ -99,6 +150,7 @@ function bdPaint() {
     el.classList.toggle("loading", !!p.loading); el.classList.toggle("on", p.id === focus);
   });
   st.querySelectorAll(".bd-pane").forEach(el => { if (!have.has(el.dataset.id)) el.remove(); });
+  if (!st.querySelector(".split-h.dragging")) bdDividers(st, tiles, shown.length);
   if (!panes.length && !st.querySelector(".bd-empty")) st.innerHTML = `<div class="empty bd-empty"><b>Browse without leaving Daybook</b>Real web pages, right here. Each profile keeps its own logins — sign in once. Open several and they split the space evenly.
       <div class="row" style="justify-content:center;margin-top:14px;gap:8px">${webProfiles().map(p => `<button class="btn" onclick="bdNew('${p.id}')"><span class="bd-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`).join("")}
       <button class="btn ghost" onclick="bdNew('personal','https://www.youtube.com')">YouTube</button><button class="btn ghost" onclick="bdNew('personal','https://mail.google.com')">Gmail</button></div></div>`;
@@ -109,17 +161,19 @@ function bdSync(force) {
   const st = $("#bd-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || !!$(".dict.on");
   const visible = S.view === "browser" && !!st && !overlay;
-  const rects = {};
-  if (visible) $$(".bd-pane").forEach(el => { const r = el.querySelector(".bd-body").getBoundingClientRect(); rects[el.dataset.id] = {x: r.x, y: r.y, w: r.width, h: r.height}; });
-  const key = JSON.stringify({visible, rects}); if (!force && key === BD.last) return; BD.last = key;
+  const rects = {}, items = [];
+  if (visible) $$(".bd-pane").forEach(el => { const r = el.querySelector(".bd-body").getBoundingClientRect(), id = +el.dataset.id, rr = {x: r.x, y: r.y, w: r.width, h: r.height};
+    if (id < 0) items.push({hwnd: -id, ...rr}); else rects[id] = rr; });
+  const key = JSON.stringify({visible, rects, items}); if (!force && key === BD.last) return; BD.last = key;
   desktop.browser.layout({visible, rects});
+  if (BD.chrome.length || items.length) fetch("/api/dock/embed/place", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({visible, items, dpr: devicePixelRatio})}).catch(() => {});
 }
 async function bdNew(profile, url) {
   if (S.view !== "browser") go("browser");
   const id = await desktop.browser.open(profile || "personal", url || "https://www.google.com"); BD.focus = id;
   if (!url) setTimeout(() => { const i = $(`.bd-pane[data-id="${id}"] .bd-url`); if (i) i.focus(); }, 300);
 }
-function bdFocus(id) { BD.focus = id; bdPaint(); desktop.browser.nav(id, "focus"); }
+function bdFocus(id) { BD.focus = id; bdPaint(); if (id > 0) desktop.browser.nav(id, "focus"); }
 function bdLayout(l) { BD.layout = l; store.set("daybook-bd-layout", l); renderBrowserDesktop(); }
 function bdProfileModal() {
   modal(`<h2>${ic("globe", "i")}Browser profiles<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
@@ -138,6 +192,6 @@ async function bdDelProfile(id) { await saveSetting("web_profiles", JSON.stringi
 async function bdChromeMenu(e) {
   e.stopPropagation(); if (!LP.data) LP.data = await api("/api/launchpad");
   const m = $("#bw-profiles"), on = !m.classList.contains("on");
-  m.innerHTML = `<div class="mh">Your Chrome profiles — opens in Chrome</div>` + LP.data.browsers.flatMap(b => b.profiles.map(p => `<div onclick="$$('.menu').forEach(x=>x.classList.remove('on'));lpBrowser('${b.id}',${JSON.stringify(p.id).replace(/"/g, "&quot;")})">${p.picture ? `<img class="bw-av" src="/browser-avatar/${b.id}/${encodeURIComponent(p.id)}">` : `<span class="bw-av" style="background:${p.color}">${esc(p.name[0])}</span>`}${esc(p.name)}<span class="kbd">${esc(b.name.replace("Google ", ""))}</span></div>`)).join("");
+  m.innerHTML = `<div class="mh">Your signed-in Chrome profiles — open inside Daybook</div>` + LP.data.browsers.flatMap(b => b.profiles.map(p => `<div onclick="bdChromeOpen('${b.id}',${JSON.stringify(p.id).replace(/"/g, "&quot;")})">${p.picture ? `<img class="bw-av" src="/browser-avatar/${b.id}/${encodeURIComponent(p.id)}">` : `<span class="bw-av" style="background:${p.color}">${esc(p.name[0])}</span>`}${esc(p.name)}<span class="kbd">${esc(b.name.replace("Google ", ""))}</span></div>`)).join("");
   $$(".menu").forEach(x => x.classList.remove("on")); m.classList.toggle("on", on); bdSync();
 }
