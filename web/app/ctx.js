@@ -67,6 +67,7 @@ function ctxGeneral() {
       window.desktop ? {t: "Browser tab", i: "globe", run: () => bdNew("personal")} : null,
       {t: "Folder pane", i: "folder", run: () => { LP.view = "folders"; go("launchpad", "folders"); setTimeout(() => fdNewPane(), 300); }}].filter(Boolean)},
     {t: "Search everything…", i: "search", k: "Ctrl K", run: () => openPalette()}, "-",
+    {t: "Take the tour", i: "help", run: () => tourStart()},
     {t: "Show sticky notes", i: "layers", k: "Alt W", run: () => peekStickies()},
     {t: "Annotate screen", i: "brush", k: "Alt P", run: () => annotateNow()},
     S.view === "today" ? {t: "Customize home", i: "palette", run: () => customizeModal()} : null,

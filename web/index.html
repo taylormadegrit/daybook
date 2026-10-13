@@ -802,7 +802,7 @@ function renderWelcome() {
       <div class="tip"><b>Hotkeys anywhere</b><span class="kbd">Ctrl Alt R</span> reminder · <span class="kbd">Ctrl Alt N</span> note · <span class="kbd">Ctrl K</span> search</div>
     </div><div class="row" style="margin-bottom:12px"><span class="small muted">How should Daybook look?</span>
       <button class="btn sm" onclick="pickLayout('simple')">Simple</button><button class="btn sm" onclick="pickLayout('balanced')">Balanced</button><button class="btn sm" onclick="pickLayout('power')">Power user</button></div>
-    <div class="row"><button class="btn pri" onclick="dismissWelcome()">Got it</button><button class="btn ghost" onclick="go('help')">Open the guide</button></div></div>`;
+    <div class="row"><button class="btn pri" onclick="dismissWelcome()">Got it</button><button class="btn ghost" onclick="tourStart()">Take the tour</button><button class="btn ghost" onclick="go('help')">Open the guide</button></div></div>`;
 }
 async function dismissWelcome() { await saveSetting("welcome_seen", "1"); renderWelcome(); }
 async function addLog() {
@@ -1405,7 +1405,7 @@ const HELP = [
   ["data", "Your data", `<p>Everything is stored in one file: <code>D:\\projects\\local-reminders\\data\\reminders.db</code>. Back it up by copying that file. Nothing leaves your computer except chat-to-Orca coding work, which runs in Claude.</p>`],
 ];
 function renderHelp() {
-  $("#toc").innerHTML = HELP.map(([id, t]) => `<a href="javascript:void 0" onclick="document.getElementById('h-${id}').scrollIntoView({behavior:'smooth'})">${t}</a>`).join("");
+  $("#toc").innerHTML = `<a href="javascript:void 0" class="tour-link" onclick="tourStart()">▶ Take the tour</a>` + HELP.map(([id, t]) => `<a href="javascript:void 0" onclick="document.getElementById('h-${id}').scrollIntoView({behavior:'smooth'})">${t}</a>`).join("");
   $("#helpbody").innerHTML = HELP.map(([id, t, h]) => `<div class="hs card" id="h-${id}"><h2>${t}</h2>${h}</div>`).join("");
 }
 
@@ -1518,5 +1518,6 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
 <script src="/app/links.js"></script>
 <script src="/app/workflows.js"></script>
 <script src="/app/categories.js"></script>
+<script src="/app/tour.js"></script>
 </body>
 </html>
