@@ -161,6 +161,7 @@ function sceneResize() { const cv = $("#scene"); if (!cv) return; const s = Math
 function sceneFrame(now) {
   SC.raf = requestAnimationFrame(sceneFrame);
   if (document.hidden) return;
+  if (now - SC.last < 32) return;  // ~30 fps: looks the same, half the GPU work
   const dt = Math.min(.05, (now - SC.last) / 1000); SC.last = now;
   if (SC.cfg.still && SC.st.drawn) return;
   try { DRAW[SC.name] && DRAW[SC.name](SC.ctx, SC.w, SC.h, SC.cfg.still ? 0 : dt, now / 1000, SC.st); SC.st.drawn = 1; } catch (e) { console.warn(e); sceneStop(); }

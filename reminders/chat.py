@@ -15,7 +15,7 @@ from flask import Blueprint, Response, jsonify, request
 
 from . import db, nlp, notes, orca
 
-OLLAMA = "http://localhost:11434"
+OLLAMA = "http://127.0.0.1:11434"
 NUM_CTX = 8192
 bp = Blueprint("chat", __name__)
 
@@ -169,13 +169,49 @@ def ollama(path, body=None, stream=False):
         return json.loads(resp.read())
 
 
+_OLLAMA_TRY = {"t": 0}
+
+
+def ensure_ollama():
+    """If Ollama is installed but not running, start it quietly (at most once a minute)."""
+    import shutil
+    import time
+    if time.time() - _OLLAMA_TRY["t"] < 60:
+        return
+    _OLLAMA_TRY["t"] = time.time()
+    try:
+        urllib.request.urlopen(OLLAMA + "/api/version", timeout=1)
+        return
+    except Exception:
+        pass
+    cands = [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama app.exe", Path(r"D:\Applications\Ollama\ollama app.exe")]
+    exe = next((c for c in cands if c.exists()), None)
+    if exe:
+        subprocess.Popen([str(exe)], cwd=str(exe.parent), creationflags=0x00000008 | 0x08000000)
+    elif shutil.which("ollama"):
+        subprocess.Popen([shutil.which("ollama"), "serve"], creationflags=0x00000008 | 0x08000000)
+
+
+def _ollama_up():
+    """Fast check: on Windows a refused localhost connection otherwise takes ~2 s."""
+    import socket
+    try:
+        socket.create_connection(("127.0.0.1", 11434), timeout=0.3).close()
+        return True
+    except OSError:
+        return False
+
+
 def model_list(include_claude=True):
     try:
+        if not _ollama_up():
+            raise ConnectionError("Ollama isn't running")
         local = [{"name": m["name"], "size": m["size"], "params": m["details"].get("parameter_size"),
                   "tools": "tools" in (m.get("capabilities") or []), "vision": "vision" in (m.get("capabilities") or [])}
                  for m in ollama("/api/tags")["models"]]
     except Exception:
         local = []
+        threading.Thread(target=ensure_ollama, daemon=True).start()
     if include_claude and claude_cli():
         local += [{"name": f"claude:{k}", "label": label, "params": "Claude", "tools": True, "vision": False, "cloud": True}
                   for k, label in CLAUDE_MODELS]

@@ -54,7 +54,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 
 
 @app.get("/chat")
@@ -154,7 +154,7 @@ def status():
         pass
     open_now = db.list_open()
     return jsonify(
-        version=VERSION, started=db.fmt(STARTED), ollama=bool(models), models=models,
+        version=VERSION, started=db.fmt(STARTED), ollama=any(not m.get("cloud") for m in models), models=models,
         orca=Path(r"D:\Applications\Orca\resources\bin\orca.exe").exists(), claude_mcp=mcp,
         data=str(db.DB_PATH), counts={"reminders": len(open_now), "routine": sum(1 for r in open_now if r["repeat"]),
                                        "notes": sum(notes.category_counts().values()), "ai": notes.stats()})
@@ -328,7 +328,7 @@ def model_pull():
 def model_delete(name):
     import json as _json
     import urllib.request as _u
-    req = _u.Request("http://localhost:11434/api/delete", _json.dumps({"model": name}).encode(),
+    req = _u.Request("http://127.0.0.1:11434/api/delete", _json.dumps({"model": name}).encode(),
                      {"Content-Type": "application/json"}, method="DELETE")
     try:
         _u.urlopen(req, timeout=30).read()

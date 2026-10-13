@@ -81,9 +81,10 @@ def unload(which=None):
 def idle_watch():
     while True:
         time.sleep(30)
-        if MODELS and time.time() - LAST["t"] > IDLE_S and not LOCK.locked():
+        if time.time() - LAST["t"] > IDLE_S and not LOCK.locked():
             with LOCK:
                 unload()
+            os._exit(0)  # free all of its memory; Daybook starts it again the next time you use AI Studio
 
 
 @app.get("/status")

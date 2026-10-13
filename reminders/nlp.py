@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from . import db
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5:7b"
 DEFAULT_HOUR = 9  # "tomorrow" with no time → 9 AM
 

@@ -591,3 +591,6 @@ body.scened .card{backdrop-filter:blur(12px) saturate(1.15)}
 .menu.net-menu{max-height:calc(100vh - 60px);overflow:auto}
 
 body:not(.desktop) .desk-only{display:none}
+/* polish: game "jump back in" meta never runs under the Play button; window buttons never crowd the New button */
+.grec-i span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:76px}
+body.desktop .app.nav-right .topbar{padding-right:96px}

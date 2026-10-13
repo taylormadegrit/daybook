@@ -117,6 +117,9 @@ threading.Thread(target=ai_worker, daemon=True).start()
 from reminders import memos, stt  # noqa: E402
 
 memos.start_worker()  # transcribes voice memos in the background
+from reminders import chat as _chat  # noqa: E402
+
+threading.Thread(target=_chat.ensure_ollama, daemon=True).start()  # local AI ready after a restart
 if stt.downloaded(db.setting("stt_model") or "small.en"):
     stt.preload()  # warm the speech model so dictation is quick (never triggers a download at startup)
 from reminders import dock  # noqa: E402
