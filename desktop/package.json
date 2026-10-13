@@ -1,8 +1,8 @@
 {
   "name": "daybook",
   "productName": "Daybook",
-  "version": "1.6.5",
-  "description": "Daybook â€” Local AI Hub for notes, reminders, scheduling and your whole desktop",
+  "version": "1.6.6",
+  "description": "Daybook — Local AI Hub for notes, reminders, scheduling and your whole desktop",
   "main": "main.js",
   "author": "Taylor",
   "license": "UNLICENSED",
@@ -46,5 +46,8 @@
   "devDependencies": {
     "electron": "^37.10.3",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "2.18.2"
   }
 }

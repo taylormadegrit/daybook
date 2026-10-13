@@ -3,6 +3,7 @@ const ZR = {st: null, items: [], cur: null, col: "", q: "", style: null, mode: "
 const zStyle = () => ZR.style || store.get("daybook-cite-style", "apa");
 async function renderResearch() {
   if (PL.tab === "pdfs") return renderPdfLibrary();
+  if (PL.tab === "links") return renderLinks();
   ZR.st = await api("/api/zotero");
   const s = ZR.st, host = $("#research");
   if (!s.installed) { host.innerHTML = `<div class="lib-head">${libTabs()}</div><div class="empty" style="padding-top:12vh"><b>Zotero isn't installed</b>Get it free from <a href="https://www.zotero.org/download/" target="_blank" rel="noopener">zotero.org/download</a>, then come back.</div>`; return; }

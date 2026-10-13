@@ -1,4 +1,4 @@
-"""Daybook dashboard â€” http://localhost:8503 (local only). Runs inside daemon.pyw."""
+"""Daybook dashboard — http://localhost:8503 (local only). Runs inside daemon.pyw."""
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -49,12 +49,15 @@ app.register_blueprint(pdflib_bp)
 from .network import bp as network_bp  # noqa: E402
 
 app.register_blueprint(network_bp)
+from .links import bp as links_bp  # noqa: E402
+
+app.register_blueprint(links_bp)
 BG_DIR = paths.DATA / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 
 
 @app.get("/chat")
@@ -114,6 +117,11 @@ def stt_run():
         return jsonify(error=f"Speech model problem: {e}"), 500
 
 
+@app.get("/vendor/<path:name>")
+def vendor_file(name):  # libraries + fonts shipped with Daybook, so it starts with no internet
+    return send_from_directory(STATIC / "vendor", name, max_age=86400)
+
+
 @app.get("/brand/<path:name>")
 def brand(name):
     return send_from_directory(STATIC / "brand", name)
@@ -136,9 +144,9 @@ def get_settings():
 def save_settings():
     j = request.get_json() or {}
     if "agenda_hour" in j and not (0 <= int(j["agenda_hour"]) <= 23):
-        return jsonify(error="Agenda hour must be 0â€“23"), 400
+        return jsonify(error="Agenda hour must be 0–23"), 400
     if "nag_minutes" in j and not (1 <= int(j["nag_minutes"]) <= 120):
-        return jsonify(error="Nag interval must be 1â€“120 minutes"), 400
+        return jsonify(error="Nag interval must be 1–120 minutes"), 400
     db.set_settings(j)
     return jsonify(db.settings())
 
@@ -284,7 +292,7 @@ def model_recs():
     try:
         return jsonify(models_hub.recommend(models_hub.scan(), force=request.args.get("refresh") == "1"))
     except Exception as e:
-        return jsonify(error=f"Couldn't reach Hugging Face â€” check your internet connection. ({e})"), 503
+        return jsonify(error=f"Couldn't reach Hugging Face — check your internet connection. ({e})"), 503
 
 
 @app.get("/api/models/installed")
@@ -367,7 +375,7 @@ def reorganize_all():
 
 @app.post("/api/test-popup")
 def test_popup():
-    rid = db.add("Test pop-up â€” press Done", datetime.now() + timedelta(seconds=5),
+    rid = db.add("Test pop-up — press Done", datetime.now() + timedelta(seconds=5),
                  notes="If you can see this, pop-ups are working.")
     return jsonify(id=rid)
 

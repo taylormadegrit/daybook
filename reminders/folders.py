@@ -1,7 +1,10 @@
 """Folders: pin the folders you use all the time, browse them inside Daybook, and start 'workflows' —
 one button that opens a set of folders, apps and websites together (e.g. Editing = OBS recordings + CapCut)."""
+import ctypes
 import json
 import os
+import shutil
+import string
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -62,6 +65,95 @@ def listing(path, show_hidden=False):
     return {"path": str(p), "parent": str(p.parent) if p.parent != p else None, "items": items[:2000], "total": len(items)}
 
 
+def places():
+    """Quick places + every drive, for the Files hub sidebar."""
+    quick = [("Desktop", HOME / "Desktop"), ("Downloads", HOME / "Downloads"), ("Documents", HOME / "Documents"),
+             ("Pictures", HOME / "Pictures"), ("Videos", HOME / "Videos"), ("Music", HOME / "Music")]
+    drives = []
+    for letter in string.ascii_uppercase:
+        root = f"{letter}:\\"
+        if os.path.exists(root):
+            label = ctypes.create_unicode_buffer(128)
+            try:
+                ctypes.windll.kernel32.GetVolumeInformationW(root, label, 128, None, None, None, None, 0)
+                total, _, free = shutil.disk_usage(root)
+            except Exception:
+                total = free = 0
+            drives.append({"name": label.value or "Local Disk", "path": root, "letter": letter, "total": total, "free": free})
+    return {"quick": [{"name": n, "path": str(q)} for n, q in quick if q.exists()], "drives": drives}
+
+
+def _free_name(dest_dir, name):
+    """'clip.mp4' → 'clip (2).mp4' when it already exists there."""
+    target = Path(dest_dir) / name
+    if not target.exists():
+        return target
+    stem, suf = (target.stem, target.suffix) if target.is_file() or "." in name else (name, "")
+    n = 2
+    while (Path(dest_dir) / f"{stem} ({n}){suf}").exists():
+        n += 1
+    return Path(dest_dir) / f"{stem} ({n}){suf}"
+
+
+class _SHFILEOPSTRUCTW(ctypes.Structure):
+    _fields_ = [("hwnd", ctypes.c_void_p), ("wFunc", ctypes.c_uint), ("pFrom", ctypes.c_wchar_p), ("pTo", ctypes.c_wchar_p),
+                ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", ctypes.c_int), ("hNameMappings", ctypes.c_void_p),
+                ("lpszProgressTitle", ctypes.c_wchar_p)]
+
+
+def recycle(paths):
+    """Send to the Recycle Bin (undoable), never a permanent delete."""
+    op = _SHFILEOPSTRUCTW(None, 3, "\0".join(paths) + "\0\0", None, 0x0040 | 0x0010 | 0x0004 | 0x0400, 0, None, None)  # DELETE, ALLOWUNDO|NOCONFIRMATION|SILENT|NOERRORUI
+    r = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    if r or op.fAnyOperationsAborted:
+        raise OSError(f"Couldn't move to the Recycle Bin (code {r})")
+
+
+def file_op(op, paths, dest="", name=""):
+    done = []
+    if op in ("move", "copy"):
+        d = Path(dest)
+        if not d.is_dir():
+            raise ValueError("Destination folder not found")
+        for src in map(Path, paths):
+            if not src.exists():
+                continue
+            if src.parent == d and op == "move":
+                continue  # already there
+            if d == src or src in d.parents:
+                raise ValueError(f"Can't put “{src.name}” inside itself")
+            target = _free_name(d, src.name)
+            if op == "move":
+                shutil.move(str(src), str(target))
+            elif src.is_dir():
+                shutil.copytree(src, target)
+            else:
+                shutil.copy2(src, target)
+            done.append(str(target))
+    elif op == "rename":
+        src = Path(paths[0])
+        name = name.strip()
+        if not name or any(c in name for c in '\\/:*?"<>|'):
+            raise ValueError('A name can\'t be empty or contain \\ / : * ? " < > |')
+        target = src.with_name(name)
+        if target.exists() and target.name.lower() != src.name.lower():
+            raise ValueError("Something with that name is already there")
+        src.rename(target)
+        done.append(str(target))
+    elif op == "delete":
+        ok = [p for p in paths if os.path.exists(p) and len(Path(p).parts) > 1]
+        if ok:
+            recycle(ok)
+        done = ok
+    elif op == "mkdir":
+        target = _free_name(dest, name.strip() or "New folder")
+        target.mkdir()
+        done.append(str(target))
+    else:
+        raise ValueError("Unknown action")
+    return done
+
+
 def run_workflow(w):
     from . import launchpad
     opened = 0
@@ -88,7 +180,16 @@ def run_workflow(w):
 
 @bp.get("/api/folders")
 def f_state():
-    return jsonify(pins=pins(), workflows=workflows(), suggestions=suggestions())
+    return jsonify(pins=pins(), workflows=workflows(), suggestions=suggestions(), places=places())
+
+
+@bp.post("/api/folders/op")
+def f_op():
+    j = request.get_json() or {}
+    try:
+        return jsonify(done=file_op(j.get("op"), j.get("paths") or [], j.get("dest", ""), j.get("name", "")))
+    except Exception as e:
+        return jsonify(error=str(e)[:300]), 400
 
 
 @bp.post("/api/folders/pins")
@@ -152,4 +253,7 @@ def wf_run(i):
     ws = workflows()
     if i >= len(ws):
         return jsonify(error="No such workflow"), 404
+    if (request.get_json(silent=True) or {}).get("hub"):  # Daybook opens folders/sites itself; only apps launch here
+        apps = {"items": [x for x in ws[i].get("items", []) if x.get("type") == "app"]}
+        return jsonify(opened=run_workflow(apps))
     return jsonify(opened=run_workflow(ws[i]))

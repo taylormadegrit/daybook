@@ -239,8 +239,41 @@ def _above_set(me):
     return out
 
 
+def _focus_loop():
+    """Clicking inside an embedded Chrome activates the Daybook window, and Daybook then takes the keyboard
+    back for itself a moment later, so typing landed in Chrome only some of the time. After every click
+    inside an embedded Chrome, hand the keyboard to the exact Chrome window under the mouse."""
+    was_down = False
+    pt = wintypes.POINT()
+    u32.WindowFromPoint.argtypes = [wintypes.POINT]
+    u32.WindowFromPoint.restype = wintypes.HWND
+    me_tid = k32.GetCurrentThreadId()
+    while True:
+        time.sleep(0.03 if EMB else 0.5)
+        if not EMB:
+            was_down = False
+            continue
+        try:
+            down = bool(u32.GetAsyncKeyState(0x01) & 0x8000)  # left button
+            if was_down and not down:  # just released
+                u32.GetCursorPos(ctypes.byref(pt))
+                hit = u32.WindowFromPoint(pt)
+                owner = next((hw for hw, e in list(EMB.items()) if e.get("shown") and (hit == hw or u32.IsChild(hw, hit))), None)
+                if owner:
+                    for delay in (0.0, 0.12):  # once now, once after Daybook's own focus handling
+                        time.sleep(delay)
+                        ct = u32.GetWindowThreadProcessId(hit, None)
+                        if ct and ct != me_tid and u32.AttachThreadInput(me_tid, ct, True):
+                            u32.SetFocus(hit)
+                            u32.AttachThreadInput(me_tid, ct, False)
+            was_down = down
+        except Exception:
+            was_down = False
+
+
 def start():
     threading.Thread(target=_loop, daemon=True).start()
+    threading.Thread(target=_focus_loop, daemon=True).start()
 
 
 # ---------------- routes ----------------

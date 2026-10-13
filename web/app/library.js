@@ -1,7 +1,7 @@
 // ================= LIBRARY: PDFs & books (all your folders) + Zotero sources =================
 const PL = {tab: store.get("daybook-lib-tab", "pdfs"), items: [], folders: [], folder: "", q: "", sort: store.get("daybook-pdf-sort", "recent"), cur: null, poll: 0};
 function libTabs() {
-  return `<div class="lib-tabs seg">${[["pdfs", "book", "PDFs & books"], ["zotero", "note", "Zotero sources"]].map(([k, i, l]) => `<button class="${PL.tab === k ? "on" : ""}" onclick="PL.tab='${k}';store.set('daybook-lib-tab','${k}');renderResearch()">${ic(i)}${l}</button>`).join("")}</div>`;
+  return `<div class="lib-tabs seg">${[["pdfs", "book", "PDFs & books"], ["links", "globe", "Saved links"], ["zotero", "note", "Zotero sources"]].map(([k, i, l]) => `<button class="${PL.tab === k ? "on" : ""}" onclick="PL.tab='${k}';store.set('daybook-lib-tab','${k}');renderResearch()">${ic(i)}${l}</button>`).join("")}</div>`;
 }
 async function renderPdfLibrary() {
   const host = $("#research");

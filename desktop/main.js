@@ -32,6 +32,12 @@ const hwndOf = w => { const b = w.getNativeWindowHandle(); return b.length >= 8 
 function ping() {
   return new Promise(res => { const r = http.get(URL_BASE + "/api/settings", x => { x.resume(); res(x.statusCode === 200); }); r.on("error", () => res(false)); r.setTimeout(1500, () => { r.destroy(); res(false); }); });
 }
+function postJson(pathname, body) {  // POST and read the JSON answer
+  return new Promise(res => {
+    const r = http.request(URL_BASE + pathname, {method: "POST", headers: {"Content-Type": "application/json"}}, x => { let d = ""; x.on("data", c => d += c); x.on("end", () => { try { res(JSON.parse(d)); } catch { res(null); } }); });
+    r.on("error", () => res(null)); r.setTimeout(8000, () => { r.destroy(); res(null); }); r.end(JSON.stringify(body || {}));
+  });
+}
 function post(pathname, body, timeout = 2500) {
   return new Promise(res => {
     const r = http.request(URL_BASE + pathname, {method: "POST", headers: {"Content-Type": "application/json"}}, x => { x.resume(); x.on("end", res); });
@@ -130,11 +136,51 @@ function createTray() {
 // ---------------- in-app browser panes ----------------
 function partitionFor(profile) { return "persist:daybook-" + String(profile || "personal").toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
 const prepared = new Set();
+// Ad blocker for the in-app browser (ads + trackers, YouTube ads included). Block lists are cached on disk,
+// and a copy ships inside the app, so it works with no internet from the very first launch.
+const ADB = {blocker: null, on: true, blocked: 0, sessions: new Set()};
+const ADB_CACHE = path.join(app.getPath("userData"), "adblock-engine.bin");
+async function adblockInit() {
+  try {
+    const {ElectronBlocker} = require("@ghostery/adblocker-electron");
+    const seed = path.join(__dirname, "assets", "adblock-engine.bin");
+    if (!fs.existsSync(ADB_CACHE) && fs.existsSync(seed)) fs.copyFileSync(seed, ADB_CACHE);
+    // refresh the lists weekly when online; otherwise (or offline) use the saved copy
+    const stale = !fs.existsSync(ADB_CACHE) || Date.now() - fs.statSync(ADB_CACHE).mtimeMs > 7 * 864e5;
+    if (stale) {
+      ADB.blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).catch(() => null);
+      if (ADB.blocker) try { fs.writeFileSync(ADB_CACHE, ADB.blocker.serialize()); } catch {}
+    }
+    if (!ADB.blocker && fs.existsSync(ADB_CACHE)) ADB.blocker = ElectronBlocker.deserialize(new Uint8Array(fs.readFileSync(ADB_CACHE)));
+    if (!ADB.blocker) return;
+    ADB.blocker.on("request-blocked", () => { ADB.blocked++; });
+    ADB.on = loadState().adblock !== false;
+    if (ADB.on) for (const s of ADB.sessions) ADB.blocker.enableBlockingInSession(s);
+  } catch (e) { console.error("adblock", e); }
+}
+function adblockSession(s) { ADB.sessions.add(s); if (ADB.blocker && ADB.on) try { ADB.blocker.enableBlockingInSession(s); } catch {} }
+ipcMain.handle("browser:adblock", (_e, on) => {
+  if (typeof on === "boolean" && ADB.blocker) {
+    ADB.on = on; fs.writeFileSync(STATE, JSON.stringify({...loadState(), adblock: on}));
+    for (const s of ADB.sessions) try { on ? ADB.blocker.enableBlockingInSession(s) : ADB.blocker.disableBlockingInSession(s); } catch {}
+  }
+  return {ready: !!ADB.blocker, on: ADB.on, blocked: ADB.blocked};
+});
+
+// Site permissions (location, camera, mic…) are remembered per profile + site, so each site asks only once.
+const PERMS = path.join(app.getPath("userData"), "site-permissions.json");
+const askingPerm = new Map();
+let permCache = null;
+function loadPerms() { if (!permCache) { try { permCache = JSON.parse(fs.readFileSync(PERMS, "utf8").replace(/^\uFEFF/, "")); } catch { permCache = {}; } } return permCache; }
+function savePerm(key, ok) { loadPerms()[key] = ok; try { fs.writeFileSync(PERMS, JSON.stringify(permCache, null, 1)); } catch {} }
+function permKey(part, site, perm, mediaTypes) { return `${part}|${site}|${perm}${perm === "media" && mediaTypes && mediaTypes.length ? ":" + [...mediaTypes].sort().join("+") : ""}`; }
+function forgetSite(part, site) { const all = loadPerms(); for (const k of Object.keys(all)) if (k.startsWith(part + "|" + site + "|")) delete all[k]; try { fs.writeFileSync(PERMS, JSON.stringify(all, null, 1)); } catch {} }
 function prepareSession(part) {
   if (prepared.has(part)) return session.fromPartition(part);
   prepared.add(part);
   const s = session.fromPartition(part);
   s.setUserAgent(CHROME_UA);                                   // so sites treat it as normal Chrome
+  adblockSession(s);
   s.webRequest.onBeforeSendHeaders((d, cb) => {
     const h = d.requestHeaders;
     if (isGoogleAuth(d.url) || (d.webContents && isGoogleAuth(d.webContents.getURL()) && /google/.test(d.url))) {
@@ -146,13 +192,27 @@ function prepareSession(part) {
   s.setPermissionRequestHandler(async (wc, perm, cb, details) => {
     if (["fullscreen", "clipboard-sanitized-write", "notifications", "pointerLock"].includes(perm)) return cb(true);
     if (["media", "geolocation", "midiSysex", "display-capture"].includes(perm)) {
-      const site = new URL(details.requestingUrl || wc.getURL()).host;
-      const what = perm === "media" ? ((details.mediaTypes || []).join(" & ") || "camera/microphone") : perm;
+      let site = ""; try { site = new URL(details.requestingUrl || wc.getURL()).host; } catch (e) {}
+      const what = perm === "media" ? ((details.mediaTypes || []).join(" & ") || "camera/microphone") : perm === "geolocation" ? "location" : perm;
+      const key = permKey(part, site, perm, details.mediaTypes);
+      const saved = loadPerms()[key];
+      if (saved !== undefined) return cb(saved);                // asked before → never ask again
+      if (askingPerm.has(key)) return cb(await askingPerm.get(key));  // a page asking several times at once → one prompt
       const parent = BrowserWindow.fromWebContents(wc) || [...panes.values()].find(p => p.view.webContents === wc)?.owner || win;
-      const r = await dialog.showMessageBox(parent, {type: "question", buttons: ["Allow", "Block"], defaultId: 1, cancelId: 1, title: "Daybook", message: `${site} wants to use your ${what}`});
-      return cb(r.response === 0);
+      const ask = dialog.showMessageBox(parent, {type: "question", buttons: ["Allow", "Block"], defaultId: 1, cancelId: 1, title: "Daybook",
+        message: `${site} wants to use your ${what}`, checkboxLabel: "Remember my choice for this site", checkboxChecked: true})
+        .then(r => { const ok = r.response === 0; if (r.checkboxChecked) savePerm(key, ok); return ok; });
+      askingPerm.set(key, ask);
+      try { return cb(await ask); } finally { askingPerm.delete(key); }
     }
     cb(false);
+  });
+  // sites that check before asking (Google search does) see the remembered answer and don't ask again
+  s.setPermissionCheckHandler((wc, perm, origin, details) => {
+    if (["fullscreen", "clipboard-sanitized-write", "notifications", "pointerLock"].includes(perm)) return true;
+    let site = ""; try { site = new URL(origin || (details && details.requestingUrl) || "").host; } catch (e) {}
+    const saved = loadPerms()[permKey(part, site, perm === "media" ? "media" : perm, details && details.mediaType ? [details.mediaType] : null)];
+    return saved === true;
   });
   s.on("will-download", (_e, item, wc) => {
     item.setSavePath(path.join(app.getPath("downloads"), item.getFilename()));
@@ -197,12 +257,52 @@ function openPane(profile, url, owner) {
     const k = i.key.toLowerCase();
     if (i.control && k === "w") { e.preventDefault(); closePane(id); }
     else if (i.control && k === "t") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "new", profile}); }
+    else if (i.control && k === "d") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "save", id}); }
     else if (i.control && k === "l") { e.preventDefault(); owner.webContents.focus(); owner.webContents.send("browser:shortcut", {action: "address", id}); }
     else if ((i.control && k === "r") || k === "f5") { e.preventDefault(); wc.reload(); }
     else if (i.alt && k === "arrowleft") { e.preventDefault(); wc.navigationHistory.goBack(); }
     else if (i.alt && k === "arrowright") { e.preventDefault(); wc.navigationHistory.goForward(); }
   });
   wc.on("render-process-gone", () => sendPanes(owner, {toast: "A page crashed — press reload"}));
+  wc.on("context-menu", (_e, m) => {
+    const t = [], sep = () => t.length && t[t.length - 1].type !== "separator" && t.push({type: "separator"});
+    if (m.misspelledWord) {
+      m.dictionarySuggestions.slice(0, 5).forEach(s => t.push({label: s, click: () => wc.replaceMisspelling(s)}));
+      t.push({label: "Add to dictionary", click: () => wc.session.addWordToSpellCheckerDictionary(m.misspelledWord)}); sep();
+    }
+    const saveLink = (url, title) => postJson("/api/links", {url, title}).then(j => { sendPanes(owner, {toast: j && j.new === false ? "Already in your Library" : "Saved to your Library (Library → Saved links)"}); if (j && j.link) owner.webContents.send("browser:shortcut", {action: "saved", url: j.link.url, lid: j.link.id}); });
+    if (m.linkURL) {
+      t.push({label: "Save link to Daybook Library", click: () => saveLink(m.linkURL, (m.linkText || "").trim())},
+             {label: "Open link in new tab", click: () => openPane(profile, m.linkURL, owner)},
+             {label: "Open link in your normal browser", click: () => shell.openExternal(m.linkURL)},
+             {label: "Copy link address", click: () => require("electron").clipboard.writeText(m.linkURL)}); sep();
+    }
+    if (m.mediaType === "image" && m.srcURL) {
+      t.push({label: "Open image in new tab", click: () => openPane(profile, m.srcURL, owner)},
+             {label: "Save image…", click: () => wc.downloadURL(m.srcURL)},
+             {label: "Copy image", click: () => wc.copyImageAt(m.x, m.y)}); sep();
+    }
+    if (m.isEditable) {
+      t.push({label: "Undo", role: "undo", enabled: m.editFlags.canUndo}, {type: "separator"},
+             {label: "Cut", role: "cut", enabled: m.editFlags.canCut}, {label: "Copy", role: "copy", enabled: m.editFlags.canCopy},
+             {label: "Paste", role: "paste", enabled: m.editFlags.canPaste}, {label: "Select all", role: "selectAll"}); sep();
+    } else if (m.selectionText.trim()) {
+      const q = m.selectionText.trim().slice(0, 200);
+      t.push({label: "Copy", role: "copy"},
+             {label: `Search Google for “${q.length > 30 ? q.slice(0, 30) + "…" : q}”`, click: () => openPane(profile, "https://www.google.com/search?q=" + encodeURIComponent(q), owner)},
+             {label: "Save to a new Daybook note", click: () => post("/api/notes", {title: (wc.getTitle() || "Web clip").slice(0, 80), body: q + "\n\nFrom: " + wc.getURL()}).then(() => sendPanes(owner, {toast: "Saved to Notes"}))}); sep();
+    }
+    if (/^https?:/.test(wc.getURL())) t.push({label: "Save this page to Daybook Library", accelerator: "Ctrl+D", click: () => saveLink(wc.getURL(), wc.getTitle())}, {type: "separator"});
+    t.push({label: "Back", enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack()},
+           {label: "Forward", enabled: wc.navigationHistory.canGoForward(), click: () => wc.navigationHistory.goForward()},
+           {label: "Reload", click: () => wc.reload()}, {type: "separator"},
+           {label: "Open page in your normal browser", click: () => shell.openExternal(wc.getURL())},
+           {label: "Copy page address", click: () => require("electron").clipboard.writeText(wc.getURL())},
+           {label: "Forget this site's permissions (location, camera…)", click: () => { try { forgetSite(partitionFor(profile), new URL(wc.getURL()).host); sendPanes(owner, {toast: "This site will ask again next time"}); } catch {} }},
+           {label: "Close tab", click: () => closePane(id)}, {type: "separator"},
+           {label: "Inspect", click: () => wc.inspectElement(m.x, m.y)});
+    Menu.buildFromTemplate(t).popup({window: owner});
+  });
   wc.loadURL(url || "https://www.google.com");
   sendPanes(owner, {focus: id});
   return id;
@@ -245,6 +345,15 @@ ipcMain.handle("browser:nav", (_e, {id, action, url}) => {
 ipcMain.handle("app:settings", (_e, s) => { const st = {...loadState(), ...s}; fs.writeFileSync(STATE, JSON.stringify(st)); if ("startAtLogin" in s) app.setLoginItemSettings({openAtLogin: !!s.startAtLogin, args: ["--hidden"]}); return st; });
 ipcMain.handle("app:info", e => ({version: app.getVersion(), packaged: app.isPackaged, ...loadState(), startAtLogin: app.getLoginItemSettings().openAtLogin,
   main: ownerOf(e) === win, windows: wins.size, hwnd: hwndOf(ownerOf(e))}));
+const EDIT_ACTIONS = new Set(["cut", "copy", "paste", "selectAll", "undo", "redo", "pasteAndMatchStyle"]);
+ipcMain.on("app:edit", (e, action) => { if (EDIT_ACTIONS.has(action)) e.sender[action](); });
+let dragIcon = null;
+ipcMain.on("files:drag", (e, paths) => {
+  const files = (Array.isArray(paths) ? paths : [paths]).filter(f => typeof f === "string" && fs.existsSync(f));
+  if (!files.length) return;
+  if (!dragIcon) { dragIcon = nativeImage.createFromPath(ICON); if (!dragIcon.isEmpty()) dragIcon = dragIcon.resize({width: 32, height: 32}); }
+  e.sender.startDrag({file: files[0], files, icon: dragIcon});
+});
 ipcMain.handle("app:newWindow", (e, view) => { createWindow(view || "today", {extra: true, from: ownerOf(e)}); return true; });
 
 // ---------------- start ----------------
@@ -269,6 +378,7 @@ setInterval(async () => {
 }, 20000);
 
 app.whenReady().then(async () => {
+  adblockInit();
   // mic + screen capture for voice/video notes inside Daybook's own pages
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));
   session.defaultSession.setDisplayMediaRequestHandler(async (req, cb) => {

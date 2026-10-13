@@ -38,6 +38,8 @@ async function renderBrowserDesktop() {
     });
     desktop.browser.onShortcut(d => {
       if (d.action === "new") bdNew(d.profile);
+      if (d.action === "save") bdSaveLink(d.id);
+      if (d.action === "saved") { if (typeof LK !== "undefined") LK.saved[d.url] = d.lid; bdPaint(); }
       if (d.action === "address") { go("browser"); setTimeout(() => { const i = $(`.bd-pane[data-id="${d.id}"] .bd-url`); if (i) { i.focus(); i.select(); } }, 60); }
     });
   }
@@ -57,12 +59,13 @@ async function renderBrowserDesktop() {
       <div class="bd-profs">${profs.map(p => `<button class="bd-prof" style="--c:${p.color}" title="New ${esc(p.name)} tab (Ctrl+T)" onclick="bdNew('${p.id}')"><i></i>${esc(p.name)}<span>${ic("plus")}</span></button>`).join("")}
         <button class="iconbtn" title="Add a browser profile (separate logins)" onclick="bdProfileModal()">${ic("plus")}</button></div>
       <div class="sp"></div>
+      <button class="btn sm ghost" id="bd-adb" title="Blocks ads and trackers in Daybook's browser (YouTube ads too)" onclick="bdAdblock(true)">🛡 Ad blocker</button>
       <div class="seg sm">${[["tabs", "Tabs"], ["auto", "Split"], ["grid", "Grid"], ["rows", "Rows"]].map(([k, l]) => `<button class="${BD.layout === k ? "on" : ""}" onclick="bdLayout('${k}')">${l}</button>`).join("")}</div>
       <div style="position:relative"><button class="btn sm" title="Your real Chrome profiles — already signed in — inside Daybook" onclick="bdChromeMenu(event)">${ic("globe")}Chrome profiles</button>
         <div class="menu" id="bw-profiles" style="right:0;top:36px;max-height:60vh;overflow:auto;min-width:280px"></div></div></div>
     <div class="bd-tabs" id="bd-tabs"></div>
     <div class="bd-stage" id="bd-stage"></div>`;
-  paintIcons($("#v-browser"));
+  paintIcons($("#v-browser")); bdAdblock();
   if (!BD.ro) BD.ro = new ResizeObserver(() => { bdPaint(); });
   BD.ro.observe($("#bd-stage"));
   bdPaint(); bdSync(true);
@@ -130,10 +133,10 @@ function bdPaint() {
       el.innerHTML = `<div class="bd-ph">
         <button class="iconbtn" data-a="back" title="Back (Alt+←)">${ic("left")}</button><button class="iconbtn" data-a="forward" title="Forward (Alt+→)">${ic("right")}</button>
         <button class="iconbtn" data-a="reload" title="Reload (Ctrl+R)">${ic("rep")}</button>
-        <input class="bd-url" spellcheck="false" placeholder="Search or type a web address"><span class="bd-pbadge"></span>
+        <input class="bd-url" spellcheck="false" placeholder="Search or type a web address"><button class="iconbtn bd-star" data-a="save" title="Save to your Library (Ctrl+D)">☆</button><span class="bd-pbadge"></span>
         <button class="iconbtn" data-a="mute" title="Mute / unmute">🔈</button><button class="iconbtn" data-a="external" title="Open in your normal browser">${ic("ext")}</button>
         <button class="iconbtn" data-a="close" title="Close (Ctrl+W)">${ic("x")}</button></div><div class="bd-body"></div>`;
-      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : desktop.browser.nav(p.id, b.dataset.a));
+      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : b.dataset.a === "save" ? bdSaveLink(p.id) : desktop.browser.nav(p.id, b.dataset.a));
       const u = el.querySelector(".bd-url");
       u.onkeydown = e => { if (e.key === "Enter") { const url = bdUrl(u.value); if (url) { desktop.browser.nav(p.id, "go", url); desktop.browser.nav(p.id, "focus"); } } if (e.key === "Escape") u.blur(); };
       u.onfocus = () => setTimeout(() => u.select(), 0);
@@ -150,6 +153,9 @@ function bdPaint() {
     el.querySelector('[data-a="back"]').disabled = !p.canBack; el.querySelector('[data-a="forward"]').disabled = !p.canFwd;
     const m = el.querySelector('[data-a="mute"]'); m.textContent = p.muted ? "🔇" : "🔈"; m.style.display = p.audible || p.muted ? "" : "none";
     const b = el.querySelector(".bd-pbadge"); b.textContent = pr.name; b.style.setProperty("--c", pr.color);
+    const star = el.querySelector(".bd-star"), saved = typeof LK !== "undefined" && !!LK.saved[p.url];
+    star.textContent = saved ? "★" : "☆"; star.classList.toggle("on", saved); star.title = saved ? "Saved in your Library — click to file it" : "Save to your Library (Ctrl+D)";
+    if (window.bdCheckSaved && !p.loading) bdCheckSaved(p.url);
     el.classList.toggle("loading", !!p.loading); el.classList.toggle("on", p.id === focus);
   });
   st.querySelectorAll(".bd-pane").forEach(el => { if (!have.has(el.dataset.id)) el.remove(); });
@@ -158,6 +164,14 @@ function bdPaint() {
       <div class="row" style="justify-content:center;margin-top:14px;gap:8px">${webProfiles().map(p => `<button class="btn" onclick="bdNew('${p.id}')"><span class="bd-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`).join("")}
       <button class="btn ghost" onclick="bdNew('personal','https://www.youtube.com')">YouTube</button><button class="btn ghost" onclick="bdNew('personal','https://mail.google.com')">Gmail</button></div></div>`;
   bdSync();
+}
+async function bdAdblock(toggle) {
+  if (!desktop.browser.adblock) return;
+  let s = await desktop.browser.adblock();
+  if (toggle && s.ready) { s = await desktop.browser.adblock(!s.on); toast(s.on ? "Ad blocker on — reload a page to see it clean" : "Ad blocker off"); }
+  const b = $("#bd-adb"); if (!b) return;
+  b.textContent = !s.ready ? "🛡 Ad blocker (loading…)" : s.on ? `🛡 Ads blocked${s.blocked ? ": " + s.blocked.toLocaleString() : ""}` : "🛡 Ad blocker off";
+  b.classList.toggle("on", s.ready && s.on);
 }
 function bdMarkFocus() { $$(".bd-pane").forEach(e => e.classList.toggle("on", +e.dataset.id === BD.focus)); $$(".bd-tab").forEach(e => e.classList.toggle("on", e.getAttribute("onclick") === `bdFocus(${BD.focus})`)); }
 function bdSync(force) {
