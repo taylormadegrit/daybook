@@ -45,6 +45,25 @@ def _snooze_targets(now):
     return opts
 
 
+class _FLASHWINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint), ("hwnd", ctypes.c_void_p), ("dwFlags", ctypes.c_uint),
+                ("uCount", ctypes.c_uint), ("dwTimeout", ctypes.c_uint)]
+
+
+def calm(win):
+    """Pop-ups come from a background process, so Windows won't let them take focus and flashes their
+    taskbar button instead, which holds an auto-hide taskbar open. They're already on top, so stop the flash."""
+    def stop():
+        try:
+            if win.winfo_exists():
+                fi = _FLASHWINFO(ctypes.sizeof(_FLASHWINFO), int(win.wm_frame(), 16), 0, 0, 0)  # FLASHW_STOP
+                ctypes.windll.user32.FlashWindowEx(ctypes.byref(fi))
+        except Exception:
+            pass
+    for ms in (200, 1000, 3000):
+        win.after(ms, stop)
+
+
 class ReminderPopup(tk.Toplevel):
     """Stays on top and keeps ringing until Done or Snooze — the 'can't miss it' behaviour."""
 
@@ -103,6 +122,7 @@ class ReminderPopup(tk.Toplevel):
         self.deiconify()
         self.lift()
         self.attributes("-topmost", True)
+        calm(self)
         self.nags += 1
         if self.nags < NAG_MAX:
             self.after(max(1, int(db.setting("nag_minutes") or 5)) * 60 * 1000, self._ring)
@@ -140,6 +160,7 @@ class AgendaWindow(tk.Toplevel):
         self.attributes("-topmost", True)
         self.geometry("520x560")
         self.after(1500, lambda: self.attributes("-topmost", False))
+        calm(self)
         self.body = tk.Frame(self, bg=BG)
         self.body.pack(fill="both", expand=True, padx=16, pady=12)
         self.render()

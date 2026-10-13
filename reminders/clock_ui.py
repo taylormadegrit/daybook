@@ -35,7 +35,7 @@ class RingWindow(tk.Toplevel):
         sw = self.winfo_screenwidth()
         self.geometry(f"+{sw - self.winfo_width() - 30}+{40 + slot * 200}")
         self.lift()
-        self.focus_force()
+        ui.calm(self)  # already topmost; asking for focus from the background only flashes the taskbar
 
     def _timer(self, action):
         clock.timer_action(self.key[1], action)
