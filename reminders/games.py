@@ -16,10 +16,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("games", __name__)
-CACHE = Path(__file__).resolve().parent.parent / "data" / "games"
+CACHE = paths.DATA / "games"
 UA = {"User-Agent": "Daybook-games (local app)", "Accept": "application/vnd.github+json"}
 
 # Free & open-source. 'own' = an open-source engine that needs files from a game you own.

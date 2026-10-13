@@ -19,10 +19,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("discord", __name__)
-OUT_DIR = Path(__file__).resolve().parent.parent / "data" / "outbox"
+OUT_DIR = paths.DATA / "outbox"
 HOOK_RE = re.compile(r"^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$")
 MEDIA = {".mp3", ".m4a", ".wav", ".webm", ".ogg", ".opus", ".aac", ".flac", ".mp4", ".mkv", ".mov", ".avi", ".flv", ".ts"}
 NITRO_MAX = 500 * 1024 * 1024

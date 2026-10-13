@@ -6,10 +6,11 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from . import paths
+
 GET_CLAUDE_URL = "https://taylormade420.gumroad.com/l/cfrswx"  # Claude Easy download (Gumroad)
 ROOT = Path(__file__).resolve().parent.parent
-SERVER_CMD = str(ROOT / "venv" / "Scripts" / "python.exe")
-SERVER_ARGS = [str(ROOT / "mcp_server.py")]
+SERVER_CMD, *SERVER_ARGS = paths.helper_cmd("mcp", console=True)
 NAME = "reminders"  # MCP server name Claude sees
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 

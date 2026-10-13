@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import threading  # noqa: E402
 import time  # noqa: E402
 
-from reminders import db, notes, ui, web  # noqa: E402
+from reminders import db, notes, paths, ui, web  # noqa: E402
 
 POLL_MS = 15_000
 AGENDA_HOUR = 3  # the day starts at 3 AM wake-up
@@ -66,14 +66,14 @@ def poll():
             if db.list_open(until=now.replace(hour=23, minute=59)):
                 ui.AgendaWindow(root, "Good morning — today's agenda")
     except Exception as e:  # never let one bad row kill the daemon
-        log = Path(__file__).resolve().parent / "data" / "daemon.log"
+        log = paths.DATA / "daemon.log"
         with open(log, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {e!r}\n")
     root.after(POLL_MS, poll)
 
 
 def log_error(e):
-    with open(Path(__file__).resolve().parent / "data" / "daemon.log", "a", encoding="utf-8") as f:
+    with open(paths.DATA / "daemon.log", "a", encoding="utf-8") as f:
         f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {e!r}\n")
 
 
@@ -117,7 +117,8 @@ threading.Thread(target=ai_worker, daemon=True).start()
 from reminders import memos, stt  # noqa: E402
 
 memos.start_worker()  # transcribes voice memos in the background
-stt.preload()  # warm the speech model so dictation is quick
+if stt.downloaded(db.setting("stt_model") or "small.en"):
+    stt.preload()  # warm the speech model so dictation is quick (never triggers a download at startup)
 from reminders import dock  # noqa: E402
 
 dock.start()  # keeps docked browser windows tiled inside the Daybook window

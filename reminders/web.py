@@ -4,10 +4,10 @@ from pathlib import Path
 
 from flask import Flask, jsonify, redirect, request, send_from_directory
 
-from . import db, nlp, notes
+from . import db, nlp, notes, paths
 
 PORT = 8503
-STATIC = Path(__file__).resolve().parent.parent / "web"
+STATIC = paths.WEB
 app = Flask(__name__, static_folder=None)
 
 from .chat import bp as chat_bp  # noqa: E402
@@ -46,7 +46,7 @@ app.register_blueprint(zotero_bp)
 from .pdflib import bp as pdflib_bp  # noqa: E402
 
 app.register_blueprint(pdflib_bp)
-BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
+BG_DIR = paths.DATA / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
@@ -255,8 +255,7 @@ def annotation_file(name):
 def annotate_start():
     """Launch the screen annotation overlay (separate process so the screen grab is clean)."""
     import subprocess
-    root = Path(__file__).resolve().parent.parent
-    subprocess.Popen([str(root / "venv" / "Scripts" / "pythonw.exe"), str(root / "quickadd.pyw"), "annotate", "--delay"],
+    subprocess.Popen(paths.helper_cmd("annotate", "--delay"),
                      cwd=str(root))
     return jsonify(ok=True)
 

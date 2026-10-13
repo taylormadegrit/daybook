@@ -8,10 +8,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("clock", __name__)
-SOUND_DIR = Path(__file__).resolve().parent.parent / "data" / "sounds"
+SOUND_DIR = paths.DATA / "sounds"
 SOUNDS = ["Radar", "Chimes", "Beacon", "Bell", "Gentle", "Pulse"]
 TS = "%Y-%m-%dT%H:%M:%S"
 

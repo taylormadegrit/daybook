@@ -12,11 +12,12 @@ import urllib.request
 import winreg
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from . import paths
 
 HF = "https://huggingface.co/api/models"
 # Publishers that package mainstream models properly for home PCs (standard GGUF quant names)
 PUBLISHERS = ["bartowski", "unsloth", "lmstudio-community", "ggml-org"]
-CACHE = Path(__file__).resolve().parent.parent / "data" / "hf_cache.json"
+CACHE = paths.DATA / "hf_cache.json"
 CACHE_HOURS = 6
 SKIP_TAGS = {"text-to-image", "image-text-to-video", "text-to-video", "feature-extraction", "text-to-speech",
              "automatic-speech-recognition", "sentence-similarity", "image-to-image"}

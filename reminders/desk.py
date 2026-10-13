@@ -8,7 +8,7 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 
-from . import db
+from . import db, paths
 
 COLORS = {  # name: (paper, header, text)
     "lemon": ("#fff3a8", "#ffe566", "#3b3410"), "peach": ("#ffd6b8", "#ffbe8f", "#43260f"),
@@ -20,7 +20,7 @@ FONT = "Segoe UI"
 COMMANDS = queue.Queue()  # web thread → Tk thread ("new"|"show"|"close"|"reload", id)
 HWND_BOTTOM, HWND_TOPMOST, HWND_NOTOPMOST = 1, -1, -2
 u32 = ctypes.windll.user32
-IMG_DIR = Path(__file__).resolve().parent.parent / "data" / "sticky_images"
+IMG_DIR = paths.DATA / "sticky_images"
 IMG_RE = re.compile(r"\[\[img:([^\]]+)\]\]")  # pasted pictures are stored in the text as [[img:file.png]]
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
 

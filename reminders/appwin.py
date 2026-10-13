@@ -59,6 +59,8 @@ DESKTOP_EXE = [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Daybook"
 
 def desktop_cmd(view):
     """The Daybook desktop app (installed build, or the dev copy in ./desktop)."""
+    if os.environ.get("DAYBOOK_APP_EXE") and os.path.exists(os.environ["DAYBOOK_APP_EXE"]):  # set by the installed app
+        return [os.environ["DAYBOOK_APP_EXE"], f"--view={view}"]
     for exe in DESKTOP_EXE:
         if exe.exists():
             return [str(exe), f"--view={view}"]

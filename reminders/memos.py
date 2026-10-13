@@ -9,10 +9,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("memos", __name__)
-MEMO_DIR = Path(__file__).resolve().parent.parent / "data" / "memos"
+MEMO_DIR = paths.DATA / "memos"
 AUDIO_EXT = {".m4a", ".mp3", ".wav", ".webm", ".ogg", ".opus", ".aac", ".flac", ".mp4", ".3gp", ".amr", ".caf", ".qta", ".mkv", ".mov"}
 VIDEO_EXT = {".mkv", ".mov", ".mp4"}  # .webm can be either — the uploader says which
 LABELS = ["Journal", "Idea", "Meeting", "To-do", "Lyrics", "Content", "Personal", "Learning"]

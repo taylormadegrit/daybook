@@ -11,12 +11,12 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("launchpad", __name__)
 LA, RA, PF, PF86 = (os.environ.get(k, "") for k in ("LOCALAPPDATA", "APPDATA", "ProgramFiles", "ProgramFiles(x86)"))
-ICON_DIR = Path(__file__).resolve().parent.parent / "data" / "appicons"
-APPS_CACHE = Path(__file__).resolve().parent.parent / "data" / "apps_cache.json"
+ICON_DIR = paths.DATA / "appicons"
+APPS_CACHE = paths.DATA / "apps_cache.json"
 
 # Chromium-family browsers: (id, name, user-data dir, exe candidates, brand color)
 CHROMIUM = [

@@ -9,10 +9,10 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("pdflib", __name__)
-THUMBS = Path(__file__).resolve().parent.parent / "data" / "pdf_thumbs"
+THUMBS = paths.DATA / "pdf_thumbs"
 SKIP_DIRS = {"$recycle.bin", "system volume information", "windows", "appdata", "node_modules", "venv", ".venv", ".git",
              "site-packages", "program files", "program files (x86)", "programdata", "__pycache__", "npm-cache", "pip-cache"}
 DEFAULT_FOLDERS = [str(Path.home() / "Downloads"), str(Path.home() / "Documents"), str(Path.home() / "Desktop"),

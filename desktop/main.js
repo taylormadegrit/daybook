@@ -27,7 +27,7 @@ function ping() {
 async function ensureBackend() {
   if (await ping()) return true;
   const packed = path.join(process.resourcesPath || "", "backend", "daybook-backend.exe");
-  if (app.isPackaged && fs.existsSync(packed)) backend = spawn(packed, [], {detached: true, stdio: "ignore", windowsHide: true});
+  if (app.isPackaged && fs.existsSync(packed)) backend = spawn(packed, [], {detached: true, stdio: "ignore", windowsHide: true, env: {...process.env, DAYBOOK_APP_EXE: process.execPath}});
   else {
     const py = path.join(DEV_ROOT, "venv", "Scripts", "pythonw.exe");
     if (fs.existsSync(py)) backend = spawn(py, [path.join(DEV_ROOT, "daemon.pyw")], {cwd: DEV_ROOT, detached: true, stdio: "ignore", windowsHide: true});
@@ -38,7 +38,7 @@ async function ensureBackend() {
 }
 
 // ---------------- main window ----------------
-function loadState() { try { return JSON.parse(fs.readFileSync(STATE, "utf8")); } catch { return {}; } }
+function loadState() { try { return JSON.parse(fs.readFileSync(STATE, "utf8").replace(/^﻿/, "")); } catch { return {}; } }
 function saveState() {
   if (!win || win.isDestroyed()) return;
   const s = {...loadState(), maximized: win.isMaximized()};
@@ -206,6 +206,11 @@ app.whenReady().then(async () => {
     cb({video: sources[r.response], audio: "loopback"});
   });
   createTray();
+  const st = loadState();
+  if (app.isPackaged && st.firstRunDone === undefined) {  // installed app: start with Windows so reminders always work
+    app.setLoginItemSettings({openAtLogin: true, args: ["--hidden"]});
+    fs.writeFileSync(STATE, JSON.stringify({...st, firstRunDone: true}));
+  }
   await createWindow(viewArg(process.argv));
 });
 app.on("before-quit", () => { quitting = true; saveState(); });

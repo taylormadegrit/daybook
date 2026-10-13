@@ -3,8 +3,9 @@ import calendar
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from . import paths
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "reminders.db"
+DB_PATH = paths.DATA / "reminders.db"
 FMT = "%Y-%m-%dT%H:%M"  # local time, minute precision
 
 # repeat rules: "" | daily | weekdays | weekly | monthly | yearly | every:<n>:<minutes|hours|days|weeks>
@@ -184,11 +185,11 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "nag_minutes": "5",         # pop-ups ring again every N minutes
     "ai_model": "qwen2.5:7b",   # local model for parsing + organizing notes
     "chat_model": "",           # default model for new chats ('' = first installed)
-    "import_dir": "F:\\28HRTZ",  # old-notes folder
+    "import_dir": paths.IMPORT_DIR,  # old-notes folder
     "user_name": "Taylor",
     "welcome_seen": "0",
     "theme": "aurora",
-    "annotations_dir": "D:\\Daybook\\Annotations",
+    "annotations_dir": str(paths.USER_DIR / "Annotations"),
     "stt_model": "small.en",    # local speech-to-text model (faster-whisper)
     "stt_language": "",         # '' = auto (multilingual model only)
     "home": "",                 # JSON: home widgets, scene, sounds
@@ -197,7 +198,7 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "discord_hooks": "",        # JSON [{name, url}] — Discord channel webhooks (kept on this PC only)
     "folders": "",              # JSON pinned folders
     "workflows": "",            # JSON workflows (folders + apps + sites opened together)
-    "games_dir": r"D:\Games\Daybook",  # where free games are downloaded
+    "games_dir": str(paths.GAMES_DIR),  # where free games are downloaded
     "web_profiles": "",         # JSON in-app browser profiles [{id, name, color}]
     "pdf_folders": "",          # JSON folders the PDF library scans ('' = sensible defaults)
 }

@@ -4,9 +4,9 @@ import tempfile
 import threading
 from pathlib import Path
 
-from . import db
+from . import db, paths
 
-MODEL_DIR = Path(__file__).resolve().parent.parent / "data" / "whisper"
+MODEL_DIR = paths.DATA / "whisper"
 MODELS = {  # setting value → (label, size)
     "base.en": ("Fast — base (English)", "140 MB"),
     "small.en": ("Balanced — small (English)", "460 MB"),

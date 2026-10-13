@@ -13,14 +13,14 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from . import db
+from . import db, paths
 
 bp = Blueprint("studio", __name__)
 ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(r"D:\Daybook\Creations")
+OUT = paths.USER_DIR / "Creations"
 WORKER = "http://127.0.0.1:8504"
 AI_PY = Path(r"D:\projects\ori-brazil\venv\Scripts\python.exe")
-VOICE_DIRS = [Path(r"D:\TBG Voice Samples"), Path(r"D:\Daybook\Voices")]
+VOICE_DIRS = [Path(r"D:\TBG Voice Samples"), paths.USER_DIR / "Voices"]
 AUDIO = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".webm"}
 STYLES = {"none": "", "photo": ", professional photo, natural light, sharp focus, 35mm",
           "cinematic": ", cinematic still, dramatic lighting, film grain, anamorphic",
@@ -53,7 +53,7 @@ def ensure_worker():
     if not AI_PY.exists():
         raise RuntimeError("The AI Python (Ori Brazil project) isn't on this PC")
     env = {**os.environ, "DAYBOOK_CREATIONS": str(OUT)}
-    log = open(ROOT / "data" / "ai_worker.log", "a", encoding="utf-8")
+    log = open(paths.DATA / "ai_worker.log", "a", encoding="utf-8")
     subprocess.Popen([str(AI_PY), str(ROOT / "ai_worker.py")], cwd=str(ROOT), env=env, stdout=log, stderr=log,
                      creationflags=0x08000000 | 0x00000200)
     for _ in range(90):
@@ -143,7 +143,7 @@ def _user_env(name):
 @bp.get("/api/studio")
 def st_state():
     s = worker_up()
-    return jsonify(worker=s, image_model=(ROOT / "data" / "ai-models" / "sdxl-turbo" / "model_index.json").exists(),
+    return jsonify(worker=s, image_model=(paths.DATA / "ai-models" / "sdxl-turbo" / "model_index.json").exists(),
                    tts_model=Path(r"D:\coqui-models\tts\tts_models--multilingual--multi-dataset--xtts_v2").exists(),
                    gemini=bool(os.environ.get("GEMINI_API_KEY") or _user_env("GEMINI_API_KEY")),
                    styles=list(STYLES), voices=voices(), creations=creations(60), out=str(OUT))
