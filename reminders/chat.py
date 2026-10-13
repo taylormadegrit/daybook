@@ -98,7 +98,7 @@ def run_tool(name, a):
         from . import zotero
         items, mode = zotero.search(a.get("query", ""), limit=8)
         return "\n".join(f"{i['title']} — {i['authors']} ({i['year']}){' · ' + i['venue'] if i['venue'] else ''}"
-                         + (f"\n  {re.sub('<[^>]+>', '', i['bib']).strip()}" if i.get("bib") else "") for i in items) or "Nothing in the Zotero library matches."
+                         + (f"\n  {html.unescape(re.sub('<[^>]+>', '', i['bib'])).strip()}" if i.get("bib") else "") for i in items) or "Nothing in the Zotero library matches."
     if name == "get_note":
         n = notes.get(int(a["id"]))
         return f"{n['title']} ({n['note_date']})\n{n['body'][:4000]}" if n else "Not found."
