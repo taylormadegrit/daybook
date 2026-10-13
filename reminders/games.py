@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import threading
 import time
+import urllib.parse
 import urllib.request
 import winreg
 import zipfile
@@ -247,9 +248,31 @@ def library():
 
 @bp.get("/api/games")
 def g_list():
+    free = library()
+    st = _state()
     owned = steam_games() + epic_games()
+    for g in free:  # downloaded free games live in your library too
+        if g["exe"]:
+            e = st.get(g["id"], {})
+            owned.append({"id": g["id"], "src": "free", "name": g["name"], "dir": e.get("dir", ""), "size": _dir_size(e.get("dir", "")),
+                          "last": e.get("last", 0), "ready": True, "added": e.get("installed", "")})
+    for g in owned:
+        g["kind"] = kind_of(g["name"])
+    for g in free:  # size of the download, if we've looked it up already
+        cp = CACHE / f"rel-{g['id']}.json"
+        try:
+            g["dl_size"] = (json.loads(cp.read_text(encoding="utf-8")) or {}).get("size", 0) if cp.exists() else 0
+        except Exception:
+            g["dl_size"] = 0
     owned.sort(key=lambda x: -x["last"])
-    return jsonify(owned=owned, free=library(), games_dir=str(games_dir()), steam=bool(steam_root()))
+    return jsonify(owned=owned, free=free, games_dir=str(games_dir()), steam=bool(steam_root()))
+
+
+def _dir_size(d):
+    try:
+        return sum(f.stat().st_size for f in Path(d).rglob("*") if f.is_file()) if d and len(d) > 3 else 0
+    except Exception:
+        return 0
 
 
 @bp.get("/api/games/release/<gid>")
@@ -282,6 +305,10 @@ def g_action(gid, action):
                     os.startfile(g["uri"])
             else:
                 e = _state().get(gid) or {}
+                st2 = _state()
+                if gid in st2:
+                    st2[gid]["last"] = int(time.time())
+                    _save_state(st2)
                 if e.get("exe", "").endswith(".lnk") and os.path.exists(e["exe"]):
                     os.startfile(e["exe"])  # installed with its own installer → its Start Menu shortcut
                 elif e.get("exe") and os.path.exists(e["exe"]):
@@ -314,29 +341,113 @@ def g_action(gid, action):
     return jsonify(ok=True)
 
 
+ART = CACHE / "art"
+TOOLS = {"lossless scaling", "wallpaper engine", "steamvr", "soundpad", "blender", "rpg maker", "aseprite", "fpsvr", "ovr toolkit"}
+CDN = "https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/{file}"
+
+
+def kind_of(name):
+    n = name.lower()
+    if any(t in n for t in TOOLS):
+        return "tool"
+    if re.search(r"\bdemo\b|\bplaytest\b|\bprologue\b", n):
+        return "demo"
+    return "game"
+
+
+def _norm(t):
+    return re.sub(r"[^a-z0-9]", "", re.sub(r"[™®©]|\(.*?\)", "", t.lower()))
+
+
+def _art_map():
+    try:
+        return json.loads((ART / "map.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def steam_appid_for(name):
+    """Find the same game on the Steam store (most Epic and open-source games are there) — for cover art."""
+    m = _art_map()
+    key = _norm(name)
+    if key in m:
+        return m[key]
+    appid = None
+    try:
+        q = urllib.parse.quote(re.sub(r"[™®©]|\(.*?\)", "", name).strip())
+        with urllib.request.urlopen(urllib.request.Request(f"https://store.steampowered.com/api/storesearch/?term={q}&l=english&cc=US",
+                                                           headers={"User-Agent": UA["User-Agent"]}), timeout=10) as r:
+            items = json.loads(r.read()).get("items", [])
+        exact = [it for it in items if _norm(it["name"]) == key]
+        close = [it for it in items if key and (key in _norm(it["name"]) or _norm(it["name"]) in key)
+                 and min(len(key), len(_norm(it["name"]))) / max(len(key), len(_norm(it["name"]))) >= 0.85]
+        pick = (exact or close or [None])[0]
+        appid = str(pick["id"]) if pick else None
+    except Exception:
+        return None  # offline: try again later
+    m[key] = appid
+    ART.mkdir(parents=True, exist_ok=True)
+    (ART / "map.json").write_text(json.dumps(m, indent=0), encoding="utf-8")
+    return appid
+
+
+def _cdn(appid, wide):
+    """Download (once) the official store artwork for a Steam app id."""
+    out = ART / f"{appid}-{'wide' if wide else 'tall'}.jpg"
+    if out.exists():
+        return out if out.stat().st_size > 1000 else None
+    ART.mkdir(parents=True, exist_ok=True)
+    for f in (["header.jpg"] if wide else ["library_600x900_2x.jpg", "library_600x900.jpg"]):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(CDN.format(appid=appid, file=f), headers={"User-Agent": UA["User-Agent"]}), timeout=12) as r:
+                out.write_bytes(r.read())
+                return out
+        except Exception:
+            continue
+    out.write_bytes(b"")  # remember there's none
+    return None
+
+
+def art_for(gid, name, wide=False):
+    if gid.startswith("steam-"):
+        appid = gid[6:]
+        if not wide:
+            p = steam_art(appid)
+            if p and "header" not in p.name:
+                return p
+        else:
+            root = steam_root()
+            for lp in ((root / "appcache" / "librarycache" / f"{appid}_header.jpg"), (root / "appcache" / "librarycache" / appid / "header.jpg")) if root else ():
+                if lp.exists():
+                    return lp
+        return _cdn(appid, wide)
+    appid = steam_appid_for(name)
+    return _cdn(appid, wide) if appid else None
+
+
 @bp.get("/game-art/<gid>")
 def g_art(gid):
-    if gid.startswith("steam-"):
-        p = steam_art(gid[6:])
-        if p:
-            return send_file(p, max_age=86400)
-    if gid.startswith("epic-"):
+    wide = request.args.get("wide") == "1"
+    name = request.args.get("name", "")
+    if not name:
+        name = next((x["name"] for x in steam_games() + epic_games() if x["id"] == gid), CAT.get(gid, {}).get("name", ""))
+    p = art_for(gid, name, wide)
+    if p:
+        return send_file(p, max_age=86400 * 7)
+    if gid.startswith("epic-") and not wide:  # last resort: the game's own icon
         g = next((x for x in epic_games() if x["id"] == gid), None)
-        if g and os.path.exists(g["exe"]):
-            out = CACHE / f"{gid}.png"
-            if not out.exists():
-                try:
-                    from icoextract import IconExtractor
-                    from PIL import Image
-                    CACHE.mkdir(parents=True, exist_ok=True)
-                    ico = CACHE / f"{gid}.ico"
-                    IconExtractor(g["exe"]).export_icon(str(ico))
-                    im = Image.open(ico)
-                    im = im.ico.getimage(max(im.ico.sizes()))
-                    im.convert("RGBA").save(out)
-                    ico.unlink(missing_ok=True)
-                except Exception:
-                    pass
-            if out.exists():
-                return send_file(out, max_age=86400)
+        out = CACHE / f"{gid}.png"
+        if g and os.path.exists(g["exe"]) and not out.exists():
+            try:
+                from icoextract import IconExtractor
+                from PIL import Image
+                ico = CACHE / f"{gid}.ico"
+                IconExtractor(g["exe"]).export_icon(str(ico))
+                im = Image.open(ico)
+                im.ico.getimage(max(im.ico.sizes())).convert("RGBA").save(out)
+                ico.unlink(missing_ok=True)
+            except Exception:
+                pass
+        if out.exists():
+            return send_file(out, max_age=86400)
     return ("", 404)

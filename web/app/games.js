@@ -1,61 +1,99 @@
-// ================= GAMES (Launchpad tab): Steam + Epic library and free open-source games =================
-const GM = {data: null, sel: null, filter: "all", poll: 0};
-const gmSize = b => b > 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.round(b / 1e6) + " MB";
+// ================= GAMES (Launchpad tab): one tidy library + a free-games store =================
+const GM = {data: null, view: store.get("daybook-gm-view", "library"), q: "", sort: store.get("daybook-gm-sort", "recent"), src: "all", genre: "All", poll: 0};
+const gmSize = b => !b ? "" : b > 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.max(1, Math.round(b / 1e6)) + " MB";
+const SRC_NAME = {steam: "Steam", epic: "Epic", free: "Free"};
+const gmHue = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+// cover art, or a clean gradient card with the title when a game has none
+const gmPh = (name, wide) => `<div class="gph ${wide ? "wide" : ""}" style="--h:${gmHue(name)}"><span>${esc(name.replace(/[™®]/g, ""))}</span></div>`;
+const gmArt = (g, wide) => `<img src="/game-art/${g.id}?name=${encodeURIComponent(g.name)}${wide ? "&wide=1" : ""}" alt="" loading="lazy" onerror="this.outerHTML=gmPh(this.dataset.n,${!!wide})" data-n="${esc(g.name)}">`;
+const playedText = g => !g.last ? "" : (d => { const days = Math.floor((Date.now() - d) / 864e5); return days < 1 ? "Played today" : days < 2 ? "Played yesterday" : days < 30 ? `Played ${days} days ago` : "Played " + new Date(d).toLocaleDateString([], {month: "short", year: "numeric"}); })(g.last * 1000);
+
 async function renderGames(refresh) {
   if (!GM.data || refresh) GM.data = await api("/api/games");
-  const d = GM.data, owned = d.owned.filter(g => GM.filter === "all" || g.src === GM.filter);
-  const recent = d.owned.filter(g => g.last).slice(0, 10);
-  const tile = g => `<button class="gtile ${GM.sel === g.id ? "on" : ""}" onmouseenter="gmFocus('${g.id}')" onclick="gmFocus('${g.id}');gmPlay('${g.id}')" title="${esc(g.name)}">
-      <img src="/game-art/${g.id}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'gini',textContent:${JSON.stringify(g.name.slice(0, 2)).replace(/"/g, "&quot;")}}))">
-      <i class="src ${g.src}">${g.src === "steam" ? "Steam" : g.src === "epic" ? "Epic" : "Free"}</i><span class="lbl">${esc(g.name)}</span></button>`;
-  $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}<div class="sp"></div><button class="iconbtn" title="Refresh" onclick="renderGames(true)">${ic("rep")}</button><span class="lp-clock" id="lp-clock"></span></div>
-    <div class="lp-hero gm-hero" id="gm-hero"></div>
-    ${recent.length ? `<div class="lp-row"><div class="lp-rl">Recently played</div><div class="lp-tiles gm-row">${recent.map(tile).join("")}</div></div>` : ""}
-    <div class="lp-row"><div class="lp-rl" style="display:flex;gap:10px;align-items:center">Your games · ${d.owned.length}
-      <span class="seg sm">${[["all", "All"], ["steam", "Steam"], ["epic", "Epic"]].map(([k, l]) => `<button class="${GM.filter === k ? "on" : ""}" onclick="GM.filter='${k}';renderGames()">${l}</button>`).join("")}</span></div>
-      <div class="gm-grid">${owned.map(tile).join("") || `<div class="muted small">No ${GM.filter} games installed</div>`}</div></div>
-    <div class="lp-row"><div class="lp-rl">Free & open-source games · download and play</div>
-      <div class="free-grid">${d.free.map(freeCard).join("")}</div>
-      <div class="muted small" style="margin-top:10px">Downloads come straight from each game's official GitHub releases into <code>${esc(d.games_dir)}</code>. Games marked “bring your own” are open-source engines that need files from a copy you own.</div></div>`;
-  lpClock();
-  if (!GM.sel || !d.owned.find(g => g.id === GM.sel)) GM.sel = (recent[0] || d.owned[0] || {}).id;
-  gmFocus(GM.sel);
+  const d = GM.data, games = d.owned.filter(g => g.kind === "game");
+  $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
+    <div class="gm-head">
+      <div class="seg gm-views"><button class="${GM.view === "library" ? "on" : ""}" onclick="gmView('library')">${ic("grid")}My library <span class="cnt">${games.length}</span></button>
+        <button class="${GM.view === "free" ? "on" : ""}" onclick="gmView('free')">${ic("down")}Get free games <span class="cnt">${d.free.length}</span></button></div>
+      <div class="gm-search">${ic("search")}<input id="gm-q" placeholder="${GM.view === "library" ? "Search your games…" : "Search free games…"}" value="${esc(GM.q)}" oninput="GM.q=this.value;debounce('gmq',gmBody,120)"></div>
+      ${GM.view === "library" ? `<select class="f gm-sort" onchange="GM.sort=this.value;store.set('daybook-gm-sort',this.value);gmBody()">
+          ${[["recent", "Recently played"], ["az", "A → Z"], ["size", "Largest first"]].map(([k, l]) => `<option value="${k}" ${GM.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
+      <button class="iconbtn" title="Refresh" onclick="renderGames(true)">${ic("rep")}</button></div>
+    <div id="gm-body"></div>`;
+  paintIcons($("#lp")); lpClock(); gmBody();
   if (d.free.some(g => g.job && ["starting", "downloading", "extracting"].includes(g.job.state))) { clearTimeout(GM.poll); GM.poll = setTimeout(() => S.view === "launchpad" && LP.view === "games" && renderGames(true), 1500); }
 }
-function gmFocus(id) {
-  const g = GM.data.owned.find(x => x.id === id); if (!g) return; GM.sel = id;
-  $$(".gtile").forEach(t => t.classList.toggle("on", t.getAttribute("onclick").includes(`'${id}'`)));
-  $("#lp").style.setProperty("--lpart", `url("/game-art/${id}")`);
-  $("#gm-hero").innerHTML = `<div class="lp-h1">${esc(g.name)}</div><div class="lp-sub">${g.src === "steam" ? "Steam" : "Epic Games"} · ${gmSize(g.size)}${g.last ? " · last played " + new Date(g.last * 1000).toLocaleDateString() : ""}</div>
-    <div class="row" style="margin-top:14px;gap:8px"><button class="btn pri lg" onclick="gmPlay('${id}')">${ic("play")}Play</button>
-      ${g.src === "epic" ? `<button class="btn" title="Start the game's own .exe — works offline for DRM-free games" onclick="gmPlay('${id}',true)">Play offline (direct)</button>` : ""}
-      <button class="btn ghost" onclick="api('/api/games/${id}/folder',{method:'POST'})">${ic("note")}Game folder</button></div>
-    <div class="muted small" style="margin-top:8px">${g.src === "steam" ? "Plays through Steam with your account. To play without internet: Steam → Go Offline… (once, while online)." : "Plays through the Epic Games Launcher with your account — it supports offline mode for games you've launched online before."}</div>`;
+function gmView(v) { GM.view = v; GM.q = ""; store.set("daybook-gm-view", v); renderGames(); }
+function gmBody() { GM.view === "free" ? gmFree() : gmLibrary(); paintIcons($("#gm-body")); }
+
+function gmLibrary() {
+  const d = GM.data, q = GM.q.toLowerCase();
+  const match = g => (GM.src === "all" || g.src === GM.src) && (!q || g.name.toLowerCase().includes(q));
+  const sorter = {recent: (a, b) => (b.last - a.last) || a.name.localeCompare(b.name), az: (a, b) => a.name.localeCompare(b.name), size: (a, b) => b.size - a.size}[GM.sort];
+  const games = d.owned.filter(g => g.kind === "game" && match(g)).sort(sorter);
+  const demos = d.owned.filter(g => g.kind === "demo" && match(g)).sort(sorter), tools = d.owned.filter(g => g.kind === "tool" && match(g));
+  const recent = q || GM.src !== "all" ? [] : d.owned.filter(g => g.last && g.kind !== "tool").sort((a, b) => b.last - a.last).slice(0, 4);
+  const counts = s => d.owned.filter(g => g.kind === "game" && (s === "all" || g.src === s)).length;
+  const card = g => `<div class="gcard" title="${esc(g.name)}"><div class="gcover" onclick="gmDetails('${g.id}')">${gmArt(g)}
+      <button class="gplay" title="Play" onclick="event.stopPropagation();gmPlay('${g.id}')">${ic("play", "i")}</button><i class="gsrc ${g.src}">${SRC_NAME[g.src]}</i></div>
+      <div class="gname" onclick="gmDetails('${g.id}')">${esc(g.name.replace(/[™®]/g, ""))}</div><div class="gmeta">${playedText(g) || gmSize(g.size)}</div></div>`;
+  $("#gm-body").innerHTML = `
+    ${recent.length ? `<div class="gm-sec"><h4>Jump back in</h4><div class="gm-recent">${recent.map(g => `<div class="grec" onclick="gmDetails('${g.id}')">${gmArt(g, true)}
+        <div class="grec-i"><b>${esc(g.name.replace(/[™®]/g, ""))}</b><span>${playedText(g)} · ${SRC_NAME[g.src]}</span></div>
+        <button class="btn pri sm" onclick="event.stopPropagation();gmPlay('${g.id}')">${ic("play")}Play</button></div>`).join("")}</div></div>` : ""}
+    <div class="gm-sec"><div class="gm-sech"><h4>${q ? `Results for “${esc(GM.q)}”` : "All games"} <span class="muted">${games.length}</span></h4>
+      <div class="chips">${["all", "steam", "epic", "free"].filter(s => s === "all" || counts(s)).map(s => `<button class="chipb ${GM.src === s ? "on" : ""}" onclick="GM.src='${s}';gmBody()">${s === "all" ? "All" : SRC_NAME[s]} · ${counts(s)}</button>`).join("")}</div></div>
+      <div class="gm-grid">${games.map(card).join("") || `<div class="empty" style="grid-column:1/-1"><b>No games match</b>Try another search${GM.src !== "all" ? " or show All" : ""}.</div>`}</div></div>
+    ${demos.length ? `<details class="gm-sec gm-fold"><summary><h4>Demos <span class="muted">${demos.length}</span></h4></summary><div class="gm-grid sm">${demos.map(card).join("")}</div></details>` : ""}
+    ${tools.length ? `<details class="gm-sec gm-fold"><summary><h4>Apps & tools <span class="muted">${tools.length}</span></h4></summary><div class="gm-grid sm">${tools.map(card).join("")}</div></details>` : ""}
+    <div class="muted small" style="margin:6px 0 20px">Steam and Epic games launch through their own apps with your account. Playing offline: in Steam use <i>Steam → Go Offline…</i> once while online; Epic games you've launched before work offline.</div>`;
+}
+
+function gmDetails(id) {
+  const g = GM.data.owned.find(x => x.id === id); if (!g) return;
+  const free = GM.data.free.find(x => x.id === id);
+  modal(`<div class="gdet">${gmArt(g, true)}<button class="iconbtn gdet-x" onclick="closeModal()">${ic("x")}</button></div>
+    <h2 style="margin:14px 0 2px">${esc(g.name.replace(/[™®]/g, ""))}</h2>
+    <div class="row small muted" style="gap:8px"><span class="badge">${SRC_NAME[g.src]}</span>${g.kind !== "game" ? `<span class="badge">${g.kind}</span>` : ""}${g.size ? `<span>${gmSize(g.size)}</span>` : ""}${g.last ? `<span>${playedText(g)}</span>` : ""}</div>
+    ${free ? `<p class="muted" style="margin:10px 0 0">${esc(free.desc)}</p>` : ""}
+    <div class="row" style="margin-top:16px;gap:8px"><button class="btn pri lg" onclick="closeModal();gmPlay('${id}')">${ic("play")}Play</button>
+      ${g.src === "epic" ? `<button class="btn" title="Start the game's own .exe — for DRM-free games, works with no internet" onclick="closeModal();gmPlay('${id}',true)">Play offline</button>` : ""}
+      <button class="btn ghost" onclick="api('/api/games/${id}/folder',{method:'POST'})">${ic("ext")}Game folder</button>
+      ${free ? `<div class="sp"></div><button class="btn ghost danger" onclick="gmRemove(this,'${id}')">${ic("trash")}Uninstall</button>` : ""}</div>`, true);
 }
 async function gmPlay(id, direct) { try { await api(`/api/games/${id}/play`, {method: "POST", body: {direct: !!direct}}); toast("Launching…"); } catch (e) { toast(e.message); } }
+
+function gmFree() {
+  const d = GM.data, q = GM.q.toLowerCase();
+  const genres = ["All", ...new Set(d.free.map(g => g.genre))];
+  const list = d.free.filter(g => (GM.genre === "All" || g.genre === GM.genre) && (!q || (g.name + g.desc + g.genre).toLowerCase().includes(q)));
+  const ready = list.filter(g => !g.own), byo = list.filter(g => g.own);
+  $("#gm-body").innerHTML = `<div class="muted" style="margin:2px 0 12px">Free, open-source games — downloaded straight from each project's official GitHub release into <code>${esc(d.games_dir)}</code>. Once downloaded they show up in <b>My library</b>.</div>
+    <div class="chips" style="margin-bottom:14px">${genres.map(g => `<button class="chipb ${GM.genre === g ? "on" : ""}" onclick="GM.genre='${g}';gmBody()">${g}</button>`).join("")}</div>
+    ${ready.length ? `<div class="gm-sec"><h4>Play right away <span class="muted">${ready.length}</span></h4><div class="free-grid">${ready.map(freeCard).join("")}</div></div>` : ""}
+    ${byo.length ? `<div class="gm-sec"><h4>Remakes — need files from a game you own <span class="muted">${byo.length}</span></h4>
+      <div class="muted small" style="margin:-4px 0 10px">Modern open-source engines for classics. They're free, but you supply the original game's data files.</div><div class="free-grid">${byo.map(freeCard).join("")}</div></div>` : ""}
+    ${!list.length ? `<div class="empty"><b>Nothing matches</b></div>` : ""}`;
+}
 function freeCard(g) {
   const j = g.job, busy = j && ["starting", "downloading", "extracting"].includes(j.state);
   const act = busy ? `<div class="meter" style="flex:1"><i style="width:${j.pct}%"></i></div><span class="small">${j.state === "extracting" ? "Unpacking…" : j.pct + "%"}</span>`
-    : g.exe ? `<button class="btn sm pri" onclick="gmPlayFree('${g.id}')">${ic("play")}Play</button><button class="btn sm ghost" onclick="gmRemove(this,'${g.id}')">${ic("trash")}</button>`
-    : g.installer ? `<button class="btn sm pri" onclick="gmPlayFree('${g.id}')">Run installer</button><button class="btn sm ghost" onclick="gmRemove(this,'${g.id}')">${ic("trash")}</button>`
-    : `<button class="btn sm" onclick="gmDownload('${g.id}')">${ic("down")}Download</button><span class="small muted" id="rel-${g.id}"></span>`;
-  return `<div class="free"><div class="ft"><b>${esc(g.name)}</b><span class="badge">${esc(g.genre)}</span></div>
-    <div class="small muted">${esc(g.desc)}</div>${g.own ? `<div class="small" style="color:var(--warn)">Bring your own: ${esc(g.own)}</div>` : ""}
+    : g.exe ? `<button class="btn sm pri" onclick="gmPlay('${g.id}')">${ic("play")}Play</button><span class="small" style="color:var(--ok);white-space:nowrap">✓ Installed</span>`
+    : g.installer ? `<button class="btn sm pri" onclick="gmPlay('${g.id}')">Finish installing</button><span class="small muted">runs its installer</span>`
+    : `<button class="btn sm" onclick="gmDownload('${g.id}')">${ic("down")}Download${g.dl_size ? " · " + gmSize(g.dl_size) : ""}</button>`;
+  return `<div class="free"><div class="fcov">${gmArt(g)}</div><div class="fbody"><div class="ft"><b>${esc(g.name)}</b><span class="badge">${esc(g.genre)}</span></div>
+    <div class="small muted fdesc">${esc(g.desc)}</div>${g.own ? `<div class="small" style="color:var(--warn)">Needs: ${esc(g.own)}</div>` : ""}
     ${j && j.state === "error" ? `<div class="small" style="color:var(--bad)">${esc(j.msg)}</div>` : ""}
-    <div class="row" style="margin-top:auto;padding-top:8px;flex-wrap:nowrap">${act}<a class="small muted" style="margin-left:auto" href="https://github.com/${g.repo}" target="_blank" rel="noopener">GitHub</a></div></div>`;
+    <div class="row fact">${act}<a class="small muted" style="margin-left:auto" href="https://github.com/${g.repo}" target="_blank" rel="noopener">GitHub ↗</a></div></div></div>`;
 }
-async function gmDownload(id) {
-  try { const r = await api("/api/games/release/" + id); toast(`Downloading ${r.asset} (${gmSize(r.size)})…`); } catch (e) {}
-  await api(`/api/games/${id}/download`, {method: "POST"}); renderGames(true);
-}
-async function gmPlayFree(id) { try { await api(`/api/games/${id}/play`, {method: "POST"}); toast("Launching…"); } catch (e) { toast(e.message); } }
-async function gmRemove(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Remove?"; return; } await api(`/api/games/${id}/remove`, {method: "POST"}); toast("Removed"); renderGames(true); }
-// home widget
+async function gmDownload(id) { await api(`/api/games/${id}/download`, {method: "POST"}); toast("Downloading…"); renderGames(true); }
+async function gmRemove(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Click again to uninstall"; return; } await api(`/api/games/${id}/remove`, {method: "POST"}); closeModal(); toast("Uninstalled"); renderGames(true); }
+// home widget: recently played covers
 async function gamesWidget() {
   const el = $("#w-games"); if (!el) return;
   if (!GM.data) GM.data = await api("/api/games");
-  const list = (GM.data.owned.filter(g => g.last).length ? GM.data.owned.filter(g => g.last) : GM.data.owned).slice(0, 6);
-  el.innerHTML = `<div class="gm-mini">${list.map(g => `<button class="gtile sm" title="Play ${esc(g.name)}" onclick="gmPlay('${g.id}')"><img src="/game-art/${g.id}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'gini',textContent:${JSON.stringify(g.name.slice(0, 2)).replace(/"/g, "&quot;")}}))"><span class="lbl">${esc(g.name)}</span></button>`).join("")}</div>`;
+  const all = GM.data.owned.filter(g => g.kind === "game"), list = (all.some(g => g.last) ? all.filter(g => g.last) : all).slice(0, 6);
+  el.innerHTML = `<div class="gm-mini">${list.map(g => `<div class="gcard sm" title="Play ${esc(g.name)}"><div class="gcover" onclick="gmPlay('${g.id}')">${gmArt(g)}</div></div>`).join("")}</div>`;
 }
 
 // ================= FOLDERS (Launchpad tab): pinned folders, in-app browser, workflows =================
