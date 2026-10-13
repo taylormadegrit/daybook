@@ -28,21 +28,24 @@ function youtubeAdBlock() {
     } catch (e) {}
   }
 
-  // ---- 2. anything that still plays: mute it, jump to the end, press Skip ----
+  // ---- 2. anything that still plays: mute it, play it at 16x and press Skip.
+  //      (Never seek an ad to its end: YouTube's newer player then freezes on the ad — that was the "won't play" bug.) ----
   const SKIP = ".ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button, button[id^='skip-button']";
   let wasMuted = null;
   const tick = () => {
     const player = document.querySelector(".html5-video-player");
     const video = player && player.querySelector("video");
     const ad = player && (player.classList.contains("ad-showing") || player.classList.contains("ad-interrupting"));
+    // mute through YouTube's own player so it doesn't remember "muted" for every later video
+    const isMuted = () => player.isMuted ? player.isMuted() : video.muted;
     if (ad && video) {
-      if (wasMuted === null) wasMuted = video.muted;
-      video.muted = true;
-      if (isFinite(video.duration) && video.duration > 0) video.currentTime = Math.max(0, video.duration - 0.1);
-      video.playbackRate = 16;
+      if (wasMuted === null) wasMuted = isMuted();
+      if (player.mute) player.mute(); else video.muted = true;
+      if (video.playbackRate < 16) video.playbackRate = 16;
       document.querySelectorAll(SKIP).forEach(b => b.click());
     } else if (video && wasMuted !== null) {
-      video.muted = wasMuted; wasMuted = null;
+      if (!wasMuted) { if (player.unMute) player.unMute(); video.muted = false; }
+      wasMuted = null;
       if (video.playbackRate > 2) video.playbackRate = 1;
     }
     // "Ad blockers are not allowed" pop-up: close it and keep playing
@@ -66,7 +69,8 @@ function youtubeAdBlock() {
   const ready = () => {
     if (!document.documentElement) return setTimeout(ready, 15);
     addStyle();
-    new MutationObserver(() => { tick(); addStyle(); }).observe(document.documentElement, {subtree: true, attributes: true, attributeFilter: ["class"], childList: true});
+    let queued = 0;  // at most once per frame — YouTube changes the page constantly while a video plays
+    new MutationObserver(() => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; tick(); addStyle(); }); }).observe(document.documentElement, {subtree: true, attributes: true, attributeFilter: ["class"], childList: true});
   };
   ready(); document.addEventListener("DOMContentLoaded", addStyle);
 }
