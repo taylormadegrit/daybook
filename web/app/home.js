@@ -369,10 +369,10 @@ function ambSfx(kind) {
 function ambience(scene, vol) {
   if (scene && !AU.ctx) { // browsers need a click before sound can start
     try { AU.ctx = new AudioContext(); } catch (e) { return; }
-    AU.master = AU.ctx.createGain(); AU.master.connect(AU.ctx.destination); AU.bufs = {white: noiseBuf(AU.ctx, "white"), pink: noiseBuf(AU.ctx, "pink"), brown: noiseBuf(AU.ctx, "brown")};
+    AU.master = AU.ctx.createGain(); AU.comp = AU.ctx.createDynamicsCompressor(); AU.comp.threshold.value = -14; AU.comp.ratio.value = 6; AU.master.connect(AU.comp); AU.comp.connect(AU.ctx.destination); AU.bufs = {white: noiseBuf(AU.ctx, "white"), pink: noiseBuf(AU.ctx, "pink"), brown: noiseBuf(AU.ctx, "brown")};
   }
   if (!AU.ctx) return;
-  AU.master.gain.setTargetAtTime(scene ? vol * .8 : 0, AU.ctx.currentTime, .3);
+  AU.master.gain.setTargetAtTime(scene ? vol * .8 * ((window.SOUND_TRIM || {})[scene] || 1) : 0, AU.ctx.currentTime, .3);
   if (scene === AU.scene) return;
   AU.nodes.forEach(n => { try { n.stop ? n.stop() : n.disconnect(); } catch (e) {} }); AU.timers.forEach(clearInterval); AU.nodes = []; AU.timers = [];
   AU.scene = scene;
@@ -397,12 +397,17 @@ function customizeModal() {
     <div class="scenes" id="scenes-grid">${Object.entries(SCENES).map(([k, s]) => `<div class="scn ${c.scene === k ? "on" : ""}" onclick="${k === "custom" && !c.bgfile ? "$('#bgfile').click()" : `setScene('${k}')`}"><div class="pv" style="background:${s.bg}">${s.em}</div><b>${s.name}</b></div>`).join("")}</div>
     <div class="row" style="margin-top:8px"><button class="btn sm" onclick="$('#bgfile').click()">${ic("up")}Upload my own picture or video</button><span class="small muted">jpg · png · webp · gif · mp4 · webm</span>
       <input type="file" id="bgfile" accept="image/*,video/mp4,video/webm" style="display:none" onchange="uploadBg(this.files[0])"></div>
-    <div class="frm" style="margin-top:14px">
-      <label>Ambient sound</label><div class="row" style="flex-wrap:nowrap"><button class="sw ${c.sound ? "on" : ""}" style="margin-left:0" onclick="setAmb({sound:${!c.sound}})"></button><input type="range" min="0" max="1" step=".05" value="${c.vol}" style="flex:1" oninput="setAmb({vol:+this.value},true)"></div>
-      <label>Sound</label><select class="f" onchange="setAmb({soundpick:this.value, sound:true})">${(window.SOUND_CHOICES || [["", "Match the scene"]]).map(([k, n]) => `<option value="${k}" ${c.soundpick === k ? "selected" : ""}>${n}</option>`).join("")}</select>
-      <label>Darken background</label><input type="range" min="0" max=".8" step=".05" value="${c.dim}" oninput="setAmb({dim:+this.value},true)">
-      <label>Show on every page</label><button class="sw ${c.everywhere ? "on" : ""}" style="margin-left:0" onclick="setAmb({everywhere:${!c.everywhere}})"></button>
-      <label>Still image (no motion)</label><button class="sw ${c.still ? "on" : ""}" style="margin-left:0" onclick="setAmb({still:${!c.still}})"></button></div>
+    <div class="grouph">Sound &amp; display</div>
+    <div class="cz-rows">
+      <div class="srow"><div class="d"><b>Ambient sound</b><span>${c.sound ? "Playing" + (c.soundpick ? "" : (c.scene === "none" || c.scene === "custom" ? " — pick a sound below" : " the scene's sound")) : "Off"}</span></div>
+        <button class="sw ${c.sound ? "on" : ""}" onclick="setAmb({sound:${!c.sound}})" title="Sound on / off"></button></div>
+      <div class="srow"><div class="d"><b>Sound</b><span>Any sound works with any background</span></div>
+        <select class="f cz-ctl" onchange="setAmb({soundpick:this.value, sound:true})">${(window.SOUND_CHOICES || [["", "Match the scene"]]).map(([k, n]) => `<option value="${k}" ${c.soundpick === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+      <div class="srow"><div class="d"><b>Volume</b></div><input class="cz-ctl" type="range" min="0" max="1" step=".05" value="${c.vol}" oninput="setAmb({vol:+this.value},true)"></div>
+      <div class="srow"><div class="d"><b>Darken background</b><span>Makes text easier to read over bright scenes</span></div><input class="cz-ctl" type="range" min="0" max=".8" step=".05" value="${c.dim}" oninput="setAmb({dim:+this.value},true)"></div>
+      <div class="srow"><div class="d"><b>Show on every page</b><span>Off = only on Home</span></div><button class="sw ${c.everywhere ? "on" : ""}" onclick="setAmb({everywhere:${!c.everywhere}})"></button></div>
+      <div class="srow"><div class="d"><b>Still image</b><span>No motion — uses less power</span></div><button class="sw ${c.still ? "on" : ""}" onclick="setAmb({still:${!c.still}})"></button></div>
+    </div>
     <div class="grouph">Widgets</div>
     <div class="row"><button class="btn pri" onclick="closeModal();homeEdit(true)">${ic("grid")}Edit home layout</button><button class="btn" onclick="closeModal();addWidgetModal()">${ic("plus")}Add widgets</button></div>`, true);
 }

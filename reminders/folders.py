@@ -53,7 +53,7 @@ def listing(path, show_hidden=False):
     items = []
     with os.scandir(p) as it:
         for e in it:
-            if not show_hidden and (e.name.startswith(".") or e.name.lower() in ("desktop.ini", "thumbs.db")):
+            if not show_hidden and (e.name.startswith((".", "$")) or e.name.lower() in ("desktop.ini", "thumbs.db", "system volume information", "pagefile.sys", "hiberfil.sys", "swapfile.sys", "dumpstack.log.tmp")):
                 continue
             try:
                 st = e.stat()

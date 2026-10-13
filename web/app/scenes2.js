@@ -153,6 +153,11 @@
     const c = AU.ctx; freqs.forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f; o.detune.value = R(-6, 6);
       g.gain.value = vol; o.connect(g); g.connect(AU.master); o.start(); AU.nodes.push(o); auLFO(g.gain, .03 + i * .011, vol * .8, vol); });
   }
+  // measured output (RMS at the same volume) differed 20× between sounds, and most were too quiet to hear;
+  // these bring each one to about the same, comfortable level (the limiter catches peaks)
+  const MEASURED = {rain: .051, storm: .053, fireplace: .04, ocean: .062, forest: .0111, night: .0072, meadow: .0058, snow: .0227, cafe: .0069,
+    city: .0265, underwater: .0381, stream: .0184, chimes: .0025, sakura: .008, aurora: .0149, space: .024, dunes: .0158, whitenoise: .0329, brownnoise: .0491};
+  window.SOUND_TRIM = Object.fromEntries(Object.entries(MEASURED).map(([k, v]) => [k, Math.min(14, .1 / v)]));
   window.SOUND_CHOICES = [["", "Match the scene"], ["rain", "Rain"], ["storm", "Thunderstorm"], ["fireplace", "Crackling fire"], ["ocean", "Ocean waves"],
     ["forest", "Forest birds"], ["night", "Night crickets"], ["meadow", "Spring meadow"], ["snow", "Winter wind"], ["cafe", "Café"], ["city", "City hum"],
     ["underwater", "Underwater"], ["stream", "Babbling stream"], ["chimes", "Wind chimes"], ["sakura", "Garden (chimes + stream)"], ["aurora", "Calm pad"],

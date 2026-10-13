@@ -67,7 +67,7 @@ function ctxGeneral() {
     window.desktop ? {t: "New Daybook window", i: "expand", k: "Ctrl Shift N", run: () => newAppWindow(S.view)} : null,
     {t: "Settings", i: "settings", off: S.view === "settings", run: () => go("settings")}].filter(Boolean);
 }
-const VIEW_ICON = {today: "home", launchpad: "grid", games: "gamepad", browser: "globe", calendar: "cal", reminders: "bell", notes: "note", memos: "mic",
+const VIEW_ICON = {today: "home", launchpad: "grid", workflows: "play", games: "gamepad", browser: "globe", calendar: "cal", reminders: "bell", notes: "note", memos: "mic",
   studio: "spark", clock: "timer", research: "book", desktop: "sticky", chat: "chat", models: "chip", settings: "settings", help: "help"};
 // actions for a row/card: mirror its own buttons, so every list in the app gets a menu without extra code
 function ctxRowActions(el) {

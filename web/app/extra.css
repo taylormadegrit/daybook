@@ -686,3 +686,41 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .aibox .act .f{width:170px;padding:5px 9px}
 .aibox .act-c{width:16px;height:16px;flex:none;accent-color:var(--a1)}
 .aibox .act.done{opacity:.75}.aibox .act.done .act-c{color:var(--ok);text-align:center}
+
+/* Customize home: aligned rows */
+.cz-rows .srow{padding:10px 0}
+.cz-rows .cz-ctl{width:260px;flex:none}
+.cz-rows input[type=range].cz-ctl{accent-color:var(--a1)}
+.cz-rows .sw{flex:none;margin-left:0}
+
+/* ---------- Workflows page / widget / editor ---------- */
+.wf-head{display:flex;align-items:flex-end;gap:12px;margin-bottom:18px}.wf-head h2{margin:0 0 4px;font-size:22px}
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.wf-card{display:flex;flex-direction:column;gap:10px;min-height:180px;padding:16px 16px 14px;border-radius:16px;background:var(--glass2);border:1px solid var(--line);border-top:3px solid var(--c);text-align:left;color:inherit;font:inherit}
+.wf-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.wf-top b{font-size:16px}
+.wf-items{display:flex;flex-wrap:wrap;gap:6px}
+.wf-it{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--card2);border:1px solid var(--line);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-new{align-items:center;justify-content:center;border-style:dashed;border-top:1px dashed var(--line2);cursor:pointer;color:var(--muted)}
+.wf-new b{color:var(--fg)}.wf-new span{font-size:12.5px;text-align:center;max-width:240px}.wf-new:hover{border-color:var(--a1)}
+.wf-step{display:flex;align-items:center;gap:8px;margin:16px 0 8px}.wf-step .muted{margin-left:4px}
+.wf-num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--grad);color:var(--on,#fff);font-size:12px;font-weight:700}
+.wf-drives{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.wf-drive{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--card);color:inherit;cursor:pointer;text-align:left}
+.wf-drive span{display:flex;flex-direction:column;font-size:13px}.wf-drive i{font-style:normal;font-size:11px;color:var(--muted)}
+.wf-drive.on,.wf-drive:hover{border-color:var(--a1);background:color-mix(in srgb,var(--a1) 14%,transparent)}
+.wf-or{font-size:12px;color:var(--muted);margin:0 2px 0 6px}
+.wf-br{margin-top:10px;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.wf-brh{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--card);border-bottom:1px solid var(--line)}
+.wf-brh .crumbs{font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+.wf-brh .crumbs a{color:inherit;text-decoration:none}.wf-brh .crumbs a:hover{text-decoration:underline}
+.wf-brl{max-height:230px;overflow:auto;padding:4px}
+.wf-row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:8px}.wf-row:hover{background:var(--card2)}
+.wf-open{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:13px}
+.wf-sel{display:flex;flex-wrap:wrap;gap:6px}
+.wfw{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--card);border-left:3px solid var(--c);margin-bottom:8px}
+.wfw-i{flex:1;min-width:0;display:flex;flex-direction:column}.wfw-i b{font-size:13.5px}.wfw-i span{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fh-wflink{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--card);color:inherit;cursor:pointer;margin:2px 0 6px}
+.fh-wflink span{flex:1;display:flex;flex-direction:column;font-size:11.5px;color:var(--muted)}.fh-wflink b{font-size:13px;color:var(--fg)}
+.fh-wflink:hover{border-color:var(--a1)}
+[data-style=glass] .wf-card,[data-style=glass] .wf-drive,[data-style=glass] .wfw{background:var(--gl-fill);border-color:var(--gl-edge);box-shadow:var(--gl-rim);backdrop-filter:var(--gl-blur)}
+[data-style=glass] .wf-card{border-top:3px solid var(--c)}

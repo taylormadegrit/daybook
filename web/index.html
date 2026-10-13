@@ -346,6 +346,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="today"><svg class="i" data-i="home"></svg>Today<span class="k">Alt 1</span></div>
     <div class="navi" data-v="launchpad"><svg class="i" data-i="grid"></svg>Launchpad<span class="k">Alt L</span></div>
     <div class="navi" data-v="games"><svg class="i" data-i="gamepad"></svg>Games<span class="k">Alt G</span></div>
+    <div class="navi" data-v="workflows"><svg class="i" data-i="play"></svg>Workflows<span class="k">Alt K</span></div>
     <div class="navi" data-v="browser"><svg class="i" data-i="globe"></svg>Browser<span class="k">Alt B</span></div>
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
@@ -505,6 +506,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 
     <!-- DESKTOP -->
     <!-- GAMES -->
+    <section class="view" id="v-workflows"><div class="pad" style="max-width:1400px"><div id="wfpage"></div></div></section>
     <section class="view" id="v-games"><div class="pad lp-pad"><div class="lp" id="lp-games"></div></div></section>
 
     <!-- RESEARCH (Zotero) -->
@@ -705,7 +707,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {games: ["Games", "Your Steam & Epic library and free games"], research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {workflows: ["Workflows", "Open everything a task needs in one click"], games: ["Games", "Your Steam & Epic library and free games"], research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -719,7 +721,7 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), games: () => renderGames(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), games: () => renderGames(), workflows: () => renderWorkflows(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene(); dockSync(); setTimeout(splPages, 400);
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
@@ -1465,6 +1467,7 @@ document.addEventListener("keydown", e => {
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); go("browser"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "g") { e.preventDefault(); go("games"); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); go("workflows"); return; }
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); newAppWindow(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "r") { e.preventDefault(); go("research"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
@@ -1509,5 +1512,6 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
 <script src="/app/ctx.js"></script>
 <script src="/app/files.js"></script>
 <script src="/app/links.js"></script>
+<script src="/app/workflows.js"></script>
 </body>
 </html>

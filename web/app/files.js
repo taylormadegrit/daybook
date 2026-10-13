@@ -32,12 +32,7 @@ async function renderFolders(refresh) {
   $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
     <div class="fh" id="fh">
       <aside class="fh-side">
-        <div class="fh-h">Workflows<button class="iconbtn" title="New workflow" onclick="wfModal()">${ic("plus")}</button></div>
-        ${d.workflows.map((w, i) => `<div class="fh-wf" style="--c:${w.color || FCOL[i % 6]}" data-ctx="workflow" data-i="${i}">
-            <div class="fh-wfi"><b>${esc(w.name)}</b><span>${w.items.length} item${w.items.length === 1 ? "" : "s"} · ${esc(w.items.map(x => x.label.replace(/^\S+\s/, "")).join(", ")).slice(0, 60)}</span></div>
-            <button class="btn sm pri" title="Open everything in this workflow" onclick="wfRun(${i})">${ic("play")}Start</button>
-            <button class="iconbtn" title="Edit" onclick="wfModal(${i})">${ic("pen")}</button></div>`).join("")
-          || `<button class="fh-empty" onclick="wfModal()">${ic("plus")}<span><b>Make a workflow</b>One button that opens your folders, apps and sites together</span></button>`}
+        <button class="fh-wflink" onclick="go('workflows')">${ic("play")}<span><b>Workflows</b>${d.workflows.length ? `${d.workflows.length} ready — open everything for a task in one click` : "Open your folders, apps and sites together in one click"}</span>${ic("right")}</button>
         <div class="fh-h">Pinned<button class="iconbtn" title="Pin a folder" onclick="fdPick()">${ic("plus")}</button></div>
         ${d.pins.map((f, i) => `<div class="fh-place" data-ctx="place" data-path="${esc(f.path)}" data-pin="${i}" data-drop="${esc(f.path)}" onclick="fdGo(${fq(f.path)}, event)" title="${esc(f.path)}\nClick: open here · Ctrl+click: new pane · drop files here to move them"><span class="fh-dot" style="background:${f.color || FCOL[i % 6]}"></span>${esc(f.name)}</div>`).join("")
           || `<div class="muted small" style="padding:2px 10px 6px">Pin folders you use every day — right-click any folder, or press + .</div>`}
@@ -297,61 +292,6 @@ async function fdRenamePin(i) {
   const f = FD.data.pins[i]; const n = prompt("Name for this pinned folder", f.name); if (!n) return;
   const pins = FD.data.pins.map((x, j) => j === i ? {...x, name: n.trim()} : x); await api("/api/folders/pins", {method: "POST", body: {pins}}); renderFolders(true);
 }
-// workflows — start opens folders here, sites/profiles in Daybook's browser, apps on the PC
-async function wfRun(i) {
-  if (!FD.data) FD.data = await api("/api/folders");
-  const w = FD.data.workflows[i]; if (!w) return;
-  const inApp = !!window.desktop, folders = w.items.filter(x => x.type === "folder"), web = w.items.filter(x => x.type === "url" || x.type === "profile");
-  const j = await api(`/api/workflows/${i}/run`, {method: "POST", body: {hub: inApp}}).catch(e => ({opened: 0, error: e.message}));
-  if (inApp) {
-    for (const x of web) {
-      if (x.type === "profile") await bdChromeOpen(x.browser, x.profile);
-      else await desktop.browser.open("personal", x.url);
-    }
-    if (folders.length) { LP.view = "folders"; go("launchpad", "folders"); for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path); }
-    else if (web.length) go("browser");
-  }
-  const parts = [folders.length && `${folders.length} folder${folders.length > 1 ? "s" : ""}`, web.length && `${web.length} page${web.length > 1 ? "s" : ""}`, (inApp ? j.opened : 0) && `${j.opened} app${j.opened > 1 ? "s" : ""}`].filter(Boolean);
-  toast(`Started “${w.name}”${inApp && parts.length ? " — " + parts.join(", ") : ""}`);
-}
-async function wfModal(i) {
-  if (!LP.data) LP.data = await api("/api/launchpad");
-  if (!FD.data) FD.data = await api("/api/folders");
-  const w = i !== undefined ? FD.data.workflows[i] : {name: "", items: []};
-  window._wf = JSON.parse(JSON.stringify(w.items));
-  const key = x => x.type + ":" + (x.path || x.id || (x.browser + "/" + x.profile) || x.url);
-  const groups = [
-    ["Folders", [...FD.data.pins, ...FD.data.places.quick].filter((f, k, a) => a.findIndex(y => y.path === f.path) === k).map(f => ({type: "folder", path: f.path, label: "📁 " + f.name}))],
-    ["Apps", LP.data.pinned.map(a => ({type: "app", id: a.id, label: "▶ " + a.name}))],
-    ["Chrome profiles (open inside Daybook)", LP.data.browsers.flatMap(b => b.profiles.map(p => ({type: "profile", browser: b.id, profile: p.id, label: "🌐 " + p.name})))]];
-  window._wfgroups = groups; window._wfkey = key;
-  modal(`<h2>${ic("play", "i")}${i !== undefined ? "Edit" : "New"} workflow<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
-    <div class="frm"><label>Name</label><input class="f" id="wf-n" value="${esc(w.name)}" placeholder="e.g. Editing, Morning uploads, Study">
-    <div class="muted small" style="margin:10px 0 4px">Tap everything this workflow should open — tap again to remove.</div>
-    <div id="wf-pick"></div>
-    <label>Websites</label><div class="row" style="flex-wrap:nowrap"><input class="f" id="wf-url" placeholder="studio.youtube.com" onkeydown="event.key==='Enter'&&wfAddUrl()"><button class="btn" onclick="wfAddUrl()">${ic("plus")}Add</button></div>
-    <div id="wf-urls" style="margin-top:6px"></div>
-    <div class="muted small" style="margin-top:10px">Folder not listed? Pin it first (right-click it in a pane → Pin), or browse to it and press + Pin.</div></div>
-    <div class="row" style="margin-top:16px"><button class="btn pri" onclick="wfSave(${i ?? -1})">${ic("check")}Save</button>${i !== undefined ? `<div class="sp"></div><button class="btn ghost danger" onclick="wfDel(${i})">${ic("trash")}Delete</button>` : ""}</div>`, true);
-  wfItems(); setTimeout(() => $("#wf-n").focus(), 30);
-}
-function wfToggle(g, k) {
-  const x = window._wfgroups[g][1][k], key = window._wfkey(x), at = window._wf.findIndex(y => window._wfkey(y) === key);
-  at >= 0 ? window._wf.splice(at, 1) : window._wf.push(x); wfItems();
-}
-function wfAddUrl() { const u = lpUrl($("#wf-url").value); if (!u) return; window._wf.push({type: "url", url: u, label: "🔗 " + u.replace(/^https?:\/\//, "")}); $("#wf-url").value = ""; wfItems(); }
-function wfItems() {
-  const on = new Set(window._wf.map(window._wfkey));
-  $("#wf-pick").innerHTML = window._wfgroups.filter(([, xs]) => xs.length).map(([h, xs]) => `<div class="wf-g"><div class="wf-gh">${h}</div><div class="wf-chips">${xs.map(x => `<button class="chipb ${on.has(window._wfkey(x)) ? "on" : ""}" onclick="wfToggle(${window._wfgroups.findIndex(g => g[0] === h)},${xs.indexOf(x)})">${on.has(window._wfkey(x)) ? "✓ " : ""}${esc(x.label)}</button>`).join("")}</div></div>`).join("");
-  const urls = window._wf.map((x, k) => [x, k]).filter(([x]) => x.type === "url");
-  $("#wf-urls").innerHTML = urls.map(([x, k]) => `<span class="tag on">${esc(x.label)} <a href="javascript:void 0" onclick="_wf.splice(${k},1);wfItems()">✕</a></span>`).join(" ");
-}
-async function wfSave(i) {
-  const name = $("#wf-n").value.trim(); if (!name) return toast("Give the workflow a name"); if (!window._wf.length) return toast("Tap at least one folder, app, profile or website");
-  const ws = [...FD.data.workflows]; const w = {...(ws[i] || {}), name, items: window._wf};
-  i >= 0 ? (ws[i] = w) : ws.push(w); await api("/api/workflows", {method: "POST", body: {workflows: ws}}); closeModal(); toast(`Saved “${name}”`); renderFolders(true);
-}
-async function wfDel(i) { const ws = FD.data.workflows.filter((_, j) => j !== i); await api("/api/workflows", {method: "POST", body: {workflows: ws}}); closeModal(); toast("Workflow deleted"); renderFolders(true); }
 async function foldersWidget() {
   const el = $("#w-folders"); if (!el) return;
   if (!FD.data) FD.data = await api("/api/folders");
@@ -388,4 +328,3 @@ CTX.place = el => {
     i !== undefined ? {t: "Rename pin", i: "pen", run: () => fdRenamePin(+i)} : {t: "Pin to sidebar", i: "plus", run: () => fdPin(path)},
     i !== undefined ? {t: "Unpin", i: "x", danger: true, run: () => fdUnpin(+i)} : null].filter(Boolean);
 };
-CTX.workflow = el => { const i = +el.dataset.i; return [{t: "Start", i: "play", run: () => wfRun(i)}, {t: "Edit", i: "pen", run: () => wfModal(i)}, "-", {t: "Delete", i: "trash", danger: true, run: () => { FD.data.workflows.splice(i, 1); api("/api/workflows", {method: "POST", body: {workflows: FD.data.workflows}}).then(() => { toast("Workflow deleted"); renderFolders(true); }); }}]; };
