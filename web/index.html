@@ -450,9 +450,11 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <button data-f="upcoming" class="on">Upcoming</button><button data-f="routine">Routine</button><button data-f="once">One-time</button><button data-f="done">Completed</button>
         </div>
         <div class="sp"></div>
+        <button class="btn" onclick="planDay()" title="Place today's flexible tasks into your free time by importance"><svg class="i sm" data-i="spark"></svg>Plan my day</button>
         <button class="btn" onclick="blockModal()"><svg class="i sm" data-i="clock"></svg>Routine block</button>
         <button class="btn pri" onclick="reminderModal()"><svg class="i sm" data-i="plus"></svg>New reminder</button>
       </div>
+      <div class="chips remcats" id="remcats"></div>
       <div id="remlist"></div>
     </div></section>
 
@@ -580,6 +582,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
         <div class="grouph" style="margin-top:0">Style</div><div class="stylepick" id="stylepick"></div>
         <div class="grouph">Colors</div><div class="themes" id="themes"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="layers"></svg>Categories</h3><div id="catset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3><div id="privacyset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3><div id="layoutset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
@@ -969,7 +972,7 @@ function renderEditor() {
       ${n.topics.length > 1 ? `<h4>Topics</h4><div class="tags">${n.topics.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       ${n.actions.length ? `<div class="act-h"><h4>Tasks found</h4><span class="sp"></span>${n.actions.some(a => !a.rid) ? `<button class="btn sm pri" id="act-all" onclick="actAddSelected()">${ic("bell")}Add checked to reminders &amp; calendar</button>` : `<span class="small muted">✓ All added</span>`}</div>`
         + n.actions.map((a, i) => a.rid ? `<div class="act done"><span class="act-c">✓</span><span style="flex:1">${esc(a.text)}</span><a href="javascript:void 0" class="small" onclick="go('reminders')">In reminders${a.when ? " · " + esc(a.when) : ""}</a></div>`
-          : `<div class="act"><input type="checkbox" class="act-c" id="ac${i}" ${a.when ? "checked" : ""}><label for="ac${i}" style="flex:1">${esc(a.text)}</label>
+          : `<div class="act"><input type="checkbox" class="act-c" id="ac${i}" ${a.when ? "checked" : ""}><label for="ac${i}" style="flex:1">${esc(a.text)} ${typeof catChip === "function" ? catChip(a.category) : ""}${a.importance >= 70 ? ` <span class="badge imp">high</span>` : ""}</label>
         <input class="f" id="aw${i}" value="${esc(a.when || "")}" placeholder="when? e.g. tomorrow 9am" oninput="$('#ac${i}').checked=true"><button class="btn sm" title="Add just this one" onclick="actRemind(${i})">${ic("bell")}Add</button></div>`).join("")
         + `<div class="small muted" style="margin-top:6px">Times are the AI's best guess from your note — change any before adding. Tasks without a time go to tomorrow 9 AM.</div>` : ""}
     </div>`;
@@ -987,7 +990,7 @@ async function aiNote() { if (!S.cur) return; await saveNote(false); toast("Orga
   const open = S.cur.actions.filter(a => !a.rid).length; toast(open ? `Found ${open} task${open > 1 ? "s" : ""} — check the times and press “Add checked”` : "Organized — no tasks found in this note"); if (open) setTimeout(() => $(".act-h") && $(".act-h").scrollIntoView({behavior: "smooth", block: "center"}), 120); loadNotes(); toast("Organized ✓"); }
 async function actRemind(i, quiet) {
   const when = ($("#aw" + i) || {}).value?.trim() || "tomorrow 9am";
-  const r = await api(`/api/notes/${S.cur.id}/remind`, {method: "POST", body: {text: S.cur.actions[i].text, when, index: i}});
+  const a = S.cur.actions[i], r = await api(`/api/notes/${S.cur.id}/remind`, {method: "POST", body: {text: a.text, when, index: i, category: a.category || "", importance: a.importance}});
   S.cur.actions[i].rid = r.id; S.cur.actions[i].when = when;
   if (!quiet) { toast(`⏰ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`); renderEditor(); }
   return r;
@@ -1291,7 +1294,7 @@ async function renderSettings() {
     const k = el.dataset.s; if (el.type === "checkbox") el.checked = set[k] === "1"; else el.value = set[k];
     el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
   });
-  renderClaude(); renderThemes(); renderStylePick(); renderPrivacy();
+  renderClaude(); renderThemes(); renderStylePick(); renderPrivacy(); renderCatSettings();
   const ai = st.counts.ai || {};
   $("#status").innerHTML = `<div class="stat">
       <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
@@ -1514,5 +1517,6 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
 <script src="/app/files.js"></script>
 <script src="/app/links.js"></script>
 <script src="/app/workflows.js"></script>
+<script src="/app/categories.js"></script>
 </body>
 </html>

@@ -52,6 +52,9 @@ app.register_blueprint(network_bp)
 from .links import bp as links_bp  # noqa: E402
 
 app.register_blueprint(links_bp)
+from .categories import bp as categories_bp  # noqa: E402
+
+app.register_blueprint(categories_bp)
 BG_DIR = paths.DATA / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
@@ -394,7 +397,7 @@ def parse_preview():
 def _rem(r, when=None):
     due = when or db.parse_dt(r["due"])
     return {"id": r["id"], "text": r["text"], "due": db.fmt(due), "repeat": r["repeat"], "ends": r["ends"],
-            "priority": r["priority"], "notes": r["notes"],
+            "priority": r["priority"], "notes": r["notes"], "category": r["category"], "importance": r["importance"],
             "is_current": db.parse_dt(r["due"]) == due}  # only the live occurrence can be ticked off
 
 
@@ -428,10 +431,14 @@ def add_reminder():
     try:
         if j.get("natural"):
             p = nlp.parse(j["natural"])
-            rid = db.add(p["text"], p["due"], p["repeat"], p["priority"], ends=j.get("ends", ""))
+            rid = db.add(p["text"], p["due"], p["repeat"], p["priority"], ends=j.get("ends", ""), category=j.get("category", ""), importance=j.get("importance"))
         else:
             due = db.parse_dt(j["due"]) if "T" in j["due"] else nlp.when(j["due"])
-            rid = db.add(j["text"], due, j.get("repeat", ""), j.get("priority", 0), j.get("notes", ""), j.get("ends", ""))
+            rid = db.add(j["text"], due, j.get("repeat", ""), j.get("priority", 0), j.get("notes", ""), j.get("ends", ""),
+                         category=j.get("category", ""), importance=j.get("importance"))
+        if not j.get("category"):
+            from . import categories
+            categories.auto_categorize(rid)  # imported / quick-added ones get a category too
     except Exception as e:
         return jsonify(error=str(e)), 400
     return jsonify(_rem(db.get(rid)))
@@ -522,7 +529,10 @@ def action_to_reminder(nid):
     when = (j.get("when") or "").strip() or "tomorrow 9am"
     repeat, _ = nlp.detect_repeat(when)
     due = nlp.when(when)
-    rid = db.add(j["text"], due, repeat=repeat or "", notes=f"From note #{nid}")
+    rid = db.add(j["text"], due, repeat=repeat or "", notes=f"From note #{nid}", category=j.get("category", ""), importance=j.get("importance"))
+    if not j.get("category"):
+        from . import categories
+        categories.auto_categorize(rid)
     if "index" in j:
         notes.action_added(nid, int(j["index"]), rid)
     return jsonify(_rem(db.get(rid)))

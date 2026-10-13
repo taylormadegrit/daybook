@@ -304,6 +304,8 @@ Return JSON:
 - "actions": list of concrete to-dos found in the note, each {{"task": short imperative, "when": time in plain English or ""}}.
     "when" = the day/time the note gives or clearly implies for that task, e.g. "tomorrow 5am", "Friday 3pm", "2026-10-20 9am",
     "every day 5am" for repeating ones. Relative words are relative to the note date ({n['note_date']}). "" if no time is given.
+    Each task also gets "category": one of {json.dumps([c["name"] for c in _task_categories()])} (or "" if none fit)
+    and "importance": "high", "normal" or "low" (deadlines, money, health and other people waiting = high).
     [] if there are no tasks. Do not invent any.
 JSON only."""
     out = None
@@ -344,6 +346,11 @@ JSON only."""
     return get(nid)
 
 
+def _task_categories():
+    from .categories import categories
+    return categories()
+
+
 def _clean_actions(raw, old=None):
     """AI output → [{"text", "when", "rid"?}], keeping the reminder link of tasks that were already added."""
     done = {a["text"].lower(): a for a in (old or []) if isinstance(a, dict) and a.get("rid")}
@@ -356,6 +363,13 @@ def _clean_actions(raw, old=None):
         if not text:
             continue
         item = {"text": text[:140], "when": when[:60]}
+        if isinstance(a, dict):
+            names = {c["name"].lower(): c["name"] for c in _task_categories()}
+            if str(a.get("category", "")).strip().lower() in names:
+                item["category"] = names[str(a["category"]).strip().lower()]
+            imp = {"high": 80, "normal": 50, "low": 25}.get(str(a.get("importance", "")).strip().lower())
+            if imp:
+                item["importance"] = imp
         if text.lower() in done:
             item["rid"] = done[text.lower()]["rid"]
         out.append(item)

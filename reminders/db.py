@@ -32,7 +32,29 @@ def connect():
     cols = {r["name"] for r in con.execute("PRAGMA table_info(reminders)")}
     if "ends" not in cols:  # time blocks: 'HH:MM' end time shown on the timeline (e.g. 4:30–6:00)
         con.execute("ALTER TABLE reminders ADD COLUMN ends TEXT NOT NULL DEFAULT ''")
+    if "category" not in cols:  # 1.6.10: custom categories + importance (0–100) for smart time-slotting
+        _backup_before("categories")
+        con.execute("ALTER TABLE reminders ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+        con.execute("ALTER TABLE reminders ADD COLUMN importance INTEGER NOT NULL DEFAULT 50")
+        con.execute("UPDATE reminders SET importance=80 WHERE priority=1")  # "Important" ones start high
+        con.commit()
     return con
+
+
+def _backup_before(what):
+    """A full copy of the database before a schema change (data/backups/), once per change."""
+    try:
+        dst_dir = DB_PATH.parent / "backups"
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        dst = dst_dir / f"reminders-{datetime.now():%Y-%m-%d}-before-{what}.db"
+        if not dst.exists():
+            src = sqlite3.connect(DB_PATH)
+            out = sqlite3.connect(dst)
+            src.backup(out)
+            out.close()
+            src.close()
+    except Exception:
+        pass
 
 
 def fmt(dt):
@@ -88,12 +110,13 @@ def validate_ends(ends):
     return ends
 
 
-def add(text, due, repeat="", priority=0, notes="", ends=""):
+def add(text, due, repeat="", priority=0, notes="", ends="", category="", importance=None):
+    imp = int(importance) if importance is not None else (80 if int(priority) else 50)
     with connect() as con:
         cur = con.execute(
-            "INSERT INTO reminders (text, due, repeat, priority, notes, created, ends) VALUES (?,?,?,?,?,?,?)",
-            (text.strip(), fmt(due), validate_repeat(repeat), int(priority), notes, fmt(datetime.now()),
-             validate_ends(ends)))
+            "INSERT INTO reminders (text, due, repeat, priority, notes, created, ends, category, importance) VALUES (?,?,?,?,?,?,?,?,?)",
+            (text.strip(), fmt(due), validate_repeat(repeat), int(priority) or int(imp >= 70), notes, fmt(datetime.now()),
+             validate_ends(ends), (category or "").strip()[:40], max(0, min(100, imp))))
         return cur.lastrowid
 
 
@@ -159,7 +182,10 @@ def snooze(rid, until):
 
 def update(rid, **fields):
     allowed = {k: v for k, v in fields.items()
-               if k in ("text", "due", "repeat", "priority", "notes", "ends") and v is not None}
+               if k in ("text", "due", "repeat", "priority", "notes", "ends", "category", "importance") and v is not None}
+    if "importance" in allowed:
+        allowed["importance"] = max(0, min(100, int(allowed["importance"])))
+        allowed.setdefault("priority", int(allowed["importance"] >= 70))
     if "due" in allowed and isinstance(allowed["due"], datetime):
         allowed["due"] = fmt(allowed["due"])
     if "repeat" in allowed:

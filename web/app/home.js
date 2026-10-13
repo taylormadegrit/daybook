@@ -4,7 +4,7 @@ const WIDGETS = {
   nownext: {name: "Now & next", icon: "zap", desc: "What's happening now and what's coming up", size: "wide",
     html: () => `<div class="now" id="nownext"></div>`, bare: true},
   schedule: {name: "Today's schedule", icon: "clock", desc: "Your timeline with done, snooze and ⏱ task timers",
-    html: () => `<div class="card"><h3>${ic("clock")}<span id="sched-h">Schedule</span><button class="btn sm" onclick="reminderModal({date:S.viewDate})">${ic("plus")}Add</button></h3><div id="overdue"></div><div class="tl" id="timeline"></div></div>`},
+    html: () => `<div class="card"><h3>${ic("clock")}<span id="sched-h">Schedule</span><button class="btn sm ghost" title="Place flexible tasks into your free time by importance" onclick="planDay(S.viewDate)">${ic("spark")}Plan</button><button class="btn sm" onclick="reminderModal({date:S.viewDate})">${ic("plus")}Add</button></h3><div id="overdue"></div><div class="tl" id="timeline"></div></div>`},
   timers: {name: "Timers", icon: "timer", desc: "Countdowns for tasks — Focus 25, breaks, custom. They ring even if Daybook is closed",
     html: () => `<div class="card"><h3>${ic("timer")}Timers<button class="btn sm ghost" onclick="go('clock','timers')">Open</button></h3><div data-w="timers" data-compact="1"></div></div>`, after: () => clockStart()},
   stopwatch: {name: "Stopwatch", icon: "watch", desc: "Start, stop, laps (fastest in green, slowest in red)",

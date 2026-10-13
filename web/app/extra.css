@@ -730,3 +730,19 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 /* sidebar: shortcut hints never wrap ("Alt / L"); the Simple/Balanced/Power switch always fits */
 .navi{white-space:nowrap}.navi .k{flex:none;padding-left:8px}
 .lay-pick{display:flex;width:100%;padding:2px}.seg.sm.lay-pick button{flex:1 1 auto;min-width:0;padding:5px 3px;font-size:11px;letter-spacing:-.1px;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- categories / importance / plan my day ---------- */
+.catchip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);vertical-align:1px}
+.badge.low{opacity:.6}
+.remcats{margin:4px 0 12px;gap:6px}.remcats .chipb .catdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:2px}
+.remcats .chipb.on{border-color:var(--c,var(--a1))}
+.plan-list{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto}
+.plan-row{display:grid;grid-template-columns:18px 18px minmax(0,1fr) 90px 150px;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.plan-row.off{opacity:.55}.plan-row.dragging{opacity:.4}.plan-row.over{border-color:var(--a1)}
+.plan-row .grip{cursor:grab;color:var(--muted);user-select:none}
+.plan-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plan-t b{margin-right:6px}
+.plan-imp{height:6px;border-radius:9px;background:var(--line2);overflow:hidden}.plan-imp i{display:block;height:100%;background:var(--grad)}
+.plan-when{text-align:right;font-size:13px}
+.cat-edit{display:flex;flex-direction:column;gap:6px}
+.cat-row{display:grid;grid-template-columns:34px minmax(0,1fr) 70px 32px;align-items:center;gap:8px}
+.cat-row input[type=color]{width:30px;height:30px;border:none;background:none;padding:0;cursor:pointer}
