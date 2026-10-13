@@ -65,10 +65,12 @@ function dockSync(force) {
 function dockInit() {
   addEventListener("resize", () => dockSync());
   document.addEventListener("visibilitychange", () => dockSync());
-  const mo = new MutationObserver(() => dockSync());
-  mo.observe($("#scrim"), {attributes: true, attributeFilter: ["class"]});
-  $$(".menu").forEach(m => mo.observe(m, {attributes: true, attributeFilter: ["class"]}));
+  let queued = 0;
+  const later = () => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; dockSync(); }); };
+  new MutationObserver(ms => { if (ms.some(m => m.target.matches && m.target.matches(".menu,#scrim,.dict"))) later(); })
+    .observe(document.body, {attributes: true, attributeFilter: ["class"], subtree: true});
   document.addEventListener("click", () => setTimeout(dockSync, 0), true);
+  document.addEventListener("keyup", e => { if (e.key === "Escape") later(); }, true);
 }
 
 // ================= SIDEBAR: order, position, visibility =================

@@ -220,10 +220,12 @@ function layoutPanes(owner, l) {
   const mine = panesOf(owner), full = mine.find(([, p]) => p.full);
   for (const [id, p] of mine) {
     const r = rects[id];
-    if (full) { const show = full[0] === id && visible; p.view.setVisible(show); if (show) { const [w, h] = owner.getContentSize(); p.view.setBounds({x: 0, y: 0, width: w, height: h}); } continue; }
-    if (!visible || !r || r.w < 20 || r.h < 20) { p.view.setVisible(false); continue; }
-    p.view.setBounds({x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h)});
-    p.view.setVisible(true);
+    let show, b = null;
+    if (full) { show = full[0] === id && visible; if (show) { const [w, h] = owner.getContentSize(); b = {x: 0, y: 0, width: w, height: h}; } }
+    else { show = !!(visible && r && r.w >= 20 && r.h >= 20); if (show) b = {x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h)}; }
+    // only touch the view when something changed — re-showing a page mid-click can swallow the click
+    if (b && JSON.stringify(b) !== p._b) { p.view.setBounds(b); p._b = JSON.stringify(b); }
+    if (show !== p._shown) { p.view.setVisible(show); p._shown = show; }
   }
 }
 ipcMain.handle("browser:open", (e, {profile, url}) => openPane(profile, url, ownerOf(e)));

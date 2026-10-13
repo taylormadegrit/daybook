@@ -42,7 +42,7 @@ async function renderBrowserDesktop() {
     });
   }
   BD.panes = await desktop.browser.list(); await bdChromeRefresh();
-  clearInterval(BD.poll); BD.poll = setInterval(async () => { if (S.view !== "browser") return; const n = BD.chrome.length; await bdChromeRefresh(); if (n !== BD.chrome.length || BD.chrome.length) bdPaint(); }, 2500);
+  clearInterval(BD.poll); BD.poll = setInterval(async () => { if (S.view !== "browser") return; const was = JSON.stringify(BD.chrome); await bdChromeRefresh(); if (was !== JSON.stringify(BD.chrome)) bdPaint(); }, 2500);
   const me = await bdWin();
   if (!BD.restored) {  // reopen last session's pages (main window only — extra windows start fresh)
     BD.restored = true;
@@ -65,7 +65,7 @@ async function renderBrowserDesktop() {
   paintIcons($("#v-browser"));
   if (!BD.ro) BD.ro = new ResizeObserver(() => { bdPaint(); });
   BD.ro.observe($("#bd-stage"));
-  bdPaint();
+  bdPaint(); bdSync(true);
 }
 function bdTiles(n, w, h, layout) {
   const g = 8; if (!n) return [];
@@ -106,10 +106,11 @@ function bdPaint() {
   const st = $("#bd-stage"); if (!st) return;
   const panes = bdAll(); if (!panes.find(p => p.id === BD.focus)) BD.focus = (panes[0] || {}).id;
   const focus = BD.focus;
-  $("#bd-tabs").innerHTML = panes.map(p => { const pr = p.chrome ? {color: "#4285f4"} : bdProf(p.profile); return `<div class="bd-tab ${p.id === focus ? "on" : ""}" style="--c:${pr.color}" title="${esc(p.title)}\n${esc(p.url)}" onclick="bdFocus(${p.id})">
+  const tabsHtml = panes.map(p => { const pr = p.chrome ? {color: "#4285f4"} : bdProf(p.profile); return `<div class="bd-tab ${p.id === focus ? "on" : ""}" style="--c:${pr.color}" title="${esc(p.title)}\n${esc(p.url)}" onclick="bdFocus(${p.id})">
       ${p.chrome ? `<span class="bd-chrome">C</span>` : p.loading ? `<span class="spin"></span>` : p.favicon ? `<img src="${esc(p.favicon)}" alt="">` : `<i></i>`}<span>${esc(p.chrome ? p.chrome.label + " · " + p.title : p.title || "New tab")}</span>${p.audible ? "🔊" : ""}
       <button title="Close" onclick="event.stopPropagation();bdClose(${p.id})">${ic("x")}</button></div>`; }).join("")
     + (panes.length ? `<button class="iconbtn" title="New tab (Ctrl+T)" onclick="bdNew((BD.panes.find(p=>p.id===BD.focus)||{}).profile||'personal')">${ic("plus")}</button>` : "");
+  const tabsEl = $("#bd-tabs"); if (tabsEl._html !== tabsHtml) { tabsEl._html = tabsHtml; tabsEl.innerHTML = tabsHtml; paintIcons(tabsEl); }
   const W = st.clientWidth, H = st.clientHeight, shown = BD.layout === "tabs" ? panes.filter(p => p.id === focus) : panes;
   const tiles = bdTiles(shown.length, W, H, BD.layout), have = new Set(); BD.lastTiles = tiles;
   st.querySelector(".bd-empty") && panes.length && st.querySelector(".bd-empty").remove();
@@ -156,7 +157,7 @@ function bdPaint() {
   if (!panes.length && !st.querySelector(".bd-empty")) st.innerHTML = `<div class="empty bd-empty"><b>Browse without leaving Daybook</b>Real web pages, right here. Each profile keeps its own logins — sign in once. Open several and they split the space evenly.
       <div class="row" style="justify-content:center;margin-top:14px;gap:8px">${webProfiles().map(p => `<button class="btn" onclick="bdNew('${p.id}')"><span class="bd-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`).join("")}
       <button class="btn ghost" onclick="bdNew('personal','https://www.youtube.com')">YouTube</button><button class="btn ghost" onclick="bdNew('personal','https://mail.google.com')">Gmail</button></div></div>`;
-  paintIcons($("#bd-tabs")); bdSync(true);
+  bdSync();
 }
 function bdMarkFocus() { $$(".bd-pane").forEach(e => e.classList.toggle("on", +e.dataset.id === BD.focus)); $$(".bd-tab").forEach(e => e.classList.toggle("on", e.getAttribute("onclick") === `bdFocus(${BD.focus})`)); }
 function bdSync(force) {

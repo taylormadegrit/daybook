@@ -397,15 +397,19 @@ def place(items, visible, dpr, parent=None):
         if not visible or not i or not me:
             if e["shown"] is not False:
                 u32.ShowWindow(hw, 0)
-                e["shown"] = False
+                e["shown"], e["spot"] = False, None
             continue
         if u32.GetParent(hw) != me:
             u32.SetParent(hw, me)
             e["linked"] = False
         if not e.get("linked"):  # (re)link keyboard input — e.g. after Daybook or the service restarted
             e["linked"] = _link_input(hw, me)
-        # HWND_TOP among Daybook's child windows, so it sits above the page's own render surface
-        u32.SetWindowPos(hw, 0, round(i["x"] * dpr), round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr), 0x0010 | 0x0040)
+        # HWND_TOP among Daybook's child windows, so it sits above the page's own render surface.
+        # Only when its spot changed: re-placing it under the mouse mid-click can drop the click.
+        spot = (round(i["x"] * dpr), round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr))
+        if e.get("spot") != spot or not e["shown"] or not u32.IsWindowVisible(hw):
+            u32.SetWindowPos(hw, 0, *spot, 0x0010 | 0x0040)
+            e["spot"] = spot
         e["shown"] = True
 
 
