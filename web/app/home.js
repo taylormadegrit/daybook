@@ -39,6 +39,8 @@ const WIDGETS = {
       el.innerHTML = ns.slice(0, 5).map(n => `<div class="cat" onclick="openNote(${n.id})">${ic(CAT_ICON[n.category] || "note")}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.title || "Untitled")}</span><span class="c">${dayName(n.note_date + "T12:00")}</span></div>`).join("") || `<div class="empty">No notes yet</div>`; }},
   launchpad: {name: "Launchpad", icon: "grid", desc: "Your browser profiles and pinned apps — one click to open",
     html: () => `<div class="card"><h3>${ic("grid")}Launchpad<button class="btn sm ghost" onclick="go('launchpad')">Open</button></h3><div id="w-lp"></div></div>`, after: () => lpWidget()},
+  research: {name: "Research library", icon: "book", desc: "Search your Zotero library and add sources",
+    html: () => `<div class="card"><h3>${ic("book")}Research<button class="btn sm ghost" onclick="go('research')">Open</button></h3><div id="w-research"></div></div>`, after: () => researchWidget()},
   studio: {name: "AI Studio", icon: "spark", desc: "Type a prompt, get an image — made on your GPU",
     html: () => `<div class="card"><h3>${ic("spark")}AI Studio<button class="btn sm ghost" onclick="go('studio')">Open</button></h3><div id="w-studio"></div></div>`, after: () => studioWidget()},
   games: {name: "Games", icon: "play", desc: "Your recent Steam & Epic games — one click to play",

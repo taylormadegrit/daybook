@@ -1,5 +1,7 @@
 """Chat with local Ollama models: saved conversations, streaming, personas and tools
 (Daybook reminders / schedule / notes, and Orca projects — Orca actions need a confirm click)."""
+import re
+import html
 import json
 import threading
 import urllib.request
@@ -44,6 +46,8 @@ TOOLS = [
     ("list_reminders", "List upcoming reminders with ids.", {}, []),
     ("search_notes", "Search the user's notes (meetings, YouTube notes, ideas, daily logs).",
      {"query": ("string", "search words"), "category": ("string", "optional category")}, ["query"]),
+    ("search_research", "Search the user's Zotero research library (papers, books, articles, videos) and get citations.",
+     {"query": ("string", "search words — title, author, topic")}, ["query"]),
     ("get_note", "Read one note in full.", {"id": ("integer", "note id")}, ["id"]),
     ("add_note", "Save a new note.", {"title": ("string", "title"), "body": ("string", "note text"),
                                        "category": ("string", "optional category")}, ["body"]),
@@ -90,6 +94,11 @@ def run_tool(name, a):
     if name == "search_notes":
         rows = notes.search(a.get("query", ""), a.get("category", ""), limit=10)
         return "\n".join(f"#{n['id']} {n['note_date']} [{n['category']}] {n['title']} — {n['summary']}" for n in rows) or "No matches."
+    if name == "search_research":
+        from . import zotero
+        items, mode = zotero.search(a.get("query", ""), limit=8)
+        return "\n".join(f"{i['title']} — {i['authors']} ({i['year']}){' · ' + i['venue'] if i['venue'] else ''}"
+                         + (f"\n  {re.sub('<[^>]+>', '', i['bib']).strip()}" if i.get("bib") else "") for i in items) or "Nothing in the Zotero library matches."
     if name == "get_note":
         n = notes.get(int(a["id"]))
         return f"{n['title']} ({n['note_date']})\n{n['body'][:4000]}" if n else "Not found."

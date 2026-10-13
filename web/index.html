@@ -351,6 +351,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
     <div class="navi" data-v="memos"><svg class="i" data-i="mic"></svg>Voice memos<span class="k">Alt 5</span></div>
     <div class="navi" data-v="studio"><svg class="i" data-i="spark"></svg>AI Studio<span class="k">Alt I</span></div>
+    <div class="navi" data-v="research"><svg class="i" data-i="book"></svg>Research<span class="k">Alt R</span></div>
     <div class="navi" data-v="clock"><svg class="i" data-i="timer"></svg>Clock<span class="cnt" id="tm-count" style="display:none"></span><span class="k">Alt 6</span></div>
     <div class="navi" data-v="desktop"><svg class="i" data-i="sticky"></svg>Desktop<span class="k">Alt 7</span></div>
     <div class="navi" data-v="chat"><svg class="i" data-i="chat"></svg>Chat<span class="k">Alt 8</span></div>
@@ -500,6 +501,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- RESEARCH (Zotero) -->
+    <section class="view" id="v-research"><div class="pad" style="max-width:1700px;padding-bottom:0"><div id="research"></div></div></section>
+
     <!-- BROWSER (docked windows) -->
     <section class="view" id="v-browser"></section>
 
@@ -621,6 +625,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/discord.js"></script>
 <script src="/app/studio.js"></script>
 <script src="/app/browser.js"></script>
+<script src="/app/research.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -663,7 +668,7 @@ const ICONS = {
   chip: "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3",
   down: "M12 3v12M6 11l6 6 6-6M5 21h14",
   layers: "m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
-  rec: "M23 7l-7 5 7 5zM1 5h15v14H1z", send: "M22 2 11 13M22 2l-7 20-4-9-9-4z",
+  rec: "M23 7l-7 5 7 5zM1 5h15v14H1z", send: "M22 2 11 13M22 2l-7 20-4-9-9-4z", book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5",
   mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
   play: "M6 4l14 8-14 8z", pause: "M7 4h3v16H7zM14 4h3v16h-3z",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
@@ -685,7 +690,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {browser: ["Browser", "Your real browser profiles, docked inside Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {research: ["Research", "Your Zotero library — sources, citations and PDFs"], browser: ["Browser", "Your real browser profiles, docked inside Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -699,7 +704,7 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene(); dockSync();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
@@ -937,6 +942,7 @@ function renderEditor() {
     <div class="row" style="margin-top:10px">
       <button class="btn pri" onclick="saveNote()">${ic("check")}Save<span class="kbd" style="border-color:rgba(0,0,0,.25);color:var(--on)">Ctrl S</span></button>
       <button class="btn" onclick="aiNote()">${ic("spark")}Organize with AI</button>
+      <button class="btn" title="Insert a citation from your Zotero library" onclick="citeModal()">${ic("book")}Cite</button>
       <button class="btn" title="Send this note to Discord as a .txt or PDF" onclick="saveNote(false).then(()=>discordSend('note',S.cur.id))">${ic("send")}Discord</button>
       <span class="small muted" id="n-saved">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
       <div class="sp"></div><button class="btn ghost danger" onclick="delNote(this)">${ic("trash")}Delete</button>
@@ -1291,6 +1297,7 @@ async function reorgAll() { const j = await api("/api/notes/reorganize-all", {me
 const HELP = [
   ["home", "Your home page", `<p><b>Edit home</b> (top of Today) makes the widgets wiggle: drag them to move, ⤢ to make one full width, ✕ to remove, and <b>＋ Add widget</b> for more — timers, stopwatch, alarms, world clock, voice memos, recent notes, ambience, breathe and more. <b>Customize</b> picks an animated background (fireplace, rainy window, firefly forest, ocean sunset, starry night, snowfall, spring meadow) with matching ambient sound, or your own picture or video. Click an empty part of the background — the scenes react.</p>`],
   ["launchpad", "Launchpad — browsers, accounts & apps", `<p><b>Launchpad</b> (<span class="kb">Alt L</span>) shows every browser profile on this PC — Chrome, Edge, Brave, Comet, Firefox and more — with the account signed in to it, plus your pinned apps. Hover or use the arrow keys to look, click or Enter to open. Each profile has one-click links (Gmail, YouTube Studio, Drive…) that open <b>in that profile</b>, or type any site. <b>All apps</b> lists everything installed; ☆ pins it. Daybook only reads profile names and pictures — never passwords, cookies or history.</p>`],
+  ["research", "Research (Zotero)", `<p><b>Research</b> (<span class="kb">Alt R</span>) is your Zotero library inside Daybook: search titles, authors, notes and PDF text; pick a collection; see the citation in APA, MLA, Chicago, IEEE, Harvard or Nature style and copy it; open PDFs; or <b>Save as Daybook note</b>. <b>Add a source</b> takes a DOI, ISBN, arXiv link or BibTeX/RIS. In any note, <b>Cite</b> inserts the in-text citation and adds the reference under “References”. Your local AI chat can search the library too. Zotero lives at <code>D:\\Applications\\Zotero</code> with its library in <code>D:\\Zotero</code>; when it's closed, Daybook can still search a read-only copy.</p>`],
   ["browser", "Browser — your profiles inside Daybook", `<p><b>Browser</b> (<span class="kb">Alt B</span>) docks real browser windows inside Daybook — the same Chrome, Edge, Brave or Comet with your profiles, tabs, extensions and logins. Press <b>Open profile</b> (or a profile on the Launchpad) and it slides into place; open more and they split the space evenly. Pick <b>Columns, Rows, Grid</b> or <b>Focus</b> (one big + the rest stacked). <b>Dock a window</b> pulls in a browser window you already have open; the ↗ button gives one back to the desktop. Docked windows move and minimize with Daybook and tuck away when you switch pages.</p>`],
   ["sidebar", "Customize the sidebar", `<p>Press <b>Customize sidebar</b> (bottom of the sidebar, or Settings → Layout): drag pages into any order, switch pages on or off, and put the bar on the <b>left, right, top or bottom</b>. Alt + number shortcuts follow your order.</p>`],
   ["studio", "AI Studio", `<p><b>AI Studio</b> (<span class="kb">Alt I</span>) uses the AI models already on this PC. <b>Images</b>: describe it, pick a style (Photo, Thumbnail, Anime, Logo…) and a shape, press Create — SDXL-Turbo makes it on your graphics card in seconds, free and private. <b>My voice</b>: type text and it's spoken in a cloned voice (the XTTS model from your Ori Brazil project) using one of your voice samples or any voice memo. Chat and Models are one click away. Everything saves to <code>D:\\Daybook\\Creations</code>; the GPU is freed after 10 idle minutes.</p>`],
@@ -1370,6 +1377,7 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
   ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
   ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
+  ["Go to Research (Zotero)", "book", () => go("research")], ["Add a source to Zotero", "book", () => { go("research"); setTimeout(zAddModal, 400); }], ["Open Zotero", "book", () => api("/api/zotero/launch", {method: "POST"})],
   ["Go to Browser", "globe", () => go("browser")], ["Customize sidebar", "sidebar", () => sidebarModal()], ["Move sidebar to the top", "sidebar", () => saveLayoutCfg({navPos: "top"})], ["Move sidebar to the left", "sidebar", () => saveLayoutCfg({navPos: "left"})],
   ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
   ["Games library", "play", () => go("launchpad", "games")], ["Free games", "play", () => go("launchpad", "games")], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
@@ -1415,6 +1423,7 @@ document.addEventListener("keydown", e => {
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); go("browser"); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "r") { e.preventDefault(); go("research"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
   if (e.ctrlKey && e.key === ".") { e.preventDefault(); if (S.view !== "notes") go("notes"); focusMode(); return; }
