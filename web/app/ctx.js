@@ -116,6 +116,7 @@ document.addEventListener("contextmenu", e => {
   if (t.closest(".ctxm")) return e.preventDefault();
   let own = [];
   const tagged = t.closest("[data-ctx]");
+  if (tagged && tagged.dataset.ctx === "term") { e.preventDefault(); const it = CTX.term(tagged); ctxShow(e.clientX, e.clientY, it); return; }
   const typed = t.closest("input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea, [contenteditable=''], [contenteditable=true]");
   if (!(typed && !tagged && window.desktop && desktop.onContextParams)) e.preventDefault();  // text boxes: let Electron report spelling
   const sel = String(getSelection() || "").trim();

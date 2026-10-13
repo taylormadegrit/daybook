@@ -11,6 +11,16 @@ contextBridge.exposeInMainWorld("desktop", {
   onContextParams: fn => ipcRenderer.on("ctx:params", (_e, d) => fn(d)),
   onAppKey: fn => ipcRenderer.on("app:key", (_e, d) => fn(d)),            // shortcuts pressed inside a web page
   hotkeys: () => ipcRenderer.invoke("app:hotkeys"),
+  term: {                                                                // Chat → Terminal
+    profiles: () => ipcRenderer.invoke("term:profiles"),
+    models: () => ipcRenderer.invoke("term:models"),
+    create: opts => ipcRenderer.invoke("term:create", opts),
+    input: (id, data) => ipcRenderer.send("term:input", {id, data}),
+    resize: (id, cols, rows) => ipcRenderer.send("term:resize", {id, cols, rows}),
+    kill: id => ipcRenderer.send("term:kill", id),
+    onData: fn => ipcRenderer.on("term:data", (_e, d) => fn(d)),
+    onExit: fn => ipcRenderer.on("term:exit", (_e, d) => fn(d)),
+  },
   defaultBrowser: action => ipcRenderer.invoke("app:defaultBrowser", action),  // status / "register" / {linkProfile}
   privacy: s => ipcRenderer.invoke("browser:privacy", s),                 // cut / copy / paste / selectAll / undo / redo
   files: {

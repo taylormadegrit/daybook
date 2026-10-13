@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#0a0b10">
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("daybook-theme")||"aurora";document.documentElement.dataset.style=localStorage.getItem("daybook-style")||"classic"}catch(e){}</script>
 <link href="/vendor/fonts.css" rel="stylesheet">
+<link href="/vendor/xterm/xterm.css" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/github-dark.min.css">
 <script src="/vendor/marked.min.js"></script>
 <script src="/vendor/purify.min.js"></script>
@@ -1015,7 +1016,7 @@ const cinput = $("#cinput");
 async function enterChat(sub) {
   if (!S.models.length) { const m = await api("/api/chat/models"); S.models = m.models; S.personas = m.personas;
     const opt = x => `<option value="${x.name}">${x.label || x.name + (x.params ? " · " + x.params : "")}</option>`, loc = S.models.filter(x => !x.cloud), cl = S.models.filter(x => x.cloud);
-    $("#model").innerHTML = (loc.length ? `<optgroup label="On this PC (private)">${loc.map(opt).join("")}</optgroup>` : "") + (cl.length ? `<optgroup label="Claude — via Claude Code">${cl.map(opt).join("")}</optgroup>` : "") || `<option>No models — start Ollama</option>`;
+    $("#model").innerHTML = (loc.length ? `<optgroup label="On this PC (private)">${loc.map(opt).join("")}</optgroup>` : "") + (cl.filter(x => x.name.startsWith("claude:")).length ? `<optgroup label="Claude — via Claude Code">${cl.filter(x => x.name.startsWith("claude:")).map(opt).join("")}</optgroup>` : "") + (cl.filter(x => x.name.startsWith("gemini:")).length ? `<optgroup label="Gemini — via Gemini CLI">${cl.filter(x => x.name.startsWith("gemini:")).map(opt).join("")}</optgroup>` : "") || `<option>No models — start Ollama</option>`;
     $("#persona").innerHTML = S.personas.map(p => `<option>${p}</option>`).join("");
     if (S.settings.chat_model) $("#model").value = S.settings.chat_model; }
   await loadChats();
@@ -1465,6 +1466,7 @@ function closeMenu() { $("#newmenu").classList.remove("on"); }
 document.addEventListener("click", closeMenu);
 if (window.desktop && desktop.onAppKey) desktop.onAppKey(k => document.dispatchEvent(new KeyboardEvent("keydown", {key: k.key, ctrlKey: k.ctrl, altKey: k.alt, shiftKey: k.shift, bubbles: true, cancelable: true})));
 document.addEventListener("keydown", e => {
+  if (e.target && e.target.closest && e.target.closest(".xterm")) return;  // the terminal keeps its keys
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   if (lpKeys(e)) { e.preventDefault(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
@@ -1519,5 +1521,9 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
 <script src="/app/workflows.js"></script>
 <script src="/app/categories.js"></script>
 <script src="/app/tour.js"></script>
+<script src="/vendor/xterm/xterm.js"></script>
+<script src="/vendor/xterm/addon-fit.js"></script>
+<script src="/vendor/xterm/addon-web-links.js"></script>
+<script src="/app/terminal.js"></script>
 </body>
 </html>

@@ -215,7 +215,63 @@ def model_list(include_claude=True):
     if include_claude and claude_cli():
         local += [{"name": f"claude:{k}", "label": label, "params": "Claude", "tools": True, "vision": False, "cloud": True}
                   for k, label in CLAUDE_MODELS]
+    if include_claude and gemini_cli():
+        local += [{"name": "gemini:default", "label": "Gemini — your Google account", "params": "Gemini", "tools": False, "vision": False, "cloud": True}]
     return local
+
+
+# ---------- Gemini (through the Gemini CLI the user is signed in to — installed from Chat → Terminal) ----------
+def gemini_cli():
+    import shutil
+    for c in (shutil.which("gemini"), r"D:\Applications\gemini-cli\gemini.cmd", os.path.join(os.environ.get("APPDATA", ""), "npm", "gemini.cmd")):
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def generate_gemini(cid):
+    """Non-interactive Gemini CLI: the conversation goes in on stdin, the answer streams back as plain text."""
+    chat = get_chat(cid)
+    msgs = [m for m in history(cid) if m["role"] in ("user", "assistant")][-20:]
+    system = BASE.format(now=datetime.now().strftime("%A %Y-%m-%d %H:%M")) + "\n\n" + PERSONAS.get(chat["persona"], PERSONAS["Assistant"])
+    convo = "\n".join(f"{m['role'].upper()}: {m['content'][:4000]}" for m in msgs)
+    prompt = f"{system}\n\nReply in Markdown to the last USER message.\n\n{convo}\nASSISTANT:"
+    exe = gemini_cli()
+    if not exe:
+        yield sse("error", {"message": "Gemini CLI isn't installed — open Chat → Terminal → + → Gemini CLI to install it and sign in."})
+        return
+    STOP[cid] = False
+    try:  # read-only: no tools may change files from here
+        proc = subprocess.Popen([exe, "--skip-trust", "--approval-mode", "default", "-p", "Answer the conversation given on stdin."], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                                cwd=str(db.DB_PATH.parent), creationflags=0x08000000)
+    except Exception as e:
+        yield sse("error", {"message": f"Couldn't start Gemini: {e}"})
+        return
+    PROCS[cid] = proc
+    proc.stdin.write(prompt)
+    proc.stdin.close()
+    text = ""
+    noise = re.compile(r"^(Warning: Windows|Ripgrep is not available|Loaded cached credentials|Data collection is disabled)", re.I)
+    for line in iter(proc.stdout.readline, ""):  # line by line, so the CLI's own status lines can be dropped
+        if STOP.get(cid):
+            proc.kill()
+            break
+        if not text and (not line.strip() or noise.match(line.strip())):
+            continue
+        if noise.match(line.strip()):
+            continue
+        text += line
+        yield sse("token", {"t": line})
+    proc.wait(timeout=10)
+    PROCS.pop(cid, None)
+    if proc.returncode not in (0, None) and not text.strip():
+        err = (proc.stderr.read() or "")[-400:]
+        yield sse("error", {"message": "Gemini didn't answer — " + (err.strip() or "sign in once: Chat → Terminal → Gemini CLI.")})
+        return
+    if text.strip():
+        add_msg(cid, "assistant", text.strip(), {"model": chat["model"]})
+    yield sse("done", {"stats": {}})
 
 
 # ---------- Claude (through the Claude Code CLI the user is signed in to) ----------
@@ -338,6 +394,9 @@ def generate(cid):
     if chat["model"].startswith("claude:"):
         yield from generate_claude(cid)
         return
+    if chat["model"].startswith("gemini:"):
+        yield from generate_gemini(cid)
+        return
     model_has_tools = next((m["tools"] for m in model_list() if m["name"] == chat["model"]), False)
     tools = tool_schemas(chat["tools"].split(",")) if model_has_tools else []
     STOP[cid] = False
@@ -399,7 +458,7 @@ def auto_title(cid):
     try:
         chat = get_chat(cid)
         first = next((m["content"] for m in history(cid) if m["role"] == "user"), "")
-        local = chat["model"] if not chat["model"].startswith("claude:") else (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"]
+        local = chat["model"] if not chat["model"].startswith(("claude:", "gemini:")) else (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"]
         r = ollama("/api/generate", {"model": local, "stream": False, "options": {"num_ctx": 2048},
                                      "prompt": f"Give a 2-5 word title for a chat that starts with: \"{first[:500]}\". "
                                                "Reply with the title only, no quotes."})

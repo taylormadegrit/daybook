@@ -497,6 +497,81 @@ setInterval(async () => {
   } finally { watching = false; }
 }, 20000);
 
+
+// ---------------- Terminal (Chat → Terminal): real shells, Claude / Gemini / local AI CLIs, Emacs, Orca ----------------
+// Runs here in the app (not on a web address), so only Daybook's own window can use it.
+const TOOLS_DIR = "D:\\Applications";                 // where Daybook installs CLIs it manages (e.g. Gemini)
+const terms = new Map();                               // id → {pty, owner}
+let termSeq = 1;
+function whichExe(name) {
+  const dirs = (process.env.PATH || "").split(";").filter(Boolean).concat([path.join(TOOLS_DIR, "gemini-cli"), path.join(require("os").homedir(), ".local", "bin")]);
+  for (const d of dirs) for (const ext of ["", ".exe", ".cmd", ".bat"]) { const f = path.join(d, name + ext); try { if (fs.statSync(f).isFile()) return f; } catch {} }
+  return null;
+}
+function termProfiles() {
+  const first = (...c) => c.find(f => f && fs.existsSync(f)) || null;
+  const pwsh = whichExe("pwsh"), ps = pwsh || "powershell.exe";
+  const emacs = whichExe("emacs") || first("D:\\Applications\\Emacs\\bin\\emacs.exe", "C:\\Program Files\\Emacs\\bin\\emacs.exe");
+  const emacsHome = first("D:\\Applications\\EmacsHome");      // isolated HOME with the Doom config (Launch-Emacs.bat sets the same)
+  const gitBash = first("C:\\Program Files\\Git\\bin\\bash.exe", "D:\\Applications\\Git\\bin\\bash.exe");
+  const orca = whichExe("orca") || first("D:\\Applications\\Orca\\resources\\bin\\orca.exe", "D:\\Applications\\Orca\\resources\\bin\\orca");
+  const claude = whichExe("claude"), gemini = whichExe("gemini"), ollama = whichExe("ollama") || first("D:\\Applications\\Ollama\\ollama.exe");
+  return [
+    {id: "pwsh", name: "PowerShell", group: "Shells", ok: true},
+    {id: "cmd", name: "Command Prompt", group: "Shells", ok: true},
+    {id: "bash", name: "Git Bash", group: "Shells", ok: !!gitBash},
+    {id: "wsl", name: "WSL (Linux)", group: "Shells", ok: !!whichExe("wsl")},
+    {id: "claude", name: "Claude Code", group: "AI", ok: !!claude, hint: "Install Claude Code from claude.ai/download, then sign in once in this terminal."},
+    {id: "gemini", name: "Gemini CLI", group: "AI", ok: !!gemini, hint: "Not installed yet — Daybook can install it (Node.js needed), then sign in with Google in this terminal."},
+    {id: "ollama", name: "Local AI (Ollama)", group: "AI", ok: !!ollama, hint: "Install Ollama from ollama.com, then pull a model."},
+    {id: "emacs", name: emacsHome ? "Emacs (your Doom setup)" : "Emacs", group: "Tools", ok: !!emacs, hint: "Install Emacs (winget install GNU.Emacs)."},
+    {id: "orca", name: "Orca", group: "Tools", ok: !!orca},
+  ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _ollama: ollama}));
+}
+function termCommand(prof, opts) {
+  const ps = prof._ps, q = s => "'" + String(s).replace(/'/g, "''") + "'";
+  const inPs = cmd => [ps, ["-NoLogo", "-NoExit", "-Command", cmd]];          // tool runs, you stay in a shell after it ends
+  switch (prof.id) {
+    case "cmd": return ["cmd.exe", []];
+    case "bash": return [prof._bash, ["--login", "-i"]];
+    case "wsl": return ["wsl.exe", []];
+    case "claude": return inPs(`& ${q(prof._claude)}`);
+    case "gemini": return prof._gemini ? inPs(`& ${q(prof._gemini)}`)
+      : inPs(`Write-Host 'Installing Gemini CLI into ${TOOLS_DIR}\\gemini-cli (one time)...' -ForegroundColor Cyan; npm install -g --prefix ${q(path.join(TOOLS_DIR, "gemini-cli"))} @google/gemini-cli@${GEMINI_CLI_VERSION}; if ($?) { & ${q(path.join(TOOLS_DIR, "gemini-cli", "gemini.cmd"))} }`);
+    case "ollama": return inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`);
+    case "emacs": return [prof._emacs, ["-nw"]];
+    case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
+    default: return [ps, ["-NoLogo"]];
+  }
+}
+const GEMINI_CLI_VERSION = "0.62.0";   // pinned: a release at least two weeks old
+ipcMain.handle("term:profiles", () => termProfiles().map(({id, name, group, ok, hint}) => ({id, name, group, ok, hint})));
+ipcMain.handle("term:create", (e, opts = {}) => {
+  const pty = require("@lydell/node-pty");
+  const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
+  if (!prof.ok && prof.id !== "gemini") return {error: prof.hint || `${prof.name} isn't installed`};
+  const [cmd, args] = termCommand(prof, opts);
+  const env = {...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", DAYBOOK_TERMINAL: "1",
+    PATH: [path.join(TOOLS_DIR, "gemini-cli"), process.env.PATH].join(";")};
+  if (prof.id === "emacs" && prof._emacsHome) { env.HOME = prof._emacsHome; env.PATH = path.dirname(prof._emacs) + ";" + env.PATH; }
+  let cwd = opts.cwd && fs.existsSync(opts.cwd) ? opts.cwd : require("os").homedir();
+  const p = pty.spawn(cmd, args, {name: "xterm-256color", cols: Math.max(20, opts.cols | 0 || 100), rows: Math.max(5, opts.rows | 0 || 30), cwd, env, useConpty: true});
+  const id = termSeq++, owner = e.sender;
+  terms.set(id, {pty: p, owner});
+  let buf = "", timer = null;   // batch output (~60 fps) so fast programs don't flood the page
+  p.onData(d => { buf += d; if (!timer) timer = setTimeout(() => { timer = null; if (!owner.isDestroyed()) owner.send("term:data", {id, data: buf}); buf = ""; }, 16); });
+  p.onExit(({exitCode}) => { terms.delete(id); if (!owner.isDestroyed()) { if (buf) owner.send("term:data", {id, data: buf}); owner.send("term:exit", {id, code: exitCode}); } });
+  owner.once("destroyed", () => { try { p.kill(); } catch {} terms.delete(id); });
+  return {id, name: prof.name, profile: prof.id, cwd};
+});
+ipcMain.on("term:input", (e, {id, data}) => { const t = terms.get(id); if (t && t.owner === e.sender && typeof data === "string") t.pty.write(data); });
+ipcMain.on("term:resize", (e, {id, cols, rows}) => { const t = terms.get(id); if (t && t.owner === e.sender && cols > 1 && rows > 1) try { t.pty.resize(cols | 0, rows | 0); } catch {} });
+ipcMain.on("term:kill", (e, id) => { const t = terms.get(id); if (t && t.owner === e.sender) try { t.pty.kill(); } catch {} });
+ipcMain.handle("term:models", async () => {     // local models for "Local AI"
+  try { const r = await fetch("http://127.0.0.1:11434/api/tags"); return ((await r.json()).models || []).map(m => m.name); } catch { return []; }
+});
+app.on("will-quit", () => { for (const t of terms.values()) try { t.pty.kill(); } catch {} });
+
 // ---- system-wide hotkeys (work in any app while Daybook runs in the tray) ----
 // Ctrl+Alt+S is left out on purpose: on this PC another tool (a screenshot script) already uses it.
 const HOTKEYS = {"Control+Alt+R": "add", "Control+Alt+N": "note", "Control+Alt+A": "agenda", "Control+Alt+C": "view:chat", "Control+Alt+D": "view:today",
