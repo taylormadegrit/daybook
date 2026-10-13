@@ -101,3 +101,32 @@ async function bdCheckSaved(url) {
   LK.saved[url] = null;
   try { const j = await api("/api/links/check?url=" + encodeURIComponent(url)); LK.saved[url] = j.saved ? j.id : null; if (j.saved) bdPaint(); } catch (e) {}
 }
+
+// ================= Settings → Browser & privacy =================
+async function renderPrivacy() {
+  const el = $("#privacyset"); if (!el) return;
+  if (!window.desktop || !desktop.privacy) { el.innerHTML = `<div class="muted small">Open the Daybook desktop app to manage browser privacy and make Daybook your default browser.</div>`; return; }
+  const [pv, db, ab] = await Promise.all([desktop.privacy(), desktop.defaultBrowser(), desktop.browser.adblock()]);
+  const profs = webProfiles();
+  el.innerHTML = `<div class="srow"><div class="d"><b>Default browser</b><span>${db.isDefault ? "Daybook is your default browser — links from other apps open here, in your " + esc(bdProf(pv.linkProfile).name) + " profile."
+        : db.registered ? "Daybook is available as a browser. Pick it under <b>Web browser</b> in the Windows window that opens." : "Let links from email, Discord and other apps open in Daybook's browser."}</span></div>
+      ${db.isDefault ? `<span class="badge" style="color:var(--ok)">${ic("check")}Default</span>` : `<button class="btn pri" onclick="setDefaultBrowser()">${ic("globe")}Make Daybook my default browser</button>`}</div>
+    <div class="srow"><div class="d"><b>Open outside links in</b><span>Which browser profile gets links from other apps</span></div>
+      <select class="f" style="width:auto" onchange="desktop.defaultBrowser({linkProfile:this.value}).then(()=>toast('Saved ✓'))">${profs.map(p => `<option value="${p.id}" ${p.id === pv.linkProfile ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+    <div class="srow"><div class="d"><b>Block ads &amp; trackers</b><span>${ab.ready ? `${(ab.blocked || 0).toLocaleString()} blocked since Daybook started · YouTube ads included` : "Loading block lists…"}</span></div>
+      <button class="sw ${ab.on ? "on" : ""}" onclick="desktop.browser.adblock(${!ab.on}).then(renderPrivacy)"></button></div>
+    <div class="srow"><div class="d"><b>Ask sites not to track or sell my data</b><span>Sends Do Not Track and Global Privacy Control with every page</span></div>
+      <button class="sw ${pv.signals ? "on" : ""}" onclick="desktop.privacy({signals:${!pv.signals}}).then(renderPrivacy)"></button></div>
+    <div class="srow"><div class="d"><b>Clear browsing data</b><span>History, cookies, logins, cache and site permissions for one profile</span></div>
+      <select class="f" style="width:auto" id="pv-prof">${profs.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+      <button class="btn ghost danger" onclick="clearBrowsing(this)">${ic("trash")}Clear</button></div>
+    <div class="srow"><div class="d"><b>Site permissions</b><span>Location, camera and mic answers you gave sites — forget them all so sites ask again</span></div>
+      <button class="btn" onclick="desktop.privacy({forgetPermissions:true}).then(()=>toast('Sites will ask again'))">Forget all</button></div>
+    <div class="muted small" style="margin-top:8px">Everything Daybook stores — notes, reminders, saved links, browsing data — stays on this PC. Nothing is uploaded.</div>`;
+  paintIcons(el);
+}
+async function setDefaultBrowser() { await desktop.defaultBrowser("register"); toast("In the Windows window: click the current Web browser and choose Daybook"); setTimeout(renderPrivacy, 1500); }
+async function clearBrowsing(btn) {
+  if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to clear"; return; }
+  const prof = $("#pv-prof").value; await desktop.privacy({clear: prof}); toast(`Cleared ${bdProf(prof).name}: you'll need to sign in to sites again`); renderPrivacy();
+}

@@ -6,7 +6,9 @@ contextBridge.exposeInMainWorld("desktop", {
   info: () => ipcRenderer.invoke("app:info"),
   settings: s => ipcRenderer.invoke("app:settings", s),
   newWindow: view => ipcRenderer.invoke("app:newWindow", view),
-  edit: action => ipcRenderer.send("app:edit", action),                 // cut / copy / paste / selectAll / undo / redo
+  edit: action => ipcRenderer.send("app:edit", action),
+  defaultBrowser: action => ipcRenderer.invoke("app:defaultBrowser", action),  // status / "register" / {linkProfile}
+  privacy: s => ipcRenderer.invoke("browser:privacy", s),                 // cut / copy / paste / selectAll / undo / redo
   files: {
     startDrag: paths => ipcRenderer.send("files:drag", paths),           // drag real files out to Explorer, Discord, upload boxes…
     pathFor: file => { try { return webUtils.getPathForFile(file); } catch (e) { return ""; } },  // dropped File → its path on disk

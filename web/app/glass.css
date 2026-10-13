@@ -1,0 +1,87 @@
+/* ================= "Glass" style — macOS-inspired translucent look (Settings → Appearance → Style) =================
+   Works on top of every color theme. Frosted panels with a bright top rim (light catching the glass edge), rounder
+   corners, a floating sidebar and capsule controls. Classic style = none of this applies. */
+[data-style=glass]{
+  --r:20px;
+  --gl-fill:linear-gradient(180deg,rgba(255,255,255,.115),rgba(255,255,255,.045));
+  --gl-fill-strong:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.07));
+  --gl-edge:rgba(255,255,255,.16);
+  --gl-rim:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(0,0,0,.18),inset 1px 0 0 rgba(255,255,255,.06);
+  --gl-shadow:0 12px 40px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.18);
+  --gl-blur:blur(26px) saturate(175%);
+  --card:rgba(255,255,255,.07);--card2:rgba(255,255,255,.11);
+}
+[data-style=glass][data-theme=paper]{
+  --gl-fill:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.8));
+  --gl-fill-strong:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.88));
+  --gl-edge:rgba(255,255,255,.9);
+  --gl-rim:inset 0 1px 0 rgba(255,255,255,1),inset 0 -1px 0 rgba(0,0,0,.06);
+  --gl-shadow:0 12px 36px rgba(40,30,10,.14),0 2px 6px rgba(40,30,10,.08);
+  --card:rgba(255,255,255,.55);--card2:rgba(255,255,255,.75);
+}
+[data-style=glass] body{font-family:-apple-system,"SF Pro Text","Segoe UI Variable Text","Segoe UI Variable",Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:-.005em}
+/* a vivid wallpaper behind everything, so the glass has something to frost */
+[data-style=glass] body::before{inset:-25%;filter:blur(60px);opacity:1;
+  background:radial-gradient(42% 38% at 10% 6%,color-mix(in srgb,var(--a1) 55%,transparent),transparent 70%),
+             radial-gradient(38% 34% at 95% 12%,color-mix(in srgb,var(--a2) 42%,transparent),transparent 70%),
+             radial-gradient(46% 44% at 55% 108%,color-mix(in srgb,var(--a3) 38%,transparent),transparent 70%),
+             radial-gradient(30% 30% at 40% 50%,color-mix(in srgb,var(--a1) 14%,transparent),transparent 70%)}
+[data-style=glass][data-theme=paper] body::before{opacity:.7}
+
+/* floating sidebar */
+[data-style=glass] .nav{margin:10px;border-radius:24px;background:var(--gl-fill);backdrop-filter:var(--gl-blur);border:1px solid var(--gl-edge);
+  box-shadow:var(--gl-rim),var(--gl-shadow);height:calc(100vh - 20px)}
+[data-style=glass] .navi{border-radius:12px}
+[data-style=glass] .navi.on{background:var(--gl-fill-strong);border-color:var(--gl-edge);box-shadow:var(--gl-rim)}
+[data-style=glass] .topbar{background:transparent;border-bottom:none;backdrop-filter:none}
+
+/* panels */
+[data-style=glass] .card,[data-style=glass] .fp,[data-style=glass] .fh-wf,[data-style=glass] .lk,[data-style=glass] .bd-pane,
+[data-style=glass] .gm-sec .gcard .gcover,[data-style=glass] .clb{
+  background:var(--gl-fill);border:1px solid var(--gl-edge);box-shadow:var(--gl-rim),var(--gl-shadow);backdrop-filter:var(--gl-blur)}
+[data-style=glass] .card{border-radius:var(--r)}
+[data-style=glass] .fp-h,[data-style=glass] .bd-ph{background:rgba(255,255,255,.05);border-bottom-color:var(--gl-edge)}
+[data-style=glass] .menu,[data-style=glass] .modal,[data-style=glass] .pal,[data-style=glass] .ctxm{
+  background:var(--gl-fill-strong),color-mix(in srgb,var(--panel) 62%,transparent);backdrop-filter:blur(34px) saturate(190%);
+  border:1px solid var(--gl-edge);box-shadow:var(--gl-rim),0 24px 70px rgba(0,0,0,.45)}
+[data-style=glass] .modal{border-radius:26px}
+[data-style=glass] .menu,[data-style=glass] .ctxm{border-radius:16px}
+[data-style=glass] .menu div:hover,[data-style=glass] .ctxm .ctxi:hover{background:color-mix(in srgb,var(--a1) 32%,transparent)}
+
+/* capsule controls */
+[data-style=glass] .btn{border-radius:999px;background:var(--gl-fill);border-color:var(--gl-edge);box-shadow:var(--gl-rim);backdrop-filter:blur(12px) saturate(160%)}
+[data-style=glass] .btn.pri{background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%),var(--grad);border:1px solid rgba(255,255,255,.35);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 18px color-mix(in srgb,var(--a1) 35%,transparent)}
+[data-style=glass] .btn.ghost{background:none;border-color:transparent;box-shadow:none;backdrop-filter:none}
+[data-style=glass] .iconbtn{border-radius:999px}
+[data-style=glass] .iconbtn:hover{background:var(--gl-fill-strong);border-color:var(--gl-edge);box-shadow:var(--gl-rim)}
+[data-style=glass] .seg{border-radius:999px;background:rgba(0,0,0,.18);border-color:var(--gl-edge);box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
+[data-style=glass] .seg button{border-radius:999px}
+[data-style=glass] .seg button.on{background:var(--gl-fill-strong);box-shadow:var(--gl-rim),0 2px 8px rgba(0,0,0,.2)}
+[data-style=glass] .chipb,[data-style=glass] .badge,[data-style=glass] .tag{border-radius:999px}
+[data-style=glass] .f,[data-style=glass] input.f,[data-style=glass] select.f,[data-style=glass] textarea.f{border-radius:14px;background:rgba(255,255,255,.06);border-color:var(--gl-edge);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+[data-style=glass][data-theme=paper] .f{background:rgba(255,255,255,.7)}
+[data-style=glass] .quick,[data-style=glass] .search{border-radius:999px!important;background:var(--gl-fill);border-color:var(--gl-edge);box-shadow:var(--gl-rim);backdrop-filter:var(--gl-blur)}
+[data-style=glass] .fh-tab,[data-style=glass] .bd-tab{border-radius:999px;background:var(--gl-fill);border-color:var(--gl-edge)}
+[data-style=glass] .fh-tab.on,[data-style=glass] .bd-tab.on{background:var(--gl-fill-strong);box-shadow:var(--gl-rim)}
+[data-style=glass] .lpt .ic,[data-style=glass] .t-app .ic{border-radius:26%}
+[data-style=glass] ::-webkit-scrollbar-thumb{border-radius:99px}
+
+/* style picker in Settings */
+.stylepick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.stylepick .sp-o{border:1px solid var(--line2);border-radius:16px;padding:12px;cursor:pointer;background:var(--card)}
+.stylepick .sp-o.on{border-color:var(--a1);box-shadow:0 0 0 2px color-mix(in srgb,var(--a1) 40%,transparent)}
+.stylepick .sp-prev{height:92px;border-radius:12px;position:relative;overflow:hidden;margin-bottom:10px;
+  background:radial-gradient(60% 80% at 15% 10%,color-mix(in srgb,var(--a1) 70%,transparent),transparent),radial-gradient(60% 80% at 90% 90%,color-mix(in srgb,var(--a2) 60%,transparent),transparent),#151726}
+.stylepick .sp-prev i{position:absolute;display:block}
+.stylepick .sp-classic i.s{left:0;top:0;bottom:0;width:26%;background:rgba(20,22,31,.92);border-right:1px solid rgba(255,255,255,.08)}
+.stylepick .sp-classic i.c{left:32%;top:14px;right:10px;height:30px;border-radius:8px;background:rgba(30,33,46,.9);border:1px solid rgba(255,255,255,.08)}
+.stylepick .sp-classic i.c2{left:32%;top:52px;right:40%;height:26px;border-radius:8px;background:rgba(30,33,46,.9);border:1px solid rgba(255,255,255,.08)}
+.stylepick .sp-glass i.s{left:7px;top:7px;bottom:7px;width:24%;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.08));backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.stylepick .sp-glass i.c{left:32%;top:14px;right:10px;height:30px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.07));backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.stylepick .sp-glass i.c2{left:32%;top:52px;right:40%;height:26px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.07));border:1px solid rgba(255,255,255,.3)}
+.stylepick b{display:block}.stylepick span{font-size:12.5px;color:var(--muted)}
+
+/* light theme over a dark scene: give text that sits straight on the background a soft light backing */
+[data-style=glass][data-theme=paper] body.scened .view .pad{background:rgba(244,241,234,.55);border-radius:24px}
+[data-style=glass][data-theme=paper] .f{background:rgba(255,255,255,.92)}

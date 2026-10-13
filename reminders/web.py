@@ -57,7 +57,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.6.7"
+VERSION = "1.6.8"
 
 
 @app.get("/chat")
@@ -519,8 +519,12 @@ def organize_note(nid):
 def action_to_reminder(nid):
     """Turn an action item into a reminder: {"text": "...", "when": "tomorrow 9am"}"""
     j = request.get_json()
-    due = nlp.when(j.get("when") or "tomorrow 9am")
-    rid = db.add(j["text"], due, notes=f"From note #{nid}")
+    when = (j.get("when") or "").strip() or "tomorrow 9am"
+    repeat, _ = nlp.detect_repeat(when)
+    due = nlp.when(when)
+    rid = db.add(j["text"], due, repeat=repeat or "", notes=f"From note #{nid}")
+    if "index" in j:
+        notes.action_added(nid, int(j["index"]), rid)
     return jsonify(_rem(db.get(rid)))
 
 

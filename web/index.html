@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="/brand/icon-64.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0a0b10">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("daybook-theme")||"aurora"}catch(e){}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("daybook-theme")||"aurora";document.documentElement.dataset.style=localStorage.getItem("daybook-style")||"classic"}catch(e){}</script>
 <link href="/vendor/fonts.css" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/github-dark.min.css">
 <script src="/vendor/marked.min.js"></script>
@@ -336,6 +336,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 .modal.xl{width:min(1200px,96vw)}
 </style>
 <link rel="stylesheet" href="/app/extra.css">
+<link rel="stylesheet" href="/app/glass.css">
 </head>
 <body>
 <canvas id="scene"></canvas><div id="scenebg"></div><div id="scenedim"></div>
@@ -574,7 +575,10 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <!-- SETTINGS -->
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3><div class="themes" id="themes"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
+        <div class="grouph" style="margin-top:0">Style</div><div class="stylepick" id="stylepick"></div>
+        <div class="grouph">Colors</div><div class="themes" id="themes"></div></div>
+      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3><div id="privacyset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3><div id="layoutset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
       <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice & microphone</h3><div id="voiceset"></div></div>
@@ -622,6 +626,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/voice.js"></script>
 <script src="/app/clock.js"></script>
 <script src="/app/home.js"></script>
+<script src="/app/scenes2.js"></script>
 <script src="/app/notesx.js"></script>
 <script src="/app/launch.js"></script>
 <script src="/app/video.js"></script>
@@ -960,8 +965,11 @@ function renderEditor() {
     <div class="aibox">${n.ai_status === "pending" ? `<div class="muted small">${ic("spark")} The local AI will organize this note in a moment…</div>` : ""}
       ${n.summary ? `<h4>Summary</h4><div>${esc(n.summary)}</div>` : ""}
       ${n.topics.length > 1 ? `<h4>Topics</h4><div class="tags">${n.topics.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
-      ${n.actions.length ? `<h4>Action items</h4>` + n.actions.map((a, i) => `<div class="act"><span style="flex:1">☐ ${esc(a)}</span>
-        <input class="f" id="aw${i}" placeholder="when? tomorrow 9am"><button class="btn sm" onclick="actRemind(${i})">${ic("bell")}Remind me</button></div>`).join("") : ""}
+      ${n.actions.length ? `<div class="act-h"><h4>Tasks found</h4><span class="sp"></span>${n.actions.some(a => !a.rid) ? `<button class="btn sm pri" id="act-all" onclick="actAddSelected()">${ic("bell")}Add checked to reminders &amp; calendar</button>` : `<span class="small muted">✓ All added</span>`}</div>`
+        + n.actions.map((a, i) => a.rid ? `<div class="act done"><span class="act-c">✓</span><span style="flex:1">${esc(a.text)}</span><a href="javascript:void 0" class="small" onclick="go('reminders')">In reminders${a.when ? " · " + esc(a.when) : ""}</a></div>`
+          : `<div class="act"><input type="checkbox" class="act-c" id="ac${i}" ${a.when ? "checked" : ""}><label for="ac${i}" style="flex:1">${esc(a.text)}</label>
+        <input class="f" id="aw${i}" value="${esc(a.when || "")}" placeholder="when? e.g. tomorrow 9am" oninput="$('#ac${i}').checked=true"><button class="btn sm" title="Add just this one" onclick="actRemind(${i})">${ic("bell")}Add</button></div>`).join("")
+        + `<div class="small muted" style="margin-top:6px">Times are the AI's best guess from your note — change any before adding. Tasks without a time go to tomorrow 9 AM.</div>` : ""}
     </div>`;
   ["n-title", "n-cat", "n-date", "n-tags"].forEach(i => $("#" + i).addEventListener("change", () => saveNote(false)));
   micFor($("#n-body"), $("#n-body").parentElement); wordCount(); paintIcons($("#ed"));
@@ -973,11 +981,21 @@ async function saveNote(reorg = true) {
   S.cur = await api("/api/notes/" + S.cur.id, {method: "PATCH", body});
   $("#n-saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); loadNotes();
 }
-async function aiNote() { if (!S.cur) return; await saveNote(false); toast("Organizing…"); S.cur = await api(`/api/notes/${S.cur.id}/organize`, {method: "POST"}); renderEditor(); loadNotes(); toast("Organized ✓"); }
-async function actRemind(i) {
-  const when = $("#aw" + i).value.trim() || "tomorrow 9am";
-  const r = await api(`/api/notes/${S.cur.id}/remind`, {method: "POST", body: {text: S.cur.actions[i], when}});
-  toast(`⏰ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`);
+async function aiNote() { if (!S.cur) return; await saveNote(false); toast("Organizing… finding tasks and times"); S.cur = await api(`/api/notes/${S.cur.id}/organize`, {method: "POST"}); renderEditor();
+  const open = S.cur.actions.filter(a => !a.rid).length; toast(open ? `Found ${open} task${open > 1 ? "s" : ""} — check the times and press “Add checked”` : "Organized — no tasks found in this note"); if (open) setTimeout(() => $(".act-h") && $(".act-h").scrollIntoView({behavior: "smooth", block: "center"}), 120); loadNotes(); toast("Organized ✓"); }
+async function actRemind(i, quiet) {
+  const when = ($("#aw" + i) || {}).value?.trim() || "tomorrow 9am";
+  const r = await api(`/api/notes/${S.cur.id}/remind`, {method: "POST", body: {text: S.cur.actions[i].text, when, index: i}});
+  S.cur.actions[i].rid = r.id; S.cur.actions[i].when = when;
+  if (!quiet) { toast(`⏰ ${r.text} — ${dayName(r.due)} ${tm(r.due)}`); renderEditor(); }
+  return r;
+}
+async function actAddSelected() {
+  const picks = S.cur.actions.map((a, i) => i).filter(i => !S.cur.actions[i].rid && $("#ac" + i) && $("#ac" + i).checked);
+  if (!picks.length) return toast("Tick the tasks you want first");
+  const b = $("#act-all"); if (b) { b.disabled = true; b.textContent = "Adding…"; }
+  for (const i of picks) await actRemind(i, true);
+  toast(`Added ${picks.length} task${picks.length > 1 ? "s" : ""} to your reminders — they're on your calendar too`); renderEditor();
 }
 function delNote(btn) {
   if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to delete"; return; }
@@ -1198,6 +1216,13 @@ const THEMES = [["aurora", "Aurora", "Violet & ice blue", "#0a0b10", "#8b7bff", 
   ["candy", "Candy", "Bubblegum pastels", "#150c1c", "#ff8bd1", "#9b8cff", "#7ef0ff"],
   ["ember", "Ember", "Fire orange & amber", "#120706", "#ff5a36", "#ffa62b", "#ffd23f"],
   ["paper", "Paper", "Light & clean", "#f4f1ea", "#6c5ce7", "#0ea5e9", "#ec4899"]];
+function applyStyle(s) { document.documentElement.dataset.style = s; try { localStorage.setItem("daybook-style", s); } catch {} }
+function renderStylePick() {
+  const cur = document.documentElement.dataset.style || "classic", el = $("#stylepick"); if (!el) return;
+  el.innerHTML = [["classic", "Classic", "Daybook's original look — solid, crisp panels"], ["glass", "Glass", "macOS-style frosted glass — translucent, glossy, floating sidebar"]]
+    .map(([k, n, d]) => `<div class="sp-o ${k === cur ? "on" : ""}" onclick="pickStyle('${k}')"><div class="sp-prev sp-${k}"><i class="s"></i><i class="c"></i><i class="c2"></i></div><b>${n}</b><span>${d}</span></div>`).join("");
+}
+async function pickStyle(s) { applyStyle(s); renderStylePick(); await saveSetting("ui_style", s); toast(s === "glass" ? "Glass style on — works with every color theme" : "Classic style"); }
 function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem("daybook-theme", t); } catch {} }
 function renderThemes() {
   const cur = document.documentElement.dataset.theme || "aurora";
@@ -1264,7 +1289,7 @@ async function renderSettings() {
     const k = el.dataset.s; if (el.type === "checkbox") el.checked = set[k] === "1"; else el.value = set[k];
     el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
   });
-  renderClaude(); renderThemes();
+  renderClaude(); renderThemes(); renderStylePick(); renderPrivacy();
   const ai = st.counts.ai || {};
   $("#status").innerHTML = `<div class="stat">
       <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
@@ -1471,6 +1496,7 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);
+  if (S.settings.ui_style && S.settings.ui_style !== document.documentElement.dataset.style) applyStyle(S.settings.ui_style);
   applyLayout();
   const [v, sub] = location.hash.slice(1).split("/");
   go(v || layoutCfg().start || "today", sub);

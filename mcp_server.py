@@ -131,7 +131,7 @@ def get_note(id: int) -> str:
         return f"No note #{id}"
     return "\n".join([
         _note_line(n), f"Tags: {', '.join(n['tags'])}", f"Topics: {'; '.join(n['topics'])}",
-        "Action items:" + "".join(f"\n  - {a}" for a in n["actions"]), "", n["body"]])
+        "Action items:" + "".join(f"\n  - {a['text']}" + (f" ({a['when']})" if a.get('when') else "") for a in n["actions"]), "", n["body"]])
 
 
 @mcp.tool()

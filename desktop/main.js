@@ -23,8 +23,23 @@ let paneSeq = 1;
 
 app.setAppUserModelId("com.daybook.app");
 if (!app.requestSingleInstanceLock()) { app.quit(); }
-app.on("second-instance", (_e, argv) => { showWindow(viewArg(argv)); });
+app.on("second-instance", (_e, argv) => { const u = urlArg(argv); if (u) openFromOutside(u); else showWindow(viewArg(argv)); });
 const viewArg = argv => ((argv.find(a => a.startsWith("--view=")) || "").slice(7)) || null;
+// a link opened from another app (Daybook set as the default browser): "Daybook.exe --url <link or .html file>"
+function urlArg(argv) {  // Chromium moves "--" options first, so the link can be anywhere in the list
+  if (!argv.includes("--url") && !argv.some(a => /^https?:\/\//i.test(a))) return null;
+  for (const raw of argv.slice(1)) {
+    if (/^(https?|file):\/\//i.test(raw)) return raw;
+    if (/\.(html?|xhtml|pdf)$/i.test(raw)) { try { if (fs.existsSync(raw)) return require("url").pathToFileURL(raw).href; } catch {} }
+  }
+  return null;
+}
+async function openFromOutside(url) {
+  if (!win || win.isDestroyed()) await createWindow("browser");
+  const w = win; if (w.isMinimized()) w.restore(); w.show(); w.focus();
+  const open = () => { openPane(loadState().linkProfile || "personal", url, w); w.webContents.executeJavaScript(`go("browser")`).catch(() => {}); };
+  if (w.webContents.isLoading()) w.webContents.once("did-finish-load", () => setTimeout(open, 400)); else open();
+}
 const ownerOf = e => BrowserWindow.fromWebContents(e.sender);
 const hwndOf = w => { const b = w.getNativeWindowHandle(); return b.length >= 8 ? Number(b.readBigUInt64LE(0)) : b.readUInt32LE(0); };
 
@@ -181,6 +196,55 @@ ipcMain.handle("browser:adblock", (_e, on) => {
   return {ready: !!ADB.blocker, on: ADB.on, blocked: ADB.blocked};
 });
 
+let privacySignals = loadState().privacySignals !== false;
+ipcMain.handle("browser:privacy", (_e, s) => {
+  if (s && typeof s.signals === "boolean") { privacySignals = s.signals; fs.writeFileSync(STATE, JSON.stringify({...loadState(), privacySignals})); }
+  if (s && s.clear) {  // wipe history, cookies, logins and site data for one browser profile
+    const ses = session.fromPartition(partitionFor(s.clear));
+    return Promise.all([ses.clearStorageData(), ses.clearCache(), ses.clearAuthCache()]).then(() => { forgetSite(partitionFor(s.clear), ""); return {cleared: true}; });
+  }
+  if (s && s.forgetPermissions) { permCache = {}; try { fs.writeFileSync(PERMS, "{}"); } catch {} }
+  return {signals: privacySignals, linkProfile: loadState().linkProfile || "personal"};
+});
+
+// ---- Daybook as the default browser (Windows only lets the user pick it, in Settings → Default apps) ----
+const { execFile } = require("child_process");
+const reg = args => new Promise(res => execFile("reg", args, {windowsHide: true}, (err, out) => res(err ? null : out)));
+function handlerCommand() {
+  const app_ = app.isPackaged ? "" : `"${app.getAppPath()}" `;
+  return `"${process.execPath}" ${app_}--url "%1"`;
+}
+async function registerBrowser() {
+  const cmd = handlerCommand(), icon = `"${process.execPath}",0`, base = "HKCU\\Software\\Clients\\StartMenuInternet\\Daybook";
+  const sets = [
+    ["HKCU\\Software\\Classes\\DaybookURL", "", "Daybook link"], ["HKCU\\Software\\Classes\\DaybookURL", "URL Protocol", ""],
+    ["HKCU\\Software\\Classes\\DaybookURL\\DefaultIcon", "", icon], ["HKCU\\Software\\Classes\\DaybookURL\\shell\\open\\command", "", cmd],
+    ["HKCU\\Software\\Classes\\DaybookHTML", "", "Daybook web page"], ["HKCU\\Software\\Classes\\DaybookHTML\\DefaultIcon", "", icon],
+    ["HKCU\\Software\\Classes\\DaybookHTML\\shell\\open\\command", "", cmd],
+    [base, "", "Daybook"], [base + "\\DefaultIcon", "", icon], [base + "\\shell\\open\\command", "", `"${process.execPath}"` + (app.isPackaged ? "" : ` "${app.getAppPath()}"`)],
+    [base + "\\Capabilities", "ApplicationName", "Daybook"], [base + "\\Capabilities", "ApplicationIcon", icon],
+    [base + "\\Capabilities", "ApplicationDescription", "Daybook — your notes, reminders and a private browser with ad blocking"],
+    [base + "\\Capabilities\\URLAssociations", "http", "DaybookURL"], [base + "\\Capabilities\\URLAssociations", "https", "DaybookURL"],
+    [base + "\\Capabilities\\FileAssociations", ".html", "DaybookHTML"], [base + "\\Capabilities\\FileAssociations", ".htm", "DaybookHTML"],
+    ["HKCU\\Software\\RegisteredApplications", "Daybook", "Software\\Clients\\StartMenuInternet\\Daybook\\Capabilities"],
+  ];
+  for (const [key, name, val] of sets) await reg(["add", key, ...(name ? ["/v", name] : ["/ve"]), "/t", "REG_SZ", "/d", val, "/f"]);
+}
+async function browserStatus() {
+  const q = await reg(["query", "HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice", "/v", "ProgId"]);
+  const registered = !!(await reg(["query", "HKCU\\Software\\RegisteredApplications", "/v", "Daybook"]));
+  const cur = await reg(["query", "HKCU\\Software\\Classes\\DaybookURL\\shell\\open\\command", "/ve"]);
+  return {registered, isDefault: !!(q && /DaybookURL/.test(q)), current: q ? (q.match(/ProgId\s+REG_SZ\s+(\S+)/) || [])[1] || "" : "",
+          upToDate: !!(cur && cur.includes(process.execPath))};
+}
+ipcMain.handle("app:defaultBrowser", async (_e, action) => {
+  if (action === "register") { await registerBrowser(); shell.openExternal("ms-settings:defaultapps"); }
+  if (action && action.linkProfile) fs.writeFileSync(STATE, JSON.stringify({...loadState(), linkProfile: action.linkProfile}));
+  const st = await browserStatus();
+  if (st.registered && !st.upToDate) await registerBrowser();  // Daybook moved or updated → keep the link handler pointing at it
+  return st;
+});
+
 // Site permissions (location, camera, mic…) are remembered per profile + site, so each site asks only once.
 const PERMS = path.join(app.getPath("userData"), "site-permissions.json");
 const askingPerm = new Map();
@@ -188,7 +252,7 @@ let permCache = null;
 function loadPerms() { if (!permCache) { try { permCache = JSON.parse(fs.readFileSync(PERMS, "utf8").replace(/^\uFEFF/, "")); } catch { permCache = {}; } } return permCache; }
 function savePerm(key, ok) { loadPerms()[key] = ok; try { fs.writeFileSync(PERMS, JSON.stringify(permCache, null, 1)); } catch {} }
 function permKey(part, site, perm, mediaTypes) { return `${part}|${site}|${perm}${perm === "media" && mediaTypes && mediaTypes.length ? ":" + [...mediaTypes].sort().join("+") : ""}`; }
-function forgetSite(part, site) { const all = loadPerms(); for (const k of Object.keys(all)) if (k.startsWith(part + "|" + site + "|")) delete all[k]; try { fs.writeFileSync(PERMS, JSON.stringify(all, null, 1)); } catch {} }
+function forgetSite(part, site) { const all = loadPerms(), pre = part + "|" + (site ? site + "|" : ""); for (const k of Object.keys(all)) if (k.startsWith(pre)) delete all[k]; try { fs.writeFileSync(PERMS, JSON.stringify(all, null, 1)); } catch {} }
 function prepareSession(part) {
   if (prepared.has(part)) return session.fromPartition(part);
   prepared.add(part);
@@ -197,6 +261,7 @@ function prepareSession(part) {
   adblockSession(s);
   s.webRequest.onBeforeSendHeaders((d, cb) => {
     const h = d.requestHeaders;
+    if (privacySignals) { h["DNT"] = "1"; h["Sec-GPC"] = "1"; }  // ask sites not to track or sell your data
     if (isGoogleAuth(d.url) || (d.webContents && isGoogleAuth(d.webContents.getURL()) && /google/.test(d.url))) {
       h["User-Agent"] = FIREFOX_UA;
       for (const k of Object.keys(h)) if (/^sec-ch-ua/i.test(k)) delete h[k];
@@ -409,7 +474,9 @@ app.whenReady().then(async () => {
     app.setLoginItemSettings({openAtLogin: true, args: ["--hidden"]});
     fs.writeFileSync(STATE, JSON.stringify({...st, firstRunDone: true}));
   }
-  await createWindow(viewArg(process.argv));
+  const startUrl = urlArg(process.argv);
+  await createWindow(startUrl ? "browser" : viewArg(process.argv));
+  if (startUrl) openFromOutside(startUrl);
 });
 let released = false;
 app.on("before-quit", e => {

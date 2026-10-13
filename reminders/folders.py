@@ -65,22 +65,72 @@ def listing(path, show_hidden=False):
     return {"path": str(p), "parent": str(p.parent) if p.parent != p else None, "items": items[:2000], "total": len(items)}
 
 
+_DRIVES = {"t": 0, "list": None, "busy": False}
+
+
+def _scan_drives():
+    """Drive names + free space. Slow when a hard drive is asleep (it has to spin up), so it runs in the background."""
+    k32 = ctypes.windll.kernel32
+    out = []
+    mask = k32.GetLogicalDrives()
+    for i, letter in enumerate(string.ascii_uppercase):
+        if not mask & (1 << i):
+            continue
+        root = f"{letter}:\\"
+        kind = k32.GetDriveTypeW(root)  # 2 removable, 3 fixed, 4 network, 5 cd-rom
+        if kind not in (2, 3, 4):
+            continue
+        label = ctypes.create_unicode_buffer(128)
+        total = free = 0
+        if kind == 3 or kind == 2:
+            try:
+                if k32.GetVolumeInformationW(root, label, 128, None, None, None, None, 0):
+                    total, _, free = shutil.disk_usage(root)
+                elif kind == 2:
+                    continue  # empty card reader / USB slot
+            except Exception:
+                pass
+        out.append({"name": label.value or ("USB drive" if kind == 2 else "Network drive" if kind == 4 else "Local Disk"), "path": root,
+                    "letter": letter, "total": total, "free": free})
+    return out
+
+
+def _refresh_drives():
+    import threading
+    import time
+
+    def run():
+        try:
+            _DRIVES["list"] = _scan_drives()
+            _DRIVES["t"] = time.time()
+            try:
+                db.set_settings({"drives_cache": json.dumps(_DRIVES["list"])})
+            except Exception:
+                pass
+        finally:
+            _DRIVES["busy"] = False
+    if not _DRIVES["busy"]:
+        _DRIVES["busy"] = True
+        threading.Thread(target=run, daemon=True).start()
+
+
 def places():
-    """Quick places + every drive, for the Files hub sidebar."""
+    """Quick places + every drive, for the Files hub sidebar — answered instantly from the last scan."""
+    import time
     quick = [("Desktop", HOME / "Desktop"), ("Downloads", HOME / "Downloads"), ("Documents", HOME / "Documents"),
              ("Pictures", HOME / "Pictures"), ("Videos", HOME / "Videos"), ("Music", HOME / "Music")]
-    drives = []
-    for letter in string.ascii_uppercase:
-        root = f"{letter}:\\"
-        if os.path.exists(root):
-            label = ctypes.create_unicode_buffer(128)
-            try:
-                ctypes.windll.kernel32.GetVolumeInformationW(root, label, 128, None, None, None, None, 0)
-                total, _, free = shutil.disk_usage(root)
-            except Exception:
-                total = free = 0
-            drives.append({"name": label.value or "Local Disk", "path": root, "letter": letter, "total": total, "free": free})
-    return {"quick": [{"name": n, "path": str(q)} for n, q in quick if q.exists()], "drives": drives}
+    if _DRIVES["list"] is None:
+        try:
+            _DRIVES["list"] = json.loads(db.setting("drives_cache") or "null")
+        except Exception:
+            _DRIVES["list"] = None
+    if _DRIVES["list"] is None:  # very first run: a quick letters-only list, details fill in on the next visit
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        _DRIVES["list"] = [{"name": "Local Disk", "path": f"{c}:\\", "letter": c, "total": 0, "free": 0}
+                           for i, c in enumerate(string.ascii_uppercase) if mask & (1 << i) and ctypes.windll.kernel32.GetDriveTypeW(f"{c}:\\") == 3]
+    if time.time() - _DRIVES["t"] > 120:
+        _refresh_drives()
+    return {"quick": [{"name": n, "path": str(q)} for n, q in quick if q.exists()], "drives": _DRIVES["list"]}
 
 
 def _free_name(dest_dir, name):

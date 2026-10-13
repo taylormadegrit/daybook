@@ -135,7 +135,7 @@ const SCENES = {
 };
 const SC = {name: "none", ctx: null, w: 0, h: 0, raf: 0, last: 0, st: {}, mx: .5, my: .5, cfg: {}};
 const R = (a, b) => a + Math.random() * (b - a);
-function sceneCfg() { const h = homeCfg(); return {scene: h.scene || "none", sound: !!h.sound, vol: h.vol ?? .5, dim: h.dim ?? .25, everywhere: !!h.everywhere, still: !!h.still, bgfile: h.bgfile || ""}; }
+function sceneCfg() { const h = homeCfg(); return {scene: h.scene || "none", sound: !!h.sound, vol: h.vol ?? .5, dim: h.dim ?? .25, everywhere: !!h.everywhere, still: !!h.still, bgfile: h.bgfile || "", soundpick: h.soundpick || ""}; }
 function applyScene() {
   const c = sceneCfg(); SC.cfg = c;
   const show = c.scene !== "none" && (c.everywhere || S.view === "today");
@@ -148,7 +148,8 @@ function applyScene() {
     bg.innerHTML = /\.(mp4|webm)$/i.test(c.bgfile) ? `<video src="${url}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover"></video>` : `<img src="${url}" style="width:100%;height:100%;object-fit:cover" alt="">`;
   }
   if (show && c.scene !== "custom") sceneStart(c.scene); else sceneStop();
-  ambience(c.sound && c.scene !== "none" && c.scene !== "custom" ? c.scene : null, c.vol);
+  const snd = c.soundpick || (c.scene !== "none" && c.scene !== "custom" ? c.scene : "");
+  ambience(c.sound && snd && SOUNDS[snd] ? snd : null, c.vol);
 }
 function sceneStart(name) {
   const cv = $("#scene"); if (!cv) return;
@@ -383,7 +384,7 @@ function ambience(scene, vol) {
 function renderAmbWidget() {
   const el = $("#w-amb"); if (!el) return; const c = sceneCfg();
   el.innerHTML = `<div class="amb"><div class="chips">${Object.entries(SCENES).filter(([k]) => k !== "custom" || c.bgfile).map(([k, s]) => `<button class="chipb ${c.scene === k ? "on" : ""}" onclick="setScene('${k}')" title="${s.name}">${s.em} ${s.name}</button>`).join("")}</div></div>
-    <div class="row" style="margin-top:12px;flex-wrap:nowrap"><button class="btn sm ${c.sound ? "pri" : ""}" onclick="setAmb({sound:${!c.sound}})" ${c.scene === "none" || c.scene === "custom" ? "disabled title='Pick a scene first'" : ""}>${c.sound ? "🔊 Sound on" : "🔈 Sound off"}</button>
+    <div class="row" style="margin-top:12px;flex-wrap:nowrap"><button class="btn sm ${c.sound ? "pri" : ""}" onclick="setAmb({sound:${!c.sound}})" ${(c.scene === "none" || c.scene === "custom") && !c.soundpick ? "disabled title='Pick a scene or a sound first (Customize)'" : ""}>${c.sound ? "🔊 Sound on" : "🔈 Sound off"}</button>
       <input type="range" min="0" max="1" step=".05" value="${c.vol}" style="flex:1" oninput="setAmb({vol:+this.value},true)" title="Volume"></div>
     <div class="small muted" style="margin-top:8px">${c.scene !== "none" && c.scene !== "custom" ? "Tip: click an empty part of the background — the scene reacts." : "Scenes are animated and generated on this PC."}</div>`;
 }
@@ -398,6 +399,7 @@ function customizeModal() {
       <input type="file" id="bgfile" accept="image/*,video/mp4,video/webm" style="display:none" onchange="uploadBg(this.files[0])"></div>
     <div class="frm" style="margin-top:14px">
       <label>Ambient sound</label><div class="row" style="flex-wrap:nowrap"><button class="sw ${c.sound ? "on" : ""}" style="margin-left:0" onclick="setAmb({sound:${!c.sound}})"></button><input type="range" min="0" max="1" step=".05" value="${c.vol}" style="flex:1" oninput="setAmb({vol:+this.value},true)"></div>
+      <label>Sound</label><select class="f" onchange="setAmb({soundpick:this.value, sound:true})">${(window.SOUND_CHOICES || [["", "Match the scene"]]).map(([k, n]) => `<option value="${k}" ${c.soundpick === k ? "selected" : ""}>${n}</option>`).join("")}</select>
       <label>Darken background</label><input type="range" min="0" max=".8" step=".05" value="${c.dim}" oninput="setAmb({dim:+this.value},true)">
       <label>Show on every page</label><button class="sw ${c.everywhere ? "on" : ""}" style="margin-left:0" onclick="setAmb({everywhere:${!c.everywhere}})"></button>
       <label>Still image (no motion)</label><button class="sw ${c.still ? "on" : ""}" style="margin-left:0" onclick="setAmb({still:${!c.still}})"></button></div>

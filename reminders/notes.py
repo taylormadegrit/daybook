@@ -68,7 +68,7 @@ def _row(r):
         return None
     d = dict(r)
     d["topics"] = json.loads(d.get("topics") or "[]")
-    d["actions"] = json.loads(d.get("actions") or "[]")
+    d["actions"] = [a if isinstance(a, dict) else {"text": str(a), "when": ""} for a in json.loads(d.get("actions") or "[]")]
     d["tags"] = [t for t in (d.get("tags") or "").split(",") if t]
     return d
 
@@ -301,16 +301,22 @@ Return JSON:
 - "tags": 3-6 lowercase tags (people, projects, platforms, themes), single words or hyphenated
 - "summary": 1-2 sentences, what this note is about
 - "topics": list of the separate subjects covered, each 2-6 words (1 item if the note is about one thing)
-- "actions": list of concrete to-dos found in the note (imperative, short). [] if none. Do not invent any.
+- "actions": list of concrete to-dos found in the note, each {{"task": short imperative, "when": time in plain English or ""}}.
+    "when" = the day/time the note gives or clearly implies for that task, e.g. "tomorrow 5am", "Friday 3pm", "2026-10-20 9am",
+    "every day 5am" for repeating ones. Relative words are relative to the note date ({n['note_date']}). "" if no time is given.
+    [] if there are no tasks. Do not invent any.
 JSON only."""
     out = None
-    for _ in range(3):
+    for _ in range(2):
         try:
-            out = nlp._ask_ollama(prompt)
+            out = nlp.ask_json(prompt)
             if out.get("category") in CATEGORIES:
                 break
         except Exception:
             out = None
+            break  # no AI reachable — fall back to the built-in task finder below
+    if not out or out.get("category") not in CATEGORIES:
+        out = _rule_based(n) if not out else {**_rule_based(n), **{k: v for k, v in out.items() if v}}
     if not out:
         with _con() as con:
             con.execute("UPDATE notes SET ai_status='failed' WHERE id=?", (nid,))
@@ -326,7 +332,7 @@ JSON only."""
         "tags": ",".join(tags[:8]),
         "summary": str(out.get("summary", "")).strip()[:400],
         "topics": json.dumps([str(t).strip()[:60] for t in (out.get("topics") or [])][:8]),
-        "actions": json.dumps([str(a).strip()[:140] for a in (out.get("actions") or []) if str(a).strip()][:12]),
+        "actions": json.dumps(_clean_actions(out.get("actions"), n.get("actions"))),
         "ai_status": "done",
     }
     if not keep_title and str(out.get("title", "")).strip():
@@ -336,6 +342,56 @@ JSON only."""
     with _con() as con:
         con.execute(f"UPDATE notes SET {', '.join(k + '=?' for k in fields)} WHERE id=?", (*fields.values(), nid))
     return get(nid)
+
+
+def _clean_actions(raw, old=None):
+    """AI output → [{"text", "when", "rid"?}], keeping the reminder link of tasks that were already added."""
+    done = {a["text"].lower(): a for a in (old or []) if isinstance(a, dict) and a.get("rid")}
+    out = []
+    for a in raw or []:
+        if isinstance(a, dict):
+            text, when = str(a.get("task") or a.get("text") or "").strip(), str(a.get("when") or "").strip()
+        else:
+            text, when = str(a).strip(), ""
+        if not text:
+            continue
+        item = {"text": text[:140], "when": when[:60]}
+        if text.lower() in done:
+            item["rid"] = done[text.lower()]["rid"]
+        out.append(item)
+    return out[:12]
+
+
+TASK_LINE = re.compile(r"^\s*(?:[-*•]\s*)?(?:\[\s?\]|☐|todo:?|to-do:?|task:?)\s*(.+)$", re.I)
+VERB = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s*(call|email|text|send|buy|book|finish|upload|post|record|edit|write|schedule|pay|review|"
+                  r"reply|follow up|fix|update|submit|order|prepare|plan|clean|check|make|create|set up|cancel|renew|pick up)\b(.+)$", re.I)
+
+
+def _rule_based(n):
+    """No AI available: still find checkbox/bullet tasks and any times in them, so nothing is lost."""
+    acts = []
+    for line in n["body"].splitlines():
+        m = TASK_LINE.match(line) or VERB.match(line)
+        if m:
+            text = (m.group(1) if m.re is TASK_LINE else (m.group(1) + m.group(2))).strip(" .")
+            when = ""
+            t = re.search(r"\b(today|tomorrow|tonight|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b[^,.;]*|\b\d{1,2}(?::\d\d)?\s*(?:am|pm)\b", text, re.I)
+            if t:
+                when = t.group(0).strip()
+            acts.append({"task": text, "when": when})
+    first = next((l.strip(" #*-") for l in n["body"].splitlines() if l.strip()), "")
+    return {"title": first[:60], "category": n["category"] or ("To-do" if acts else "Personal"), "tags": [], "summary": "",
+            "topics": [], "actions": acts}
+
+
+def action_added(nid, index, rid):
+    n = get(nid)
+    if not n or index >= len(n["actions"]):
+        return
+    acts = n["actions"]
+    acts[index]["rid"] = rid
+    with _con() as con:
+        con.execute("UPDATE notes SET actions=? WHERE id=?", (json.dumps(acts), nid))
 
 
 def next_pending():

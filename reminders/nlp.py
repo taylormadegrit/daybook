@@ -22,6 +22,38 @@ def _ask_ollama(prompt):
         return json.loads(json.loads(r.read())["response"])
 
 
+def _ask_claude(prompt):
+    """Claude Code CLI (if installed and signed in) as a fallback when Ollama isn't running."""
+    import subprocess
+    from .chat import claude_cli
+    exe = claude_cli()
+    if not exe:
+        raise RuntimeError("Claude isn't installed")
+    r = subprocess.run([exe, "-p", prompt + "\n\nReply with the JSON object only.", "--model", "haiku", "--output-format", "text",
+                        "--disallowedTools", "Bash", "Edit", "Write", "WebFetch", "WebSearch"],
+                       capture_output=True, text=True, encoding="utf-8", timeout=150, creationflags=0x08000000)
+    m = re.search(r"\{.*\}", r.stdout, re.S)
+    if not m:
+        raise RuntimeError("Claude gave no JSON")
+    return json.loads(m.group(0))
+
+
+def ask_json(prompt):
+    """Ask the local model for JSON; if Ollama isn't running, ask Claude; raises if neither works."""
+    from .chat import _ollama_up
+    errors = []
+    if _ollama_up():
+        try:
+            return _ask_ollama(prompt)
+        except Exception as e:
+            errors.append(f"Ollama: {e}")
+    try:
+        return _ask_claude(prompt)
+    except Exception as e:
+        errors.append(f"Claude: {e}")
+    raise RuntimeError("; ".join(errors) or "No AI available")
+
+
 HAS_TIME = re.compile(r"\d\s*(am|pm)\b|\d:\d\d|\bnoon\b|\bmidnight\b|\bminutes?\b|\bmins?\b|\bhours?\b|\bhrs?\b", re.I)
 ALIASES = [(r"\btonight\b", "today 8pm"), (r"\bthis evening\b", "today 6pm"), (r"\bthis morning\b", "today 9am"),
            (r"\bthis afternoon\b", "today 2pm"), (r"\bmorning\b", "9am"), (r"\bevening\b", "6pm"),

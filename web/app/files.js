@@ -15,7 +15,11 @@ function fdSave() {
 }
 function fdPane(id) { return FD.panes.find(p => p.id === id); }
 async function renderFolders(refresh) {
-  if (!FD.data || refresh) FD.data = await api("/api/folders");
+  if (!FD.data || refresh) {
+    if (!FD.data && !$("#fh")) $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div><div class="empty" style="padding-top:8vh"><span class="spin"></span> Opening your folders…</div>`;
+    try { FD.data = await api("/api/folders"); } catch (e) { $("#lp").innerHTML = `<div class="lp-top">${lpTabs()}</div><div class="empty"><b>Couldn't load folders</b>${esc(e.message)} <button class="btn sm" onclick="renderFolders(true)">Try again</button></div>`; return; }
+    if (S.view !== "launchpad" || LP.view !== "folders") return;  // you moved on while it loaded
+  }
   if (window.desktop && !BD.win) try { BD.win = await desktop.info(); } catch (e) {}
   if (!FD.panes.length) {  // restore last session, or a pane passed in the address (#launchpad/folders/<path>)
     const pass = decodeURIComponent(location.hash.split("/")[2] || "");
