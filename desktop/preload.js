@@ -26,5 +26,6 @@ contextBridge.exposeInMainWorld("desktop", {
     onUpdate: fn => ipcRenderer.on("browser:update", (_e, d) => fn(d)),
     onShortcut: fn => ipcRenderer.on("browser:shortcut", (_e, d) => fn(d)),
     adblock: on => ipcRenderer.invoke("browser:adblock", on),        // no argument = just read the state
+    toNote: id => ipcRenderer.invoke("browser:toNote", id),            // page text → new note → {id,title} or {error}
   },
 });

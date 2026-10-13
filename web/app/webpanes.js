@@ -133,10 +133,10 @@ function bdPaint() {
       el.innerHTML = `<div class="bd-ph">
         <button class="iconbtn" data-a="back" title="Back (Alt+←)">${ic("left")}</button><button class="iconbtn" data-a="forward" title="Forward (Alt+→)">${ic("right")}</button>
         <button class="iconbtn" data-a="reload" title="Reload (Ctrl+R)">${ic("rep")}</button>
-        <input class="bd-url" spellcheck="false" placeholder="Search or type a web address"><button class="iconbtn bd-star" data-a="save" title="Save to your Library (Ctrl+D)">☆</button><span class="bd-pbadge"></span>
+        <input class="bd-url" spellcheck="false" placeholder="Search or type a web address"><button class="iconbtn bd-star" data-a="save" title="Save to your Library (Ctrl+D)">☆</button><button class="iconbtn" data-a="tonote" title="Send this page to Daybook as a note (e.g. an AI chat)">${ic("note")}</button><span class="bd-pbadge"></span>
         <button class="iconbtn" data-a="mute" title="Mute / unmute">🔈</button><button class="iconbtn" data-a="external" title="Open in your normal browser">${ic("ext")}</button>
         <button class="iconbtn" data-a="close" title="Close (Ctrl+W)">${ic("x")}</button></div><div class="bd-body"></div>`;
-      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : b.dataset.a === "save" ? bdSaveLink(p.id) : desktop.browser.nav(p.id, b.dataset.a));
+      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : b.dataset.a === "save" ? bdSaveLink(p.id) : b.dataset.a === "tonote" ? bdToNote(p.id) : desktop.browser.nav(p.id, b.dataset.a));
       const u = el.querySelector(".bd-url");
       u.onkeydown = e => { if (e.key === "Enter") { const url = bdUrl(u.value); if (url) { desktop.browser.nav(p.id, "go", url); desktop.browser.nav(p.id, "focus"); } } if (e.key === "Escape") u.blur(); };
       u.onfocus = () => setTimeout(() => u.select(), 0);
@@ -164,6 +164,12 @@ function bdPaint() {
       <div class="row" style="justify-content:center;margin-top:14px;gap:8px">${webProfiles().map(p => `<button class="btn" onclick="bdNew('${p.id}')"><span class="bd-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`).join("")}
       <button class="btn ghost" onclick="bdNew('personal','https://www.youtube.com')">YouTube</button><button class="btn ghost" onclick="bdNew('personal','https://mail.google.com')">Gmail</button></div></div>`;
   bdSync();
+}
+async function bdToNote(id) {
+  toast("Saving this page as a note…");
+  const r = await desktop.browser.toNote(id);
+  if (!r || r.error) return toast((r && r.error) || "Couldn't save the page");
+  toast(`Saved “${r.title}” to Notes (${Math.round(r.chars / 1000) || 1}k characters) — the AI will tag it`);
 }
 async function bdAdblock(toggle) {
   if (!desktop.browser.adblock) return;

@@ -380,7 +380,8 @@ function openPane(profile, url, owner) {
              {label: `Search Google for “${q.length > 30 ? q.slice(0, 30) + "…" : q}”`, click: () => openPane(profile, "https://www.google.com/search?q=" + encodeURIComponent(q), owner)},
              {label: "Save to a new Daybook note", click: () => post("/api/notes", {title: (wc.getTitle() || "Web clip").slice(0, 80), body: q + "\n\nFrom: " + wc.getURL()}).then(() => sendPanes(owner, {toast: "Saved to Notes"}))}); sep();
     }
-    if (/^https?:/.test(wc.getURL())) t.push({label: "Save this page to Daybook Library", accelerator: "Ctrl+D", click: () => saveLink(wc.getURL(), wc.getTitle())}, {type: "separator"});
+    if (/^https?:/.test(wc.getURL())) t.push({label: "Save this page to Daybook Library", accelerator: "Ctrl+D", click: () => saveLink(wc.getURL(), wc.getTitle())},
+      {label: "Send page to Daybook as a note", click: () => pageToNote(id).then(r => sendPanes(owner, {toast: r && r.id ? `Saved “${r.title || "page"}” to Notes` : (r && r.error) || "Couldn't save"}))}, {type: "separator"});
     t.push({label: "Back", enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack()},
            {label: "Forward", enabled: wc.navigationHistory.canGoForward(), click: () => wc.navigationHistory.goForward()},
            {label: "Reload", click: () => wc.reload()}, {type: "separator"},
@@ -395,6 +396,25 @@ function openPane(profile, url, owner) {
   sendPanes(owner, {focus: id});
   return id;
 }
+// ---- Send tab to Daybook: the page's readable text (an AI chat's conversation, an article…) as a new note ----
+const PAGE_TEXT_JS = `(() => {
+  const pick = sel => { for (const s of sel) { const el = document.querySelector(s); if (el && el.innerText && el.innerText.trim().length > 200) return el; } return null; };
+  // chat apps put the conversation in <main>; articles in <article>; otherwise the whole page
+  const el = pick(["main [data-testid*=conversation]", "main", "article", "[role=main]"]) || document.body;
+  const text = (el.innerText || "").replace(/\\n{3,}/g, "\\n\\n").trim();
+  return {title: document.title || location.hostname, url: location.href, text: text.slice(0, 200000)};
+})()`;
+async function pageToNote(id) {
+  const p = panes.get(id); if (!p) return null;
+  let d;
+  try { d = await p.view.webContents.executeJavaScript(PAGE_TEXT_JS, true); } catch (e) { return {error: "Couldn't read this page"}; }
+  if (!d || !d.text) return {error: "This page has no text to save"};
+  const when = new Date().toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+  const note = await postJson("/api/notes", {title: d.title.replace(/ [-|–] (Claude|ChatGPT|Gemini|YouTube)$/i, "").slice(0, 100), body: `From: ${d.url}\nSaved: ${when}\n\n${d.text}`});
+  return note && note.id ? {id: note.id, title: note.title, chars: d.text.length} : {error: "Daybook's service didn't answer"};
+}
+ipcMain.handle("browser:toNote", (_e, id) => pageToNote(id));
+
 function closePane(id) {
   const p = panes.get(id); if (!p) return;
   if (!p.owner.isDestroyed()) p.owner.contentView.removeChildView(p.view);
