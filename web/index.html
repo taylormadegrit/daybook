@@ -143,7 +143,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .rem .acts{display:flex;gap:4px}
 .grouph{font-size:11.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:18px 2px 4px}
 /* ---------- notes ---------- */
-.notes{display:grid;grid-template-columns:220px 330px minmax(0,1fr);gap:14px;height:calc(100vh - 120px)}
+.notes{display:grid;grid-template-columns:220px 330px minmax(0,1fr);gap:14px;height:calc(100vh - var(--navh, 0px) - 120px)}
 .ncol{overflow:auto;min-height:0}
 .cat{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;cursor:pointer;color:var(--fg2);font-size:13.5px}
 .cat:hover{background:var(--card)}.cat.on{background:var(--card2);color:var(--fg)}
@@ -165,7 +165,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .tpl{padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer}
 .tpl:hover{border-color:color-mix(in srgb,var(--a1) 55%,transparent)}.tpl b{display:block;margin-bottom:3px}.tpl span{font-size:12.5px;color:var(--muted)}
 /* ---------- chat ---------- */
-.chatwrap{display:grid;grid-template-columns:250px 1fr;height:calc(100vh - 69px)}
+.chatwrap{display:grid;grid-template-columns:250px 1fr;height:calc(100vh - var(--navh, 0px) - 69px)}
 .clist{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:12px 10px}
 .clist .items{overflow:auto;flex:1;margin-top:8px}
 .ci{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:9px;color:var(--fg2);cursor:pointer;font-size:13.5px}
@@ -345,6 +345,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="brand"><img src="/brand/icon-64.png" alt="" class="logo"><div>Daybook<small>Local AI Hub</small></div></div>
     <div class="navi" data-v="today"><svg class="i" data-i="home"></svg>Today<span class="k">Alt 1</span></div>
     <div class="navi" data-v="launchpad"><svg class="i" data-i="grid"></svg>Launchpad<span class="k">Alt L</span></div>
+    <div class="navi" data-v="browser"><svg class="i" data-i="globe"></svg>Browser<span class="k">Alt B</span></div>
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
@@ -363,6 +364,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="st" id="st-org" style="display:none"><i></i><span></span></div>
       <div class="muted small" id="ver"></div>
       <div class="seg sm lay-pick" title="Layout: how much Daybook shows"><button data-m="simple" onclick="pickLayout('simple', false)">Simple</button><button data-m="balanced" onclick="pickLayout('balanced', false)">Balanced</button><button data-m="power" onclick="pickLayout('power', false)">Power</button></div>
+      <button class="navcollapse" title="Reorder pages, move the sidebar to any side" onclick="sidebarModal()"><svg class="i sm" data-i="sidebar"></svg>Customize sidebar</button>
       <button class="navcollapse" title="Collapse / expand the sidebar (Ctrl B)" onclick="setSlim(!$('.app').classList.contains('slim'))"><svg class="i sm" data-i="left"></svg>Collapse sidebar</button>
     </div>
   </nav>
@@ -498,6 +500,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     </section>
 
     <!-- DESKTOP -->
+    <!-- BROWSER (docked windows) -->
+    <section class="view" id="v-browser"></section>
+
     <!-- AI STUDIO -->
     <section class="view" id="v-studio"><div class="pad" style="max-width:1500px"><div id="studio"></div></div></section>
 
@@ -615,6 +620,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/games.js"></script>
 <script src="/app/discord.js"></script>
 <script src="/app/studio.js"></script>
+<script src="/app/browser.js"></script>
 <script>
 // ================= utilities =================
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -679,7 +685,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {browser: ["Browser", "Your real browser profiles, docked inside Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -693,8 +699,8 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
-  applyScene();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  applyScene(); dockSync();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
 setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
@@ -784,6 +790,10 @@ function refresh() { ({today: renderToday, calendar: renderCalendar, reminders: 
 
 // ================= CALENDAR =================
 function shiftWeek(n) { S.weekOffset += n; renderCalendar(); }
+function rangeShort(due, ends) { // "3:00–3:30 AM" instead of "3:00 AM–3:30 AM"
+  const a = tm(due); if (!ends) return a; const b = hm(ends), pa = a.slice(-2), pb = b.slice(-2);
+  return pa === pb ? a.slice(0, -3) + "–" + b : a + "–" + b;
+}
 async function renderCalendar() {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const start = new Date(t); start.setDate(t.getDate() - ((t.getDay() + 6) % 7) + S.weekOffset * 7);
@@ -794,7 +804,7 @@ async function renderCalendar() {
     const dd = new Date(d.date + "T12:00"), today = d.date === isoDay(new Date());
     return `<div class="wd ${today ? "today" : ""}"><div class="wdh" onclick="openDay('${d.date}')"><span class="dn">${dd.toLocaleDateString([], {weekday: "short"})}</span><span class="dd">${dd.getDate()}</span>
       <button class="iconbtn" title="Add" onclick="event.stopPropagation();reminderModal({date:'${d.date}'})">${ic("plus")}</button></div>
-      <div class="wdb">${d.items.map(x => `<div class="ev ${x.priority ? "imp" : x.repeat ? "rep" : ""}" onclick="editReminder(${x.id})"><div class="et">${tm(x.due)}${x.ends ? "–" + hm(x.ends) : ""}</div>${esc(x.text)}</div>`).join("")
+      <div class="wdb">${d.items.map(x => `<div class="ev ${x.priority ? "imp" : x.repeat ? "rep" : ""}" onclick="editReminder(${x.id})"><div class="et">${rangeShort(x.due, x.ends)}</div>${esc(x.text)}</div>`).join("")
         || `<div class="muted small" style="padding:6px 4px">—</div>`}${d.log ? `<div class="muted small" style="padding:4px">${ic("pen")} log</div>` : ""}</div></div>`;
   }).join("");
 }
@@ -1281,6 +1291,8 @@ async function reorgAll() { const j = await api("/api/notes/reorganize-all", {me
 const HELP = [
   ["home", "Your home page", `<p><b>Edit home</b> (top of Today) makes the widgets wiggle: drag them to move, ⤢ to make one full width, ✕ to remove, and <b>＋ Add widget</b> for more — timers, stopwatch, alarms, world clock, voice memos, recent notes, ambience, breathe and more. <b>Customize</b> picks an animated background (fireplace, rainy window, firefly forest, ocean sunset, starry night, snowfall, spring meadow) with matching ambient sound, or your own picture or video. Click an empty part of the background — the scenes react.</p>`],
   ["launchpad", "Launchpad — browsers, accounts & apps", `<p><b>Launchpad</b> (<span class="kb">Alt L</span>) shows every browser profile on this PC — Chrome, Edge, Brave, Comet, Firefox and more — with the account signed in to it, plus your pinned apps. Hover or use the arrow keys to look, click or Enter to open. Each profile has one-click links (Gmail, YouTube Studio, Drive…) that open <b>in that profile</b>, or type any site. <b>All apps</b> lists everything installed; ☆ pins it. Daybook only reads profile names and pictures — never passwords, cookies or history.</p>`],
+  ["browser", "Browser — your profiles inside Daybook", `<p><b>Browser</b> (<span class="kb">Alt B</span>) docks real browser windows inside Daybook — the same Chrome, Edge, Brave or Comet with your profiles, tabs, extensions and logins. Press <b>Open profile</b> (or a profile on the Launchpad) and it slides into place; open more and they split the space evenly. Pick <b>Columns, Rows, Grid</b> or <b>Focus</b> (one big + the rest stacked). <b>Dock a window</b> pulls in a browser window you already have open; the ↗ button gives one back to the desktop. Docked windows move and minimize with Daybook and tuck away when you switch pages.</p>`],
+  ["sidebar", "Customize the sidebar", `<p>Press <b>Customize sidebar</b> (bottom of the sidebar, or Settings → Layout): drag pages into any order, switch pages on or off, and put the bar on the <b>left, right, top or bottom</b>. Alt + number shortcuts follow your order.</p>`],
   ["studio", "AI Studio", `<p><b>AI Studio</b> (<span class="kb">Alt I</span>) uses the AI models already on this PC. <b>Images</b>: describe it, pick a style (Photo, Thumbnail, Anime, Logo…) and a shape, press Create — SDXL-Turbo makes it on your graphics card in seconds, free and private. <b>My voice</b>: type text and it's spoken in a cloned voice (the XTTS model from your Ori Brazil project) using one of your voice samples or any voice memo. Chat and Models are one click away. Everything saves to <code>D:\\Daybook\\Creations</code>; the GPU is freed after 10 idle minutes.</p>`],
   ["games", "Games", `<p>Launchpad → <b>Games</b> shows every installed Steam and Epic game with its cover art. Play launches it through Steam or Epic with your account. Offline: Steam → <i>Go Offline…</i> once while online; Epic remembers games you've launched online; “Play offline (direct)” starts an Epic game's own .exe. <b>Free & open-source games</b> download from each project's official GitHub releases into <code>D:\\Games\\Daybook</code> — one click to download, one to play.</p>`],
   ["folders", "Folders & workflows", `<p>Launchpad → <b>Folders</b>: pin the folders you open every day (the Windows picker or one-click suggestions), browse them right inside Daybook, open or reveal files, and send any file to Discord. <b>Workflows</b> open a whole set at once — e.g. “Editing” = your recordings folder + CapCut + YouTube Studio in the right Chrome profile.</p>`],
@@ -1358,6 +1370,7 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
   ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
   ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
+  ["Go to Browser", "globe", () => go("browser")], ["Customize sidebar", "sidebar", () => sidebarModal()], ["Move sidebar to the top", "sidebar", () => saveLayoutCfg({navPos: "top"})], ["Move sidebar to the left", "sidebar", () => saveLayoutCfg({navPos: "left"})],
   ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
   ["Games library", "play", () => go("launchpad", "games")], ["Free games", "play", () => go("launchpad", "games")], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
   ["Simple layout", "grid", () => pickLayout("simple")], ["Balanced layout", "grid", () => pickLayout("balanced")], ["Power user layout", "grid", () => pickLayout("power")], ["Layout settings", "sliders", () => go("settings")],
@@ -1401,6 +1414,7 @@ document.addEventListener("keydown", e => {
   if (lpKeys(e)) { e.preventDefault(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); go("launchpad"); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "i") { e.preventDefault(); go("studio"); return; }
+  if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); go("browser"); return; }
   if (e.key === "Escape") { if (V.mode === "dict") { dictateStop(true); return; } if (H.editing && !$("#scrim").classList.contains("on")) { homeEdit(false); return; } closeModal(); closeMenu(); return; }
   if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === "m") { e.preventDefault(); V.mode === "dict" ? dictateStop() : dictate(typing ? document.activeElement : null); return; }
   if (e.ctrlKey && e.key === ".") { e.preventDefault(); if (S.view !== "notes") go("notes"); focusMode(); return; }
@@ -1409,7 +1423,7 @@ document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "s" && S.view === "notes" && S.cur) { e.preventDefault(); saveNote(); return; }
   if (e.altKey && !e.ctrlKey && /^[swp]$/i.test(e.key)) { e.preventDefault(); ({s: newSticky, w: peekStickies, p: annotateNow})[e.key.toLowerCase()](); return; }
-  if (e.altKey && /^[0-9]$/.test(e.key)) { e.preventDefault(); go(["settings", "today", "calendar", "reminders", "notes", "memos", "clock", "desktop", "chat", "models"][+e.key]); return; }
+  if (e.altKey && /^[0-9]$/.test(e.key)) { e.preventDefault(); const keys = NAV_KEYS || ["today", "calendar", "reminders", "notes", "memos", "clock", "desktop", "chat", "models"]; go(e.key === "0" ? "settings" : keys[+e.key - 1] || "today"); return; }
   if (!typing && e.key === "?") go("help");
 });
 async function pollStatus() {
@@ -1425,7 +1439,7 @@ setInterval(() => { if (document.visibilityState === "visible") { pollStatus(); 
 
 window.addEventListener("hashchange", () => { const [v, sub] = location.hash.slice(1).split("/"); if (v !== S.view || sub) { go(v, sub); if (v === "notes" && sub) openNote(+sub); } });
 (async function boot() {
-  paintIcons(); trackFields(); sceneInit();
+  paintIcons(); trackFields(); sceneInit(); dockInit();
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);

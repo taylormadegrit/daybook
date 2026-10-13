@@ -118,5 +118,8 @@ from reminders import memos, stt  # noqa: E402
 
 memos.start_worker()  # transcribes voice memos in the background
 stt.preload()  # warm the speech model so dictation is quick
+from reminders import dock  # noqa: E402
+
+dock.start()  # keeps docked browser windows tiled inside the Daybook window
 root.after(1000, poll)
 root.mainloop()

@@ -55,7 +55,7 @@ async function gamesWidget() {
   const el = $("#w-games"); if (!el) return;
   if (!GM.data) GM.data = await api("/api/games");
   const list = (GM.data.owned.filter(g => g.last).length ? GM.data.owned.filter(g => g.last) : GM.data.owned).slice(0, 6);
-  el.innerHTML = `<div class="gm-mini">${list.map(g => `<button class="gtile sm" title="Play ${esc(g.name)}" onclick="gmPlay('${g.id}')"><img src="/game-art/${g.id}" alt="" loading="lazy"><span class="lbl">${esc(g.name)}</span></button>`).join("")}</div>`;
+  el.innerHTML = `<div class="gm-mini">${list.map(g => `<button class="gtile sm" title="Play ${esc(g.name)}" onclick="gmPlay('${g.id}')"><img src="/game-art/${g.id}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'gini',textContent:${JSON.stringify(g.name.slice(0, 2)).replace(/"/g, "&quot;")}}))"><span class="lbl">${esc(g.name)}</span></button>`).join("")}</div>`;
 }
 
 // ================= FOLDERS (Launchpad tab): pinned folders, in-app browser, workflows =================

@@ -28,21 +28,29 @@ OUT = Path(os.environ.get("DAYBOOK_CREATIONS", r"D:\Daybook\Creations"))
 IDLE_S = 600
 
 
-def pick_device():
-    """The GPU with the most free memory (keeps the busy card free for games/other work)."""
+def pick_device(fast_fp16=False):
+    """The GPU with the most free memory. For half-precision models (SDXL) only cards that are fast at it
+    (RTX / compute 7.0+) count — a GTX 10-series card would be many times slower."""
     if not torch.cuda.is_available():
         return "cpu"
-    best = max(range(torch.cuda.device_count()), key=lambda i: torch.cuda.mem_get_info(i)[0])
+    cands = [i for i in range(torch.cuda.device_count()) if not fast_fp16 or torch.cuda.get_device_capability(i)[0] >= 7]
+    cands = cands or list(range(torch.cuda.device_count()))
+    best = max(cands, key=lambda i: torch.cuda.mem_get_info(i)[0])
     return f"cuda:{best}"
 
 
 def image_pipe():
     if "img" not in MODELS:
         from diffusers import AutoPipelineForText2Image
-        dev = pick_device()
+        dev = pick_device(fast_fp16=True)
         pipe = AutoPipelineForText2Image.from_pretrained(str(SDXL), torch_dtype=torch.float16 if dev != "cpu" else torch.float32,
                                                          variant="fp16", use_safetensors=True)
-        pipe.to(dev)
+        free = torch.cuda.mem_get_info(int(dev.split(":")[1]))[0] / 2**30 if dev != "cpu" else 0
+        if dev != "cpu" and free < 9:  # card is shared with other apps → keep only the active part on the GPU
+            pipe.enable_model_cpu_offload(gpu_id=int(dev.split(":")[1]))
+            dev += " (low-memory mode)"
+        else:
+            pipe.to(dev)
         pipe.set_progress_bar_config(disable=True)
         try:
             pipe.enable_vae_slicing()
@@ -96,7 +104,7 @@ def image():
     with LOCK:
         LAST["t"] = time.time()
         pipe = image_pipe()
-        gen = torch.Generator(device=MODELS["img_dev"]).manual_seed(seed)
+        gen = torch.Generator(device="cpu").manual_seed(seed)
         t0 = time.time()
         imgs = pipe(prompt=prompt, negative_prompt=j.get("negative") or None, num_inference_steps=steps, guidance_scale=0.0,
                     width=w, height=h, num_images_per_prompt=n, generator=gen).images

@@ -25,8 +25,27 @@ def find_window():
     return found[0] if found else None
 
 
+def fit_to_screen(h):
+    """Keep the whole window on its monitor (a remembered size can be taller than the screen)."""
+    u = ctypes.windll.user32
+
+    class MI(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT), ("flags", wintypes.DWORD)]
+    if u.IsZoomed(h):
+        return
+    mi = MI(); mi.cb = ctypes.sizeof(MI)
+    u.GetMonitorInfoW(u.MonitorFromWindow(h, 2), ctypes.byref(mi))
+    r = wintypes.RECT(); u.GetWindowRect(h, ctypes.byref(r))
+    wk = mi.rcWork
+    w, ht = min(r.right - r.left, wk.right - wk.left), min(r.bottom - r.top, wk.bottom - wk.top)
+    x, y = min(max(r.left, wk.left), wk.right - w), min(max(r.top, wk.top), wk.bottom - ht)
+    if (x, y, w, ht) != (r.left, r.top, r.right - r.left, r.bottom - r.top):
+        u.SetWindowPos(h, None, x, y, w, ht, 0x0004 | 0x0010)
+
+
 def raise_window(h):
     u = ctypes.windll.user32
+    fit_to_screen(h)
     u.ShowWindow(h, 9)  # SW_RESTORE
     u.SetWindowPos(h, -1, 0, 0, 0, 0, 0x0003)  # pop over everything once...
     u.SetWindowPos(h, -2, 0, 0, 0, 0, 0x0003)  # ...then back to normal

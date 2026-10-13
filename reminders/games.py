@@ -216,15 +216,30 @@ def _java():
     raise RuntimeError("This game needs Java — install it from adoptium.net")
 
 
+def _installed_shortcut(g):
+    from . import launchpad
+    key = re.sub(r"[^a-z0-9]", "", g["name"].lower())[:8]
+    stale = not launchpad.APPS_CACHE.exists() or time.time() - launchpad.APPS_CACHE.stat().st_mtime > 60
+    for a in launchpad.scan_apps(force=stale):
+        if key and key in a["id"] and not re.search(r"unins|setup|readme|server|editor", a["name"], re.I):
+            return a["lnk"]
+    return None
+
+
 def library():
     st = _state()
     free = []
+    changed = False
     for g in CATALOG:
         e = st.get(g["id"])
-        if e and e.get("installer") and not e.get("exe"):  # installer-based: look for what it installed
-            e["exe"] = None
+        if e and e.get("installer") and not e.get("exe"):  # installer-based: find the shortcut it created
+            lnk = _installed_shortcut(g)
+            if lnk:
+                e["exe"], changed = lnk, True
         free.append({**g, "installed": bool(e), "exe": (e or {}).get("exe"), "installer": (e or {}).get("installer"),
                      "version": (e or {}).get("version"), "job": JOBS.get(g["id"])})
+    if changed:
+        _save_state(st)
     return free
 
 
@@ -267,7 +282,9 @@ def g_action(gid, action):
                     os.startfile(g["uri"])
             else:
                 e = _state().get(gid) or {}
-                if e.get("exe") and os.path.exists(e["exe"]):
+                if e.get("exe", "").endswith(".lnk") and os.path.exists(e["exe"]):
+                    os.startfile(e["exe"])  # installed with its own installer → its Start Menu shortcut
+                elif e.get("exe") and os.path.exists(e["exe"]):
                     cmd = [_java(), "-jar", e["exe"]] if e["exe"].endswith(".jar") else [e["exe"]]
                     subprocess.Popen(cmd, cwd=os.path.dirname(e["exe"]), creationflags=0x00000008)
                 elif e.get("installer") and os.path.exists(e["installer"]):

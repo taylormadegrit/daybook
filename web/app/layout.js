@@ -1,23 +1,31 @@
 // ================= LAYOUT: Simple · Balanced · Power, or fully custom =================
-const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"],
+const NAV_PAGES = [["today", "Today"], ["launchpad", "Launchpad"], ["browser", "Browser"], ["calendar", "Calendar"], ["reminders", "Reminders"], ["notes", "Notes"], ["memos", "Voice & video"], ["studio", "AI Studio"],
   ["clock", "Clock"], ["desktop", "Desktop"], ["chat", "Chat"], ["models", "Models"]];
 const PRESETS_LAYOUT = {
-  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,
+  simple: {name: "Simple", desc: "Just the essentials — big, calm, no shortcuts to learn", nav: ["today", "launchpad", "browser", "notes", "memos", "studio", "clock"], density: "comfy", hints: false, quick: false, status: false,
     widgets: ["nownext", "schedule", "timers", "log"]},
   balanced: {name: "Balanced", desc: "Everything, with room to breathe (default)", nav: NAV_PAGES.map(p => p[0]), density: "normal", hints: true, quick: true, status: true,
     widgets: ["nownext", "schedule", "log", "timers", "stickies", "alarms", "upnext", "ambience"]},
   power: {name: "Power", desc: "Dense, every page and shortcut, more widgets", nav: NAV_PAGES.map(p => p[0]), density: "compact", hints: true, quick: true, status: true,
     widgets: ["nownext", "schedule", "launchpad", "timers", "log", "studio", "games", "folders", "stopwatch", "alarms", "world", "memos", "notes", "upnext", "stickies"]},
 };
-function layoutCfg() { let l = {}; try { l = JSON.parse(S.settings.layout || "{}"); } catch (e) {} return {...PRESETS_LAYOUT.balanced, mode: "balanced", start: "today", ...l}; }
+function layoutCfg() {
+  let l = {}; try { l = JSON.parse(S.settings.layout || "{}"); } catch (e) {}
+  const c = {...PRESETS_LAYOUT.balanced, mode: "balanced", start: "today", ...l};
+  // pages added in newer versions show up unless you've hidden them yourself
+  const known = l.navKnown || NAV_PAGES.map(p => p[0]).filter(v => !["browser", "studio"].includes(v));
+  c.nav = [...new Set([...c.nav, ...NAV_PAGES.map(p => p[0]).filter(v => !known.includes(v))])];
+  return c;
+}
 function applyLayout() {
   const l = layoutCfg(), b = document.body;
   b.classList.toggle("lay-compact", l.density === "compact"); b.classList.toggle("lay-comfy", l.density === "comfy");
   b.classList.toggle("lay-nohints", !l.hints); b.classList.toggle("lay-noquick", !l.quick); b.classList.toggle("lay-nostatus", !l.status);
   $$(".navi").forEach(n => { const v = n.dataset.v; if (v === "settings" || v === "help") return; n.style.display = l.nav.includes(v) ? "" : "none"; });
   $$(".lay-pick button").forEach(x => x.classList.toggle("on", x.dataset.m === l.mode));
+  applyNavLayout();
 }
-async function saveLayoutCfg(patch) { const l = {...layoutCfg(), ...patch}; S.settings = await api("/api/settings", {method: "PATCH", body: {layout: JSON.stringify(l)}}); applyLayout(); return l; }
+async function saveLayoutCfg(patch) { const l = {...layoutCfg(), ...patch, navKnown: NAV_PAGES.map(p => p[0])}; S.settings = await api("/api/settings", {method: "PATCH", body: {layout: JSON.stringify(l)}}); applyLayout(); return l; }
 async function pickLayout(mode, withWidgets = true) {
   const p = PRESETS_LAYOUT[mode]; const {name, desc, widgets, ...rest} = p;
   await saveLayoutCfg({...rest, mode});
@@ -32,6 +40,7 @@ function renderLayoutSettings() {
       <div class="lay-pv ${k}"><i></i><b></b><b></b><b></b>${k === "power" ? "<b></b><b></b>" : ""}</div><b>${p.name}</b><span>${p.desc}</span></div>`).join("")}</div>
     <label class="small muted" style="display:flex;gap:8px;align-items:center;margin:8px 0 14px"><input type="checkbox" id="lay-w" checked> Also set my home widgets for that layout</label>
     <div class="grouph">Fine-tune</div>
+    <div class="srow"><div class="d"><b>Sidebar order & position</b><span>Drag pages into your order · put the bar left, right, top or bottom</span></div><button class="btn" onclick="sidebarModal()">${ic("sidebar")}Customize sidebar</button></div>
     <div class="srow"><div class="d"><b>Sidebar pages</b><span>Hide the pages you don't use</span></div><div class="row" style="gap:6px;max-width:520px;justify-content:flex-end">
       ${NAV_PAGES.map(([v, n]) => `<button class="chipb ${l.nav.includes(v) ? "on" : ""}" onclick="layNav('${v}')">${n}</button>`).join("")}</div></div>
     <div class="srow"><div class="d"><b>Density</b><span>How much fits on screen</span></div><div class="seg">${[["comfy", "Roomy"], ["normal", "Normal"], ["compact", "Compact"]].map(([k, n]) => `<button class="${l.density === k ? "on" : ""}" onclick="saveLayoutCfg({density:'${k}',mode:'custom'}).then(renderLayoutSettings)">${n}</button>`).join("")}</div></div>

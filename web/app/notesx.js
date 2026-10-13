@@ -59,7 +59,9 @@ function notesPanels() {
   n.classList.toggle("nf", !NP.f); n.classList.toggle("nl", !NP.l);
   $$(".np-f").forEach(b => b.classList.toggle("on", NP.f)); $$(".np-l").forEach(b => b.classList.toggle("on", NP.l));
 }
-function togglePanel(k) { NP[k] = !NP[k]; store.set("daybook-np-" + k, NP[k] ? "1" : "0"); notesPanels(); }
+function togglePanel(k) {
+  if (k === "f" && innerWidth <= 1150) { const n = $("#v-notes .notes"); n && n.classList.toggle("fopen"); return; }  // narrow window: filters slide over
+  NP[k] = !NP[k]; store.set("daybook-np-" + k, NP[k] ? "1" : "0"); notesPanels(); }
 function focusMode() { // hide filters + list + the main sidebar → the editor gets the whole window
   const on = NP.f || NP.l || !$(".app").classList.contains("slim");
   NP.f = NP.l = !on; store.set("daybook-np-f", NP.f ? "1" : "0"); store.set("daybook-np-l", NP.l ? "1" : "0");

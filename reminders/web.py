@@ -37,12 +37,15 @@ app.register_blueprint(folders_bp)
 from .studio import bp as studio_bp  # noqa: E402
 
 app.register_blueprint(studio_bp)
+from .dock import bp as dock_bp  # noqa: E402
+
+app.register_blueprint(dock_bp)
 BG_DIR = Path(__file__).resolve().parent.parent / "data" / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.0"
+VERSION = "1.5"
 
 
 @app.get("/chat")

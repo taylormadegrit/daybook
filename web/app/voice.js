@@ -157,7 +157,7 @@ async function renderMemos() {
   const qs = new URLSearchParams({q: ($("#mq") || {}).value || "", label: M.label, kind: M.kind});
   $("#mkinds").innerHTML = [["", "All"], ["audio", "Voice"], ["video", "Video"]].map(([k, l]) => `<button class="${M.kind === k ? "on" : ""}" onclick="M.kind='${k}';renderMemos()">${l}</button>`).join("");
   const j = await api("/api/memos?" + qs); M.items = j.items; M.labels = j.labels; M.suggested = j.suggested;
-  $("#mlabels").innerHTML = `<span class="tag ${!M.label ? "on" : ""}" onclick="M.label='';renderMemos()">All</span>` +
+  $("#mlabels").innerHTML = (j.labels.length ? `<span class="tag ${!M.label ? "on" : ""}" onclick="M.label='';renderMemos()">All labels</span>` : "") +
     j.labels.map(([l, n]) => `<span class="tag ${M.label === l ? "on" : ""}" onclick="M.label=M.label==='${esc(l)}'?'':'${esc(l)}';renderMemos()">${esc(l)} · ${n}</span>`).join("");
   let month = "";
   $("#mlist").innerHTML = j.items.length ? j.items.map(m => {

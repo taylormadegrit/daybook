@@ -122,6 +122,15 @@ def gemini_image(prompt):
     return files
 
 
+def _werr(e):
+    """Readable message from an AI-worker HTTP error (JSON or an HTML traceback page)."""
+    raw = e.read() or b""
+    try:
+        return json.loads(raw).get("error", f"AI worker error {e.code}")
+    except Exception:
+        return f"AI worker error {e.code} — details in data/ai_worker.log"
+
+
 def _user_env(name):
     try:
         import winreg
@@ -153,7 +162,7 @@ def st_image():
                               "seed": j.get("seed")})
         return jsonify(res)
     except urllib.error.HTTPError as e:
-        return jsonify(error=json.loads(e.read() or b"{}").get("error", f"AI worker error {e.code}")), 400
+        return jsonify(error=_werr(e)), 400
     except Exception as e:
         return jsonify(error=str(e)[:300]), 400
 
@@ -165,7 +174,7 @@ def st_tts():
         ensure_worker()
         return jsonify(_req("/tts", {"text": j.get("text", ""), "voice": j.get("voice", ""), "language": j.get("language", "en")}))
     except urllib.error.HTTPError as e:
-        return jsonify(error=json.loads(e.read() or b"{}").get("error", f"AI worker error {e.code}")), 400
+        return jsonify(error=_werr(e)), 400
     except Exception as e:
         return jsonify(error=str(e)[:300]), 400
 
