@@ -727,3 +727,6 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 
 /* Notes: no leftover gaps when both side panels are hidden */
 .notes.np-nf.np-nl{column-gap:0}
+/* sidebar: shortcut hints never wrap ("Alt / L"); the Simple/Balanced/Power switch always fits */
+.navi{white-space:nowrap}.navi .k{flex:none;padding-left:8px}
+.lay-pick{display:flex;width:100%;padding:2px}.seg.sm.lay-pick button{flex:1 1 auto;min-width:0;padding:5px 3px;font-size:11px;letter-spacing:-.1px;overflow:hidden;text-overflow:ellipsis}
