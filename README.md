@@ -2,6 +2,20 @@
 
 Everything runs on this PC: SQLite + the local Ollama model (qwen2.5:7b). Nothing goes to the cloud.
 
+## Install on another PC (e.g. a laptop)
+1. Go to this repo's **Releases** and download `Daybook-Setup-<version>.exe`.
+2. Run it. Windows may say *"Windows protected your PC"* (the installer isn't code-signed yet) → **More info → Run anyway**.
+3. Daybook opens and starts with Windows. Your data lives in `%LOCALAPPDATA%\Daybook` on that PC.
+
+Optional extras it detects automatically: **Ollama** (local AI chat + note organizing), **Claude Code** (Claude in chat),
+**Steam / Epic** (games), **Zotero** (sources), **OBS** (video notes). AI Studio images/voice need the GPU setup from the main PC.
+
+## Build the installer
+```
+venv\Scripts\pyinstaller daybook-backend.spec --noconfirm --distpath backend-dist --workpath build
+cd desktop && npx electron-builder --win nsis      # → desktop\dist\Daybook Setup <version>.exe
+```
+
 ## Hotkeys (Start Menu shortcuts)
 | Keys | What |
 |---|---|
