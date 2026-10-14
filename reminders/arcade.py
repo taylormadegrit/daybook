@@ -12,6 +12,17 @@ import sys
 import time
 from pathlib import Path
 
+# Force UTF-8 encoding on standard streams to avoid cp1252 charmap errors
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 # Enable ANSI escape sequences on Windows console
 if os.name == "nt":
     os.system("")
