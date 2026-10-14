@@ -442,7 +442,11 @@ function layoutPanes(owner, l) {
     else { show = !!(visible && r && r.w >= 20 && r.h >= 20); if (show) b = {x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h)}; }
     // only touch the view when something changed — re-showing a page mid-click can swallow the click
     if (b && JSON.stringify(b) !== p._b) { p.view.setBounds(b); p._b = JSON.stringify(b); }
-    if (show !== p._shown) { p.view.setVisible(show); p._shown = show; }
+    if (show !== p._shown) {
+      // a hidden page must not keep the keyboard: hand it back to Daybook's own page (shortcuts, typing in notes…)
+      if (!show && p.view.webContents.isFocused()) owner.webContents.focus();
+      p.view.setVisible(show); p._shown = show;
+    }
   }
 }
 ipcMain.handle("browser:open", (e, {profile, url}) => openPane(profile, url, ownerOf(e)));
