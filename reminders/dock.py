@@ -239,41 +239,36 @@ def _above_set(me):
     return out
 
 
-def _focus_loop():
-    """Clicking inside an embedded Chrome activates the Daybook window, and Daybook then takes the keyboard
-    back for itself a moment later, so typing landed in Chrome only some of the time. After every click
-    inside an embedded Chrome, hand the keyboard to the exact Chrome window under the mouse."""
-    was_down = False
-    pt = wintypes.POINT()
-    u32.WindowFromPoint.argtypes = [wintypes.POINT]
-    u32.WindowFromPoint.restype = wintypes.HWND
-    me_tid = k32.GetCurrentThreadId()
+def _hold_loop():
+    """Keeps docked Chrome windows exactly over Daybook's browser area. They are real windows (so typing, mouse,
+    drag-select and Chrome's own menus work natively); if one gets dragged by its tab strip, maximized or moved,
+    it's put back. Daybook moving is handled by place() being called again from the page."""
+    try:
+        u32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))
+    except Exception:
+        pass
     while True:
-        time.sleep(0.03 if EMB else 0.5)
-        if not EMB:
-            was_down = False
-            continue
+        time.sleep(0.25 if EMB else 1.0)
         try:
-            down = bool(u32.GetAsyncKeyState(0x01) & 0x8000)  # left button
-            if was_down and not down:  # just released
-                u32.GetCursorPos(ctypes.byref(pt))
-                hit = u32.WindowFromPoint(pt)
-                owner = next((hw for hw, e in list(EMB.items()) if e.get("shown") and (hit == hw or u32.IsChild(hw, hit))), None)
-                if owner:
-                    for delay in (0.0, 0.12):  # once now, once after Daybook's own focus handling
-                        time.sleep(delay)
-                        ct = u32.GetWindowThreadProcessId(hit, None)
-                        if ct and ct != me_tid and u32.AttachThreadInput(me_tid, ct, True):
-                            u32.SetFocus(hit)
-                            u32.AttachThreadInput(me_tid, ct, False)
-            was_down = down
+            for hw, e in list(EMB.items()):
+                if u32.IsWindow(hw) and e.get("parent") and not u32.IsWindow(e["parent"]):
+                    release(hw)  # Daybook closed or crashed: give the Chrome window its normal frame and taskbar button back
+                    continue
+                if not e.get("shown") or not e.get("screen") or not u32.IsWindow(hw):
+                    continue
+                if u32.IsZoomed(hw) or u32.IsIconic(hw):
+                    u32.ShowWindow(hw, 9)
+                r = _rect(hw)
+                x, y, w, h = e["screen"]
+                if (r[0], r[1], r[2], r[3]) != (x, y, w, h) and not (u32.GetAsyncKeyState(0x01) & 0x8000):
+                    u32.SetWindowPos(hw, 0, x, y, w, h, 0x0004 | 0x0010)  # NOZORDER | NOACTIVATE
         except Exception:
-            was_down = False
+            pass
 
 
 def start():
     threading.Thread(target=_loop, daemon=True).start()
-    threading.Thread(target=_focus_loop, daemon=True).start()
+    threading.Thread(target=_hold_loop, daemon=True).start()
 
 
 # ---------------- routes ----------------
@@ -359,8 +354,66 @@ def _link_input(child, parent, on=True):
 NORMAL_STYLE = 0x16CF0000  # visible overlapped window with caption, frame, min/max — how browsers start out
 
 
+GWLP_OWNER = -8
+WS_EX_TOOLWINDOW, WS_EX_APPWINDOW = 0x80, 0x40000
+
+
+class _PT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+def _per_monitor(fn):
+    """Run with per-monitor DPI awareness so screen coordinates are real pixels on every monitor."""
+    def wrap(*a, **k):
+        old = None
+        try:
+            old = u32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))
+        except Exception:
+            pass
+        try:
+            return fn(*a, **k)
+        finally:
+            if old:
+                try:
+                    u32.SetThreadDpiAwarenessContext(ctypes.c_void_p(old))
+                except Exception:
+                    pass
+    return wrap
+
+
+def _own(hwnd, me):
+    """Borderless, no taskbar button, owned by the Daybook window (stays above it, hides when it minimizes)."""
+    style, ex = u32.GetWindowLongPtrW(hwnd, -16), u32.GetWindowLongPtrW(hwnd, -20)
+    if u32.GetParent(hwnd) == me and style & WS_CHILD:  # an older Daybook embedded it as a child: undo that first
+        u32.SetParent(hwnd, None)
+        style = NORMAL_STYLE
+    u32.SetWindowLongPtrW(hwnd, -16, ((style & ~(WS_CHILD | WS_CAPTION | WS_THICK | WS_SYS | WS_MIN | WS_MAX)) | WS_POPUP))
+    u32.SetWindowLongPtrW(hwnd, -20, (ex & ~WS_EX_APPWINDOW) | WS_EX_TOOLWINDOW)
+    u32.SetWindowLongPtrW(hwnd, GWLP_OWNER, me)
+    u32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0020 | 0x0001 | 0x0002 | 0x0004 | 0x0010)  # FRAMECHANGED, keep size/pos/z, no activate
+
+
+def _activate(hwnd):
+    """Make a just-opened Chrome tab the active window, so the user's first click lands on the page
+    (Chrome spends a click on a brand-new inactive window). Borrowing the active thread's input is what
+    lets a background process hand out focus."""
+    try:
+        fg = u32.GetForegroundWindow()
+        me = k32.GetCurrentThreadId()
+        fg_tid = u32.GetWindowThreadProcessId(fg, None) if fg else 0
+        if fg_tid and fg_tid != me:
+            u32.AttachThreadInput(me, fg_tid, True)
+        u32.BringWindowToTop(hwnd)
+        u32.SetForegroundWindow(hwnd)
+        if fg_tid and fg_tid != me:
+            u32.AttachThreadInput(me, fg_tid, False)
+    except Exception:
+        pass
+
+
 def adopt():
-    """After a service restart: pick up browser windows that are still inside the Daybook window."""
+    """After a service restart: pick up browser windows that are still docked to a Daybook window
+    (owned by it now, or embedded as a child by an older version)."""
     tops = []
 
     def top_cb(h, _):
@@ -371,17 +424,25 @@ def adopt():
     for me in tops:
         found = []
 
-        def cb(h, _, me=me):
+        def owned_cb(h, _, me=me):
+            if u32.GetWindow(h, 4) == me and _cls(h) in ("Chrome_WidgetWin_1", "MozillaWindowClass") and _exe(h) in BROWSER_EXES:
+                found.append(h)
+            return True
+        u32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(owned_cb), 0)
+
+        def child_cb(h, _, me=me):
             if u32.GetParent(h) == me and _cls(h) in ("Chrome_WidgetWin_1", "MozillaWindowClass") and _exe(h) in BROWSER_EXES:
                 found.append(h)
             return True
-        u32.EnumChildWindows(me, ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
+        u32.EnumChildWindows(me, ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(child_cb), 0)
         for h in found:
             if h not in EMB:
-                EMB[h] = {"style": NORMAL_STYLE, "exstyle": u32.GetWindowLongPtrW(h, -20) | 0x40000, "rect": [200, 120, 1100, 760],
-                          "label": "Chrome", "browser": "chrome", "profile": "", "shown": None, "parent": me}
+                EMB[h] = {"style": NORMAL_STYLE, "exstyle": (u32.GetWindowLongPtrW(h, -20) & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW,
+                          "rect": [200, 120, 1100, 760], "label": "Chrome", "browser": "chrome", "profile": "", "shown": None, "parent": me}
+                _own(h, me)
 
 
+@_per_monitor
 def embed(hwnd, label="", browser="", profile="", parent=None):
     me = parent if parent and u32.IsWindow(parent) else _daybook()
     if not me or not u32.IsWindow(hwnd) or hwnd in EMB:
@@ -391,21 +452,17 @@ def embed(hwnd, label="", browser="", profile="", parent=None):
     if u32.IsZoomed(hwnd) or u32.IsIconic(hwnd):
         u32.ShowWindow(hwnd, 9)
     u32.ShowWindow(hwnd, 0)
-    new = (style & ~(WS_POPUP | WS_CAPTION | WS_THICK | WS_SYS | WS_MIN | WS_MAX)) | WS_CHILD
-    u32.SetWindowLongPtrW(hwnd, -16, new)
-    u32.SetParent(hwnd, me)
-    EMB[hwnd]["linked"] = _link_input(hwnd, me)
-    u32.SetWindowPos(hwnd, None, 0, 0, 10, 10, 0x0020 | 0x0004 | 0x0010)  # FRAMECHANGED | NOZORDER | NOACTIVATE
+    _own(hwnd, me)
 
 
+@_per_monitor
 def release(hwnd, close=False):
     e = EMB.pop(hwnd, None)
     if not e or not u32.IsWindow(hwnd):
         return
-    me = e.get("parent") or _daybook()
-    if me and u32.IsWindow(me):
-        _link_input(hwnd, me, False)
-    u32.SetParent(hwnd, None)
+    if u32.GetParent(hwnd) and u32.GetWindowLongPtrW(hwnd, -16) & WS_CHILD:
+        u32.SetParent(hwnd, None)
+    u32.SetWindowLongPtrW(hwnd, GWLP_OWNER, 0)
     u32.SetWindowLongPtrW(hwnd, -16, e["style"])
     u32.SetWindowLongPtrW(hwnd, -20, e["exstyle"])
     x, y, w, h = e["rect"]
@@ -416,8 +473,10 @@ def release(hwnd, close=False):
         u32.SetForegroundWindow(hwnd)
 
 
+@_per_monitor
 def place(items, visible, dpr, parent=None):
-    """items: [{hwnd, x, y, w, h}] in page CSS pixels (the Daybook page fills the window's client area)."""
+    """items: [{hwnd, x, y, w, h}] in page CSS pixels (the Daybook page fills the window's client area).
+    The Chrome windows are placed in screen pixels over that area."""
     for hw in list(EMB):
         if not u32.IsWindow(hw):  # closed from inside Chrome
             EMB.pop(hw, None)
@@ -427,22 +486,22 @@ def place(items, visible, dpr, parent=None):
             continue  # another Daybook window's Chrome
         me = e.get("parent") or _daybook()
         i = want.get(hw)
-        if not visible or not i or not me:
+        if not visible or not i or not me or u32.IsIconic(me):
             if e["shown"] is not False:
                 u32.ShowWindow(hw, 0)
-                e["shown"], e["spot"] = False, None
+                e["shown"], e["screen"] = False, None
             continue
-        if u32.GetParent(hw) != me:
-            u32.SetParent(hw, me)
-            e["linked"] = False
-        if not e.get("linked"):  # (re)link keyboard input — e.g. after Daybook or the service restarted
-            e["linked"] = _link_input(hw, me)
-        # HWND_TOP among Daybook's child windows, so it sits above the page's own render surface.
-        # Only when its spot changed: re-placing it under the mouse mid-click can drop the click.
-        spot = (round(i["x"] * dpr), round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr))
-        if e.get("spot") != spot or not e["shown"] or not u32.IsWindowVisible(hw):
-            u32.SetWindowPos(hw, 0, *spot, 0x0010 | 0x0040)
-            e["spot"] = spot
+        if u32.GetWindow(hw, 4) != me or u32.GetWindowLongPtrW(hw, -16) & WS_CHILD:
+            _own(hw, me)
+        origin = _PT(0, 0)
+        u32.ClientToScreen(me, ctypes.byref(origin))
+        spot = (origin.x + round(i["x"] * dpr), origin.y + round(i["y"] * dpr), round(i["w"] * dpr), round(i["h"] * dpr))
+        if e.get("screen") != spot or not e["shown"] or not u32.IsWindowVisible(hw):
+            u32.SetWindowPos(hw, 0, *spot, 0x0010 | 0x0040)  # NOACTIVATE | SHOWWINDOW (owned → always above Daybook)
+            e["screen"] = spot
+        if not e.get("activated"):  # first time it appears: ready for typing straight away
+            e["activated"] = True
+            _activate(hw)
         e["shown"] = True
 
 

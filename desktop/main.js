@@ -104,6 +104,10 @@ async function createWindow(view, opts = {}) {
     webPreferences: {preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, spellcheck: true, plugins: true},
   });
   w._layout = {visible: false, rects: {}};
+  const relayout = () => { if (!w.isDestroyed()) w.webContents.send("browser:relayout"); };
+  const hideDocked = () => post("/api/dock/embed/place", {visible: false, items: [], parent: hwndOf(w)});
+  w.on("move", relayout); w.on("moved", relayout); w.on("resize", relayout); w.on("restore", relayout); w.on("show", relayout);
+  w.on("hide", hideDocked); w.on("minimize", hideDocked);
   // Daybook's page draws its own right-click menu; for text boxes it lets this event through so it can show
   // spelling suggestions (Chromium only reports them here).
   w.webContents.on("context-menu", (_e, m) => {
@@ -347,9 +351,7 @@ function openPane(profile, url, owner) {
     else if ((i.control && k === "r") || k === "f5") { e.preventDefault(); wc.reload(); }
     else if (i.alt && k === "arrowleft") { e.preventDefault(); wc.navigationHistory.goBack(); }
     else if (i.alt && k === "arrowright") { e.preventDefault(); wc.navigationHistory.goForward(); }
-    else if ((i.control && !i.alt && (k === "k" || k === "." || (i.shift && k === "n"))) || (i.alt && !i.control && /^([0-9]|[lbigkrmswp])$/.test(k))) {
-      e.preventDefault(); owner.webContents.send("app:key", {key: i.key, ctrl: i.control, alt: i.alt, shift: i.shift});  // Daybook's own shortcuts
-    }
+    // Everything else belongs to the web page (Ctrl+K, Alt+letters… are used by Discord, Slack, Docs, ChatGPT).
   });
   wc.on("render-process-gone", () => sendPanes(owner, {toast: "A page crashed — press reload"}));
   wc.on("context-menu", (_e, m) => {

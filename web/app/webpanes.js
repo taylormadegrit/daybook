@@ -32,10 +32,15 @@ async function renderBrowserDesktop() {
     BD.bound = true;
     desktop.browser.onUpdate(d => {
       BD.panes = d.panes; if (d.focus) BD.focus = d.focus; if (d.toast) toast(d.toast);
-      if (!BD.panes.find(p => p.id === BD.focus)) BD.focus = (BD.panes[BD.panes.length - 1] || {}).id;
+      if (!bdAll().find(p => p.id === BD.focus)) BD.focus = (BD.panes[BD.panes.length - 1] || {}).id;  // Chrome tabs count too (they have negative ids)
       if (BD.win && BD.win.main) try { localStorage.setItem("daybook-bd-session", JSON.stringify(BD.panes.map(p => ({profile: p.profile, url: p.url})).filter(p => /^https?:/.test(p.url)))); } catch (e) {}
       if (S.view === "browser") bdPaint();
     });
+    if (desktop.browser.onRelayout) desktop.browser.onRelayout(() => { if (S.view === "browser") bdSync(true); });
+    document.addEventListener("visibilitychange", () => bdSync(true));
+    // the page slides in when you switch to it: measure again once it has settled (no-op if nothing moved)
+    const settle = () => { if (S.view === "browser") bdSync(); };
+    document.addEventListener("animationend", settle); document.addEventListener("transitionend", settle);
     desktop.browser.onShortcut(d => {
       if (d.action === "new") bdNew(d.profile);
       if (d.action === "save") bdSaveLink(d.id);
@@ -68,7 +73,7 @@ async function renderBrowserDesktop() {
   paintIcons($("#v-browser")); bdAdblock();
   if (!BD.ro) BD.ro = new ResizeObserver(() => { bdPaint(); });
   BD.ro.observe($("#bd-stage"));
-  bdPaint(); bdSync(true);
+  bdPaint(); bdSync(true); setTimeout(() => { if (S.view === "browser") bdSync(); }, 450);  // after the slide-in, even if no animation event fires
 }
 function bdTiles(n, w, h, layout) {
   const g = 8; if (!n) return [];
@@ -183,7 +188,7 @@ function bdMarkFocus() { $$(".bd-pane").forEach(e => e.classList.toggle("on", +e
 function bdSync(force) {
   const st = $("#bd-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || !!$(".dict.on");
-  const visible = S.view === "browser" && !!st && !overlay;
+  const visible = S.view === "browser" && !!st && !overlay && document.visibilityState === "visible";
   const rects = {}, items = [];
   if (visible) $$(".bd-pane").forEach(el => { const r = el.querySelector(".bd-body").getBoundingClientRect(), id = +el.dataset.id, rr = {x: r.x, y: r.y, w: r.width, h: r.height};
     if (id < 0) items.push({hwnd: -id, ...rr}); else rects[id] = rr; });
