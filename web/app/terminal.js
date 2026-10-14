@@ -6,7 +6,7 @@ const TM = {tabs: [], groups: [], active: 0, open: store.get("daybook-term-open"
   work: store.get("daybook-term-work", "0") === "1", bound: false, projects: [], filter: "", restored: false};
 const termOk = () => !!(window.desktop && desktop.term);
 const T_ICON = {claude: ["✳", "#d97757"], gemini: ["✦", "#6aa8ff"], ollama: ["◆", "#3ee0a0"], pwsh: [">_", "#9aa4b2"], cmd: ["C:", "#9aa4b2"],
-  bash: ["$", "#98c379"], wsl: ["λ", "#e5c07b"], emacs: ["e", "#c678dd"], orca: ["◒", "#56b6c2"]};
+  bash: ["$", "#98c379"], wsl: ["λ", "#e5c07b"], emacs: ["e", "#c678dd"], orca: ["◒", "#56b6c2"], arcade: ["🎮", "#ffbe5c"]};
 const termIcon = p => { const [g, c] = T_ICON[p] || T_ICON.pwsh; return `<span class="t-ico" style="color:${c}">${g}</span>`; };
 function termTheme() {  // Orca's terminal colors (One Dark)
   return {background: "#282c34", foreground: "#dcdfe4", cursor: "#dcdfe4", cursorAccent: "#282c34", selectionBackground: "rgba(97,175,239,.32)",
@@ -264,7 +264,7 @@ async function termAddMenu(e) {
   const profs = await desktop.term.profiles(), models = await desktop.term.models(), cwd = (termActiveTab() || {}).cwd;
   const item = p => p.id === "ollama" && p.ok ? {t: p.name, i: "chip", sub: [...models.map(m => ({t: m, i: "chip", run: () => termNew("ollama", {model: m, cwd})})), "-", {t: "List models (ollama list)", i: "list", run: () => termNew("ollama", {cwd})}]}
     : p.id === "gemini" && !p.ok ? {t: "Gemini CLI — install & sign in", i: "plus", run: () => termNew("gemini", {cwd})}
-    : {t: p.name, i: {claude: "spark", gemini: "spark", emacs: "pen", orca: "zap"}[p.id] || "chip", off: !p.ok, run: () => termNew(p.id, {cwd})};
+    : {t: p.name, i: {claude: "spark", gemini: "spark", emacs: "pen", orca: "zap", arcade: "gamepad"}[p.id] || "chip", off: !p.ok, run: () => termNew(p.id, {cwd})};
   const groups = ["Shells", "AI", "Tools"].map(g => [{h: g}, ...profs.filter(p => p.group === g).map(item)]).flat();
   const missing = profs.filter(p => !p.ok && p.id !== "gemini");
   const r = e && e.currentTarget ? e.currentTarget.getBoundingClientRect() : {left: innerWidth / 2, bottom: innerHeight / 2};
@@ -319,7 +319,8 @@ function termDecorateCode() {
 if ($("#thread")) new MutationObserver(() => termDecorateCode()).observe($("#thread"), {childList: true, subtree: true});
 addEventListener("keydown", e => { if (e.ctrlKey && e.key === "`" && !termHasFocus(e)) { e.preventDefault(); termToggle(); } });
 if (typeof CMDS !== "undefined" && termOk()) CMDS.push(["Open terminal", "chip", () => termToggle(true)], ["Terminal workspace (projects, splits)", "expand", () => termWork(true)],
-  ["New Claude Code session", "spark", () => { go("chat"); termNew("claude"); }], ["Run a command in a terminal", "play", () => { termToggle(true).then(termCommandBox); }]);
+  ["New Claude Code session", "spark", () => { go("chat"); termNew("claude"); }], ["Run a command in a terminal", "play", () => { termToggle(true).then(termCommandBox); }],
+  ["Play 8-Bit Retro Arcade in Terminal", "gamepad", () => { go("chat"); termNew("arcade"); }]);
 // reopen it where you left it, and pick up sessions that kept running through a reload
 setTimeout(async () => { if (!termOk()) return; await termRestore(); if (TM.open && S.view === "chat") { TM.open = false; termToggle(true); } }, 1500);
 const _enterChat = enterChat;

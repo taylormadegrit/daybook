@@ -544,6 +544,7 @@ function termProfiles() {
     {id: "ollama", name: "Local AI (Ollama)", group: "AI", ok: !!ollama, hint: "Install Ollama from ollama.com, then pull a model."},
     {id: "emacs", name: emacsHome ? "Emacs (your Doom setup)" : "Emacs", group: "Tools", ok: !!emacs, hint: "Install Emacs (winget install GNU.Emacs)."},
     {id: "orca", name: "Orca", group: "Tools", ok: !!orca},
+    {id: "arcade", name: "8-Bit Arcade (Snake, Pong, Galactica)", group: "Tools", ok: true},
   ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _ollama: ollama}));
 }
 function termCommand(prof, opts) {
@@ -559,6 +560,10 @@ function termCommand(prof, opts) {
     case "ollama": return inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`);
     case "emacs": return [prof._emacs, ["-nw"]];
     case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
+    case "arcade": {
+      const script = path.join(app.isPackaged ? path.join(process.resourcesPath, "backend") : DEV_ROOT, "arcade.py");
+      return inPs(`python -u ${q(script)}`);
+    }
     default: return opts.run ? inPs(opts.run) : [ps, ["-NoLogo"]];
   }
 }

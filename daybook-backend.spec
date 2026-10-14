@@ -2,7 +2,7 @@
 # Output: backend-dist\daybook-backend\  (daybook-backend.exe = service + helpers, daybook-mcp.exe = Claude connector)
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-datas = [("web", "web"), ("daemon.pyw", "."), ("quickadd.pyw", "."), ("mcp_server.py", ".")]
+datas = [("web", "web"), ("daemon.pyw", "."), ("quickadd.pyw", "."), ("mcp_server.py", "."), ("arcade.py", ".")]
 binaries, hidden = [], collect_submodules("reminders")
 for pkg in ("faster_whisper", "ctranslate2", "onnxruntime", "av", "pypdfium2", "pypdfium2_raw", "tokenizers", "dateparser",
             "mcp", "fpdf", "icoextract", "obsws_python", "PIL", "huggingface_hub"):
