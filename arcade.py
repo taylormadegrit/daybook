@@ -455,11 +455,14 @@ def play_galactica():
 
         for a in aliens:
             color = C_RED if a["type"] == 0 else (C_YELLOW if a["type"] == 1 else C_GREEN)
-            sprite = "▼▼" if a["type"] == 0 else ("👾" if a["type"] == 1 else "><")
+            sprite = "▼▼" if a["type"] == 0 else ("><" if a["type"] == 1 else "()")
             ax, ay = int(a["x"]), int(a["y"])
             if 0 < ay < HEIGHT - 1 and 0 < ax < WIDTH - 2:
-                grid[ay][ax] = f"{color}{sprite[0]}{C_RESET}"
-                grid[ay][ax + 1] = f"{color}{sprite[1]}{C_RESET}"
+                if len(sprite) >= 2:
+                    grid[ay][ax] = f"{color}{sprite[0]}{C_RESET}"
+                    grid[ay][ax + 1] = f"{color}{sprite[1]}{C_RESET}"
+                else:
+                    grid[ay][ax] = f"{color}{sprite}{C_RESET}"
 
         for bx, by in bullets:
             grid[by][bx] = f"{C_YELLOW}|{C_RESET}"
