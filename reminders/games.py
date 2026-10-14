@@ -43,6 +43,7 @@ CATALOG = [
     dict(id="fheroes2", name="fheroes2", repo="ihhub/fheroes2", genre="Strategy", own="Heroes of Might and Magic II (free demo works)", asset=r"windows.*x64.*\.zip$", desc="Heroes of Might and Magic II remake."),
     dict(id="julius", name="Julius", repo="bvschaik/julius", genre="City builder", own="Caesar III", asset=r"windows.*64.*\.zip$|win.*\.zip$", desc="Caesar III, rebuilt and bug-fixed."),
     dict(id="shipwright", name="Ship of Harkinian", repo="HarbourMasters/Shipwright", genre="Adventure", own="your own Ocarina of Time ROM", asset=r"win.*\.zip$", desc="PC port of Ocarina of Time — 60 fps, widescreen, mods."),
+    dict(id="arcade", name="8-Bit Terminal Arcade", repo="", genre="Retro / 8-Bit", builtin=True, asset="", desc="Classic 8-bit retro arcade (Snake, Pong, Galactica, Breakout). 100% offline, zero internet needed."),
 ]
 CAT = {g["id"]: g for g in CATALOG}
 JOBS = {}  # id → {"state", "pct", "msg"}
@@ -232,6 +233,10 @@ def library():
     free = []
     changed = False
     for g in CATALOG:
+        if g.get("builtin"):
+            bat = Path(__file__).resolve().parent.parent / "arcade.bat"
+            free.append({**g, "installed": True, "exe": str(bat), "installer": None, "version": "1.0", "job": None})
+            continue
         e = st.get(g["id"])
         if e and e.get("installer") and not e.get("exe"):  # installer-based: find the shortcut it created
             lnk = _installed_shortcut(g)
@@ -295,7 +300,11 @@ def g_action(gid, action):
             JOBS[gid] = {"state": "starting", "pct": 0, "msg": "Starting…"}
             threading.Thread(target=_download, args=(gid,), daemon=True).start()
         elif action == "play":
-            if gid.startswith("steam-"):
+            if gid == "arcade":
+                bat = Path(__file__).resolve().parent.parent / "arcade.bat"
+                subprocess.Popen(["cmd.exe", "/c", "start", "8-Bit Arcade", str(bat)], creationflags=0x00000008)
+                return jsonify(ok=True)
+            elif gid.startswith("steam-"):
                 os.startfile(f"steam://rungameid/{gid[6:]}")
             elif gid.startswith("epic-"):
                 g = next(x for x in epic_games() if x["id"] == gid)
