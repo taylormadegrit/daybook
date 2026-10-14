@@ -20,6 +20,13 @@ else:
     import select
     import termios
     import tty
+    try:
+        if sys.stdin.isatty():
+            _old_term_attr = termios.tcgetattr(sys.stdin)
+            tty.setcbreak(sys.stdin.fileno())
+            atexit.register(lambda: termios.tcsetattr(sys.stdin, termios.TCSADRAIN, _old_term_attr))
+    except Exception:
+        pass
 
 SCORE_FILE = Path(__file__).resolve().parent / "arcade_scores.json"
 
@@ -84,13 +91,28 @@ def get_key():
     if os.name == "nt":
         if msvcrt.kbhit():
             ch = msvcrt.getch()
-            if ch in (b"\x00", b"\xe0"):  # Special keys (arrows)
+            # Windows Virtual Key prefix (arrows, function keys)
+            if ch in (b"\x00", b"\xe0"):
                 ch2 = msvcrt.getch()
                 return {b"H": "up", b"P": "down", b"K": "left", b"M": "right"}.get(ch2)
+            # ANSI escape sequence (e.g. \x1b[A for arrow keys in modern emulators)
+            if ch == b"\x1b":
+                time.sleep(0.005)
+                if msvcrt.kbhit():
+                    ch2 = msvcrt.getch()
+                    if ch2 == b"[" and msvcrt.kbhit():
+                        ch3 = msvcrt.getch()
+                        return {b"A": "up", b"B": "down", b"C": "right", b"D": "left"}.get(ch3, "escape")
+                return "escape"
+            if ch in (b"\r", b"\n"):
+                return "enter"
+            if ch == b" ":
+                return " "
             try:
                 char = ch.decode("utf-8", "ignore").lower()
-                if char in ("w", "s", "a", "d", " ", "q", "p", "\r", "\n", "\x1b"):
-                    return {"\r": "enter", "\n": "enter", "\x1b": "escape"}.get(char, char)
+                if char in ("\r", "\n"):
+                    return "enter"
+                return char
             except Exception:
                 return None
         return None
@@ -99,14 +121,14 @@ def get_key():
         if dr:
             ch = sys.stdin.read(1)
             if ch == "\x1b":
-                # Check for arrow sequence
                 dr2, _, _ = select.select([sys.stdin], [], [], 0.05)
                 if dr2:
                     seq = sys.stdin.read(2)
                     return {"[A": "up", "[B": "down", "[C": "right", "[D": "left"}.get(seq, "escape")
                 return "escape"
-            char = ch.lower()
-            return {"\r": "enter", "\n": "enter", " ": " "}.get(char, char)
+            if ch in ("\r", "\n"):
+                return "enter"
+            return ch.lower()
         return None
 
 
@@ -204,11 +226,11 @@ def play_snake():
 
     save_score("snake", score)
     # Game Over screen
-    sys.stdout.write(f"\n  {C_RED}{C_BOLD}GAME OVER!{C_RESET} Score: {score}  (Press Enter to continue)")
+    sys.stdout.write(f"\n  {C_RED}{C_BOLD}GAME OVER!{C_RESET} Score: {score}  (Press any key to return to menu)")
     sys.stdout.flush()
     while True:
         k = get_key()
-        if k in ("enter", "q", "escape", " "):
+        if k is not None:
             break
         time.sleep(0.05)
 
@@ -309,11 +331,11 @@ def play_pong():
 
     save_score("pong", score_p1)
     winner = f"{C_GREEN}YOU WON! 🎉{C_RESET}" if score_p1 >= max_score else f"{C_RED}CPU WON! 🤖{C_RESET}"
-    sys.stdout.write(f"\n  {C_BOLD}MATCH OVER!{C_RESET} {winner} (Press Enter to continue)")
+    sys.stdout.write(f"\n  {C_BOLD}MATCH OVER!{C_RESET} {winner} (Press any key to return to menu)")
     sys.stdout.flush()
     while True:
         k = get_key()
-        if k in ("enter", "q", "escape", " "):
+        if k is not None:
             break
         time.sleep(0.05)
 
@@ -456,11 +478,11 @@ def play_galactica():
 
     save_score("galactica", score)
     result = f"{C_GREEN}EARTH SAVED! 🎉{C_RESET}" if not aliens else f"{C_RED}EARTH INVADED! 👾{C_RESET}"
-    sys.stdout.write(f"\n  {C_BOLD}MISSION ENDED!{C_RESET} {result} Final Score: {score} (Press Enter)")
+    sys.stdout.write(f"\n  {C_BOLD}MISSION ENDED!{C_RESET} {result} Final Score: {score} (Press any key to return to menu)")
     sys.stdout.flush()
     while True:
         k = get_key()
-        if k in ("enter", "q", "escape", " "):
+        if k is not None:
             break
         time.sleep(0.05)
 
@@ -571,11 +593,11 @@ def play_breakout():
 
     save_score("breakout", score)
     msg = f"{C_GREEN}BOARD CLEARED! 🏆{C_RESET}" if not bricks else f"{C_RED}GAME OVER!{C_RESET}"
-    sys.stdout.write(f"\n  {C_BOLD}{msg}{C_RESET} Score: {score} (Press Enter)")
+    sys.stdout.write(f"\n  {C_BOLD}{msg}{C_RESET} Score: {score} (Press any key to return to menu)")
     sys.stdout.flush()
     while True:
         k = get_key()
-        if k in ("enter", "q", "escape", " "):
+        if k is not None:
             break
         time.sleep(0.05)
 
@@ -585,51 +607,84 @@ def play_breakout():
 # ==============================================================================
 def arcade_menu():
     hide_cursor()
-    while True:
+    selected_idx = 0
+
+    games = [
+        {"num": "1", "name": "🐍 Snake", "desc": "Eat, grow, survive", "key": "snake", "fn": play_snake},
+        {"num": "2", "name": "🏓 Pong", "desc": "Classic 1v1 vs CPU", "key": "pong", "fn": play_pong},
+        {"num": "3", "name": "🚀 Galactica", "desc": "Alien invasion shooter", "key": "galactica", "fn": play_galactica},
+        {"num": "4", "name": "🧱 Breakout", "desc": "Smash colorful bricks", "key": "breakout", "fn": play_breakout},
+        {"num": "Q", "name": "🚪 Exit", "desc": "Return to terminal", "key": None, "fn": None},
+    ]
+
+    def render():
         clear_screen()
         scores = load_scores()
-        banner = f"""{C_CYAN}{C_BOLD}
-   █████╗ ██████╗  ██████╗ █████╗ ██████╗ ███████╗
-  ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔════╝
-  ███████║██████╔╝██║     ███████║██║  ██║█████╗  
-  ██╔══██║██╔══██╗██║     ██╔══██║██║  ██║██╔══╝  
-  ██║  ██║██║  ██║╚██████╗██║  ██║██████╔╝███████╗
-  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝{C_RESET}
-          {C_YELLOW}★ 8-BIT TERMINAL RETRO GAMING ★{C_RESET}
-      {C_GRAY}100% Offline • No Internet • Pure Retro Arcade{C_RESET}
+        lines = [
+            f"{C_CYAN}{C_BOLD}",
+            r"   █████╗ ██████╗  ██████╗ █████╗ ██████╗ ███████╗",
+            r"  ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔════╝",
+            r"  ███████║██████╔╝██║     ███████║██║  ██║█████╗  ",
+            r"  ██╔══██║██╔══██╗██║     ██╔══██║██║  ██║██╔══╝  ",
+            r"  ██║  ██║██║  ██║╚██████╗██║  ██║██████╔╝███████╗",
+            r"  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝" + C_RESET,
+            f"          {C_YELLOW}★ 8-BIT TERMINAL RETRO GAMING ★{C_RESET}",
+            f"      {C_GRAY}100% Offline • No Internet • Pure Retro Arcade{C_RESET}",
+            "",
+            f"  {C_WHITE}{C_BOLD}SELECT A GAME:{C_RESET}",
+            "",
+        ]
 
-  {C_GREEN}[1]{C_RESET} {C_WHITE}🐍 Snake{C_RESET}        {C_GRAY}(Eat, grow, survive){C_RESET}        {C_YELLOW}Best: {scores.get('snake', 0)}{C_RESET}
-  {C_CYAN}[2]{C_RESET} {C_WHITE}🏓 Pong{C_RESET}         {C_GRAY}(Classic 1v1 vs CPU){C_RESET}        {C_YELLOW}Best: {scores.get('pong', 0)}{C_RESET}
-  {C_MAGENTA}[3]{C_RESET} {C_WHITE}🚀 Galactica{C_RESET}    {C_GRAY}(Alien invasion shooter){C_RESET}   {C_YELLOW}Best: {scores.get('galactica', 0)}{C_RESET}
-  {C_RED}[4]{C_RESET} {C_WHITE}🧱 Breakout{C_RESET}     {C_GRAY}(Smash colorful bricks){C_RESET}    {C_YELLOW}Best: {scores.get('breakout', 0)}{C_RESET}
+        for i, g in enumerate(games):
+            is_sel = (i == selected_idx)
+            ptr = f"{C_YELLOW}{C_BOLD}►{C_RESET}" if is_sel else " "
+            bracket = f"{C_YELLOW}[{g['num']}]{C_RESET}" if is_sel else f"{C_CYAN}[{g['num']}]{C_RESET}"
+            name = f"{C_WHITE}{C_BOLD}{g['name']:<14}{C_RESET}" if is_sel else f"{C_WHITE}{g['name']:<14}{C_RESET}"
+            desc = f"{C_YELLOW}{g['desc']:<26}{C_RESET}" if is_sel else f"{C_GRAY}{g['desc']:<26}{C_RESET}"
+            score_txt = f"{C_YELLOW}Best: {scores.get(g['key'], 0)}{C_RESET}" if g["key"] else ""
+            lines.append(f"  {ptr} {bracket} {name} {desc} {score_txt}")
 
-  {C_GRAY}[Q] 🚪 Exit to terminal{C_RESET}
-
-  {C_BOLD}Select a game (1-4 or Q):{C_RESET} """
-
-        sys.stdout.write(banner)
+        lines.append("")
+        lines.append(f"  {C_GRAY}Controls: {C_WHITE}[↑/↓]{C_GRAY} or {C_WHITE}[W/S]{C_GRAY} to browse  •  {C_WHITE}[Enter/Space]{C_GRAY} to Play  •  {C_WHITE}[1-4]{C_GRAY} Instant  •  {C_WHITE}[Q]{C_GRAY} Exit{C_RESET}")
+        lines.append("")
+        lines.append(f"  {C_YELLOW}► Select with arrow keys + Enter, or press 1-4 directly:{C_RESET} ")
+        sys.stdout.write("\n".join(lines))
         sys.stdout.flush()
 
-        while True:
-            k = get_key()
-            if k == "1":
-                play_snake()
-                break
-            elif k == "2":
-                play_pong()
-                break
-            elif k == "3":
-                play_galactica()
-                break
-            elif k == "4":
-                play_breakout()
-                break
-            elif k in ("q", "escape"):
+    render()
+
+    while True:
+        k = get_key()
+        if not k:
+            time.sleep(0.02)
+            continue
+
+        if k in ("1", "2", "3", "4"):
+            idx = int(k) - 1
+            selected_idx = idx
+            render()
+            time.sleep(0.08)
+            games[idx]["fn"]()
+            render()
+        elif k in ("up", "w"):
+            selected_idx = (selected_idx - 1) % len(games)
+            render()
+        elif k in ("down", "s"):
+            selected_idx = (selected_idx + 1) % len(games)
+            render()
+        elif k in ("enter", " "):
+            if selected_idx == 4 or games[selected_idx]["fn"] is None:
                 clear_screen()
                 show_cursor()
                 print(f"{C_GREEN}Thanks for playing Daybook 8-Bit Arcade!{C_RESET}\n")
                 return
-            time.sleep(0.05)
+            games[selected_idx]["fn"]()
+            render()
+        elif k in ("q", "escape"):
+            clear_screen()
+            show_cursor()
+            print(f"{C_GREEN}Thanks for playing Daybook 8-Bit Arcade!{C_RESET}\n")
+            return
 
 
 if __name__ == "__main__":
