@@ -129,25 +129,66 @@ def detach(hwnd, restore=True):
 
 
 def open_profile(browser, profile, url="", dock=True):
-    """Start a new window for that profile and dock it as soon as it appears."""
+    """Start a new window for that profile and dock it as soon as it appears.
+    Web addresses open through a tiny local page titled with a one-time token, so we dock exactly the window we
+    asked for. Without it, a browser that's starting fresh and restoring its last session could get one of the
+    user's restored windows docked instead."""
     from . import launchpad
+    from .web import PORT
+    import secrets
+    from urllib.parse import quote
     before = {w["hwnd"] for w in browser_windows()}
     b = next((x for x in launchpad.browsers() if x["id"] == browser), None)
     if not b or not b["exe"]:
         raise ValueError("Browser not found")
     p = next((x for x in b["profiles"] if x["id"] == profile), {"name": profile})
+    token = ""
+    if not url or url.startswith(("http://", "https://")):
+        token = secrets.token_hex(6)
+        url = f"http://127.0.0.1:{PORT}/dock/hello?t={token}&to={quote(url or 'https://www.google.com', safe='')}"
     args = [b["exe"], "-P", profile, "-new-window"] if browser in ("firefox", "zen", "librewolf") else \
         [b["exe"], f"--profile-directory={profile}", "--new-window"]
-    subprocess.Popen(args + ([url] if url else []), creationflags=0x00000008)
-    for _ in range(60):
+    subprocess.Popen(args + [url], creationflags=0x00000008)
+    mark = f"daybook-dock-{token}"
+    for i in range(75):
         time.sleep(0.2)
         new = [w for w in browser_windows() if w["hwnd"] not in before]
-        if new:
-            time.sleep(0.4)  # let it finish creating before we move it
+        pick = next((w for w in new if mark in w["title"]), None) if token else (new[0] if len(new) == 1 else None)
+        if not pick and new and (i >= 60 or not token and i >= 10):
+            pick = new[-1] if not token else None  # no token (file / other links): several new windows → newest
+        if pick:
+            if token:
+                FOUND.add(token)  # lets the waiting page continue to the real address
+            time.sleep(0.3)  # let it finish creating before we move it
             if dock:
-                attach(new[0]["hwnd"], f"{p.get('name', profile)} · {b['name'].replace('Google ', '')}")
-            return new[0]["hwnd"]
+                attach(pick["hwnd"], f"{p.get('name', profile)} · {b['name'].replace('Google ', '')}")
+            return pick["hwnd"]
     raise RuntimeError("The browser window didn't appear")
+
+
+FOUND = set()
+
+
+@bp.get("/dock/hello/found")
+def d_hello_found():
+    t = request.args.get("t", "")
+    return jsonify({"found": t in FOUND and not FOUND.discard(t)})
+
+
+@bp.get("/dock/hello")
+def d_hello():
+    """The page a docked browser window opens first: its title identifies the window, then it moves on."""
+    import html
+    import json as _json
+    t = "".join(c for c in request.args.get("t", "") if c.isalnum())[:32]
+    to = request.args.get("to", "")
+    if not to.startswith(("http://", "https://")):
+        to = "https://www.google.com"
+    dest = _json.dumps(to).replace("<", "\\u003c")  # "</script>" in an address can't break out of the script
+    return (f"<!doctype html><title>daybook-dock-{html.escape(t)}</title><body style='background:#fff'>"
+            f"<script>const go=()=>location.replace({dest}), t0=Date.now();"
+            f"(async function wait(){{ try{{ if((await (await fetch('/dock/hello/found?t={t}')).json()).found) return go() }}catch(e){{}}"
+            f" Date.now()-t0>3000 ? go() : setTimeout(wait,120) }})()</script>"), 200, {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store"}
 
 
 def _tiles(n, x, y, w, h, layout, gap):
