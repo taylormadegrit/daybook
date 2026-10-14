@@ -302,7 +302,11 @@ def g_action(gid, action):
         elif action == "play":
             if gid == "arcade":
                 bat = Path(__file__).resolve().parent.parent / "arcade.bat"
-                subprocess.Popen(["cmd.exe", "/c", "start", "8-Bit Arcade", str(bat)], creationflags=0x00000008)
+                if bat.exists():
+                    os.startfile(str(bat))
+                else:
+                    py = Path(__file__).resolve().parent.parent / "arcade.py"
+                    subprocess.Popen(["cmd.exe", "/c", "start", "8-Bit Arcade", "python", "-u", str(py)])
                 return jsonify(ok=True)
             elif gid.startswith("steam-"):
                 os.startfile(f"steam://rungameid/{gid[6:]}")
