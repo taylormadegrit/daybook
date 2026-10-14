@@ -26,6 +26,7 @@ except OSError:
     sys.exit(0)
 
 root = tk.Tk()
+root.report_callback_exception = lambda *a: tk_error(*a)  # pythonw has no console: log Tk errors
 root.withdraw()
 try:  # Daybook icon on every pop-up window
     root.iconbitmap(default=str(Path(__file__).resolve().parent / "web" / "brand" / "daybook.ico"))
@@ -53,10 +54,13 @@ def poll():
             if len(open_popups) >= MAX_POPUPS:
                 ui.AgendaWindow(root, "More reminders are due")
                 break
-            slot = next(i for i in range(MAX_POPUPS + 1) if i not in {p.slot for p in open_popups.values()})
-            p = ui.ReminderPopup(root, r, slot, closed)
-            p.slot = slot
-            open_popups[r["id"]] = p
+            try:  # one reminder that can't be shown must not hide the ones after it
+                slot = next(i for i in range(MAX_POPUPS + 1) if i not in {p.slot for p in open_popups.values()})
+                p = ui.ReminderPopup(root, r, slot, closed)
+                p.slot = slot
+                open_popups[r["id"]] = p
+            except Exception as e:
+                log_error(e, f"pop-up #{r['id']}: ")
 
         now = datetime.now()
         today = now.strftime("%Y-%m-%d")
@@ -66,15 +70,30 @@ def poll():
             if db.list_open(until=now.replace(hour=23, minute=59)):
                 ui.AgendaWindow(root, "Good morning — today's agenda")
     except Exception as e:  # never let one bad row kill the daemon
-        log = paths.DATA / "daemon.log"
-        with open(log, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {e!r}\n")
+        log_error(e, "poll: ")
     root.after(POLL_MS, poll)
 
 
-def log_error(e):
-    with open(paths.DATA / "daemon.log", "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {e!r}\n")
+_last_log = {"msg": "", "t": 0.0}
+
+
+def log_error(e, where=""):
+    """Append to daemon.log. The same error repeating (e.g. every 15 s) is written at most every 10 minutes."""
+    msg = where + (e if isinstance(e, str) else repr(e))
+    if msg == _last_log["msg"] and time.time() - _last_log["t"] < 600:
+        return
+    _last_log.update(msg=msg, t=time.time())
+    try:
+        with open(paths.DATA / "daemon.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+    except OSError:
+        pass
+
+
+def tk_error(exc, val, tb):
+    """Tk callback errors (stickies, alarms, pop-up buttons) — pythonw has no console, so log them."""
+    import traceback
+    log_error("".join(traceback.format_exception(exc, val, tb)[-2:]).strip(), "tk: ")
 
 
 def ai_worker():

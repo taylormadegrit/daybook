@@ -22,7 +22,8 @@ const panes = new Map();                                         // pane id → 
 let paneSeq = 1;
 
 app.setAppUserModelId("com.daybook.app");
-if (!app.requestSingleInstanceLock()) { app.quit(); }
+const PRIMARY = app.requestSingleInstanceLock();
+if (!PRIMARY) { app.quit(); return; }
 app.on("second-instance", (_e, argv) => { const u = urlArg(argv); if (u) openFromOutside(u); else showWindow(viewArg(argv)); });
 const viewArg = argv => ((argv.find(a => a.startsWith("--view=")) || "").slice(7)) || null;
 // a link opened from another app (Daybook set as the default browser): "Daybook.exe --url <link or .html file>"
@@ -74,11 +75,12 @@ async function ensureBackend() {
 
 // ---------------- windows ----------------
 function loadState() { try { return JSON.parse(fs.readFileSync(STATE, "utf8").replace(/^\uFEFF/, "")); } catch { return {}; } }
+function writeState(s) { const tmp = STATE + ".tmp"; try { fs.writeFileSync(tmp, JSON.stringify(s)); fs.renameSync(tmp, STATE); } catch (e) { console.error("state", e); } }
 function saveState() {
   if (!win || win.isDestroyed()) return;
   const s = {...loadState(), maximized: win.isMaximized()};
   if (!win.isMaximized() && !win.isMinimized()) s.bounds = win.getBounds();
-  try { fs.writeFileSync(STATE, JSON.stringify(s)); } catch {}
+  writeState(s);
 }
 function fitBounds(b, display) {
   const wa = (display || screen.getDisplayMatching(b || {x: 0, y: 0, width: 10, height: 10})).workArea;
@@ -129,7 +131,8 @@ async function createWindow(view, opts = {}) {
   w.webContents.setWindowOpenHandler(({url}) => { if (/^https?:/.test(url)) shell.openExternal(url); return {action: "deny"}; });
   w.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(URL_BASE) && !url.startsWith("http://localhost:8503")) { e.preventDefault(); shell.openExternal(url); } });
   const ok = await ensureBackend();
-  if (!ok) { w.loadURL("data:text/html," + encodeURIComponent(`<body style="background:#0a0b10;color:#eee;font:16px Segoe UI;display:grid;place-items:center;height:100vh"><div><h2>Daybook's service didn't start</h2><p>Try restarting Daybook. If it keeps happening, check data\\daemon.log.</p></div></body>`)); return w; }
+  const logPath = app.isPackaged ? path.join(process.env.DAYBOOK_DATA || path.join(process.env.LOCALAPPDATA || "", "Daybook"), "daemon.log") : path.join(DEV_ROOT, "data", "daemon.log");
+  if (!ok) { w.loadURL("data:text/html," + encodeURIComponent(`<body style="background:#0a0b10;color:#eee;font:16px Segoe UI;display:grid;place-items:center;height:100vh"><div><h2>Daybook's service didn't start</h2><p>Daybook will keep trying in the background. If it keeps happening, check ${logPath}.</p></div></body>`)); return w; }
   w.loadURL(URL_BASE + "/#" + (view || "today"));
   return w;
 }
@@ -200,7 +203,7 @@ function adblockSession(s) { ADB.sessions.add(s); if (ADB.blocker && ADB.on) adb
 ipcMain.on("browser:adblock-on", e => { e.returnValue = ADB.on; });
 ipcMain.handle("browser:adblock", (_e, on) => {
   if (typeof on === "boolean" && ADB.blocker) {
-    ADB.on = on; fs.writeFileSync(STATE, JSON.stringify({...loadState(), adblock: on}));
+    ADB.on = on; writeState({...loadState(), adblock: on});
     for (const s of ADB.sessions) on ? adblockEnable(s) : adblockDisable(s);
   }
   return {ready: !!ADB.blocker, on: ADB.on, blocked: ADB.blocked};
@@ -208,7 +211,7 @@ ipcMain.handle("browser:adblock", (_e, on) => {
 
 let privacySignals = loadState().privacySignals !== false;
 ipcMain.handle("browser:privacy", (_e, s) => {
-  if (s && typeof s.signals === "boolean") { privacySignals = s.signals; fs.writeFileSync(STATE, JSON.stringify({...loadState(), privacySignals})); }
+  if (s && typeof s.signals === "boolean") { privacySignals = s.signals; writeState({...loadState(), privacySignals}); }
   if (s && s.clear) {  // wipe history, cookies, logins and site data for one browser profile
     const ses = session.fromPartition(partitionFor(s.clear));
     return Promise.all([ses.clearStorageData(), ses.clearCache(), ses.clearAuthCache()]).then(() => { forgetSite(partitionFor(s.clear), ""); return {cleared: true}; });
@@ -249,7 +252,7 @@ async function browserStatus() {
 }
 ipcMain.handle("app:defaultBrowser", async (_e, action) => {
   if (action === "register") { await registerBrowser(); shell.openExternal("ms-settings:defaultapps"); }
-  if (action && action.linkProfile) fs.writeFileSync(STATE, JSON.stringify({...loadState(), linkProfile: action.linkProfile}));
+  if (action && action.linkProfile) writeState({...loadState(), linkProfile: action.linkProfile});
   const st = await browserStatus();
   if (st.registered && !st.upToDate) await registerBrowser();  // Daybook moved or updated → keep the link handler pointing at it
   return st;
@@ -304,9 +307,13 @@ function prepareSession(part) {
     return saved === true;
   });
   s.on("will-download", (_e, item, wc) => {
-    item.setSavePath(path.join(app.getPath("downloads"), item.getFilename()));
+    // never overwrite a file you already have: "report.pdf" → "report (1).pdf"
+    const dir = app.getPath("downloads"), {name, ext} = path.parse(item.getFilename());
+    let file = path.join(dir, name + ext);
+    for (let n = 1; fs.existsSync(file); n++) file = path.join(dir, `${name} (${n})${ext}`);
+    item.setSavePath(file);
     const owner = [...panes.values()].find(p => p.view.webContents === wc)?.owner || win;
-    item.once("done", (_x, state) => sendPanes(owner, {toast: state === "completed" ? `Downloaded ${item.getFilename()} → Downloads` : `Download ${state}`}));
+    item.once("done", (_x, state) => sendPanes(owner, {toast: state === "completed" ? `Downloaded ${path.basename(file)} → Downloads` : `Download ${state}`}));
   });
   return s;
 }
@@ -452,7 +459,11 @@ ipcMain.handle("browser:nav", (_e, {id, action, url}) => {
   else if (action === "clear") { session.fromPartition(partitionFor(p.profile)).clearStorageData(); }
   sendPanes(p.owner);
 });
-ipcMain.handle("app:settings", (_e, s) => { const st = {...loadState(), ...s}; fs.writeFileSync(STATE, JSON.stringify(st)); if ("startAtLogin" in s) app.setLoginItemSettings({openAtLogin: !!s.startAtLogin, args: ["--hidden"]}); return st; });
+ipcMain.handle("app:settings", (_e, s) => {
+  const st = {...loadState(), ...s}; writeState(st);
+  if ("startAtLogin" in s) app.setLoginItemSettings({openAtLogin: !!s.startAtLogin, args: ["--hidden"]});
+  return st;
+});
 ipcMain.handle("app:info", e => ({version: app.getVersion(), packaged: app.isPackaged, ...loadState(), startAtLogin: app.getLoginItemSettings().openAtLogin,
   main: ownerOf(e) === win, windows: wins.size, hwnd: hwndOf(ownerOf(e))}));
 const EDIT_ACTIONS = new Set(["cut", "copy", "paste", "selectAll", "undo", "redo", "pasteAndMatchStyle"]);
@@ -502,7 +513,7 @@ setInterval(async () => {
 
 // ---------------- Terminal (Chat → Terminal): real shells, Claude / Gemini / local AI CLIs, Emacs, Orca ----------------
 // Runs here in the app (not on a web address), so only Daybook's own window can use it.
-const TOOLS_DIR = "D:\\Applications";                 // where Daybook installs CLIs it manages (e.g. Gemini)
+const TOOLS_DIR = fs.existsSync("D:\\") ? "D:\\Applications" : path.join(process.env.LOCALAPPDATA || app.getPath("userData"), "Daybook-tools");
 const terms = new Map();                               // id → {pty, owner}
 let termSeq = 1;
 function whichExe(name) {
@@ -549,7 +560,9 @@ function termCommand(prof, opts) {
 const GEMINI_CLI_VERSION = "0.62.0";   // pinned: a release at least two weeks old
 ipcMain.handle("term:profiles", () => termProfiles().map(({id, name, group, ok, hint}) => ({id, name, group, ok, hint})));
 ipcMain.handle("term:create", (e, opts = {}) => {
-  const pty = require("@lydell/node-pty");
+  let pty;
+  try { pty = require("@lydell/node-pty"); }
+  catch (err) { console.error("terminal", err); return {error: "The terminal component is missing from this install — reinstall Daybook. (" + err.message + ")"}; }
   const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
   if (!prof.ok && prof.id !== "gemini") return {error: prof.hint || `${prof.name} isn't installed`};
   const [cmd, args] = termCommand(prof, opts);
@@ -557,7 +570,9 @@ ipcMain.handle("term:create", (e, opts = {}) => {
     PATH: [path.join(TOOLS_DIR, "gemini-cli"), process.env.PATH].join(";")};
   if (prof.id === "emacs" && prof._emacsHome) { env.HOME = prof._emacsHome; env.PATH = path.dirname(prof._emacs) + ";" + env.PATH; }
   let cwd = opts.cwd && fs.existsSync(opts.cwd) ? opts.cwd : require("os").homedir();
-  const p = pty.spawn(cmd, args, {name: "xterm-256color", cols: Math.max(20, opts.cols | 0 || 100), rows: Math.max(5, opts.rows | 0 || 30), cwd, env, useConpty: true});
+  let p;
+  try { p = pty.spawn(cmd, args, {name: "xterm-256color", cols: Math.max(20, opts.cols | 0 || 100), rows: Math.max(5, opts.rows | 0 || 30), cwd, env, useConpty: true}); }
+  catch (err) { console.error("terminal", err); return {error: `Couldn't start ${prof.name}: ${err.message}`}; }
   const id = termSeq++, owner = e.sender;
   terms.set(id, {pty: p, owner});
   let buf = "", timer = null;   // batch output (~60 fps) so fast programs don't flood the page
@@ -600,6 +615,7 @@ ipcMain.handle("app:hotkeys", () => HOTKEY_STATE);
 app.on("will-quit", () => globalShortcut.unregisterAll());
 
 app.whenReady().then(async () => {
+  if (!PRIMARY) return;
   adblockInit();
   registerHotkeys();
   // mic + screen capture for voice/video notes inside Daybook's own pages
@@ -616,7 +632,7 @@ app.whenReady().then(async () => {
   const st = loadState();
   if (app.isPackaged && st.firstRunDone === undefined) {  // installed app: start with Windows so reminders always work
     app.setLoginItemSettings({openAtLogin: true, args: ["--hidden"]});
-    fs.writeFileSync(STATE, JSON.stringify({...st, firstRunDone: true}));
+    writeState({...st, firstRunDone: true});
   }
   const startUrl = urlArg(process.argv);
   await createWindow(startUrl ? "browser" : viewArg(process.argv));
@@ -624,6 +640,7 @@ app.whenReady().then(async () => {
 });
 let released = false;
 app.on("before-quit", e => {
+  if (!PRIMARY) return;
   quitting = true; saveState();
   if (released) return;
   e.preventDefault();  // hand embedded Chrome windows back to the desktop before the windows go away
