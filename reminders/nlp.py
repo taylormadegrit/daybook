@@ -4,6 +4,7 @@ e.g. "call mom every sunday at 5pm" → text="Call mom", due=next Sunday 17:00, 
 import calendar
 import json
 import re
+import time
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -38,8 +39,11 @@ def _ask_claude(prompt):
     return json.loads(m.group(0))
 
 
+_CLAUDE_DOWN = {"until": 0.0}  # after Claude fails (offline, signed out, not installed), leave it alone for a while
+
+
 def ask_json(prompt):
-    """Ask the local model for JSON; if Ollama isn't running, ask Claude; raises if neither works."""
+    """Ask the local model for JSON; if Ollama isn't running, ask Claude (unless turned off); raises if neither works."""
     from .chat import _ollama_up
     errors = []
     if _ollama_up():
@@ -47,10 +51,16 @@ def ask_json(prompt):
             return _ask_ollama(prompt)
         except Exception as e:
             errors.append(f"Ollama: {e}")
-    try:
-        return _ask_claude(prompt)
-    except Exception as e:
-        errors.append(f"Claude: {e}")
+    if db.setting("ai_cloud_fallback") == "0":
+        errors.append("Claude: cloud fallback is off")
+    elif time.time() < _CLAUDE_DOWN["until"]:
+        errors.append("Claude: unavailable a few minutes ago")
+    else:
+        try:
+            return _ask_claude(prompt)
+        except Exception as e:
+            _CLAUDE_DOWN["until"] = time.time() + 600
+            errors.append(f"Claude: {e}")
     raise RuntimeError("; ".join(errors) or "No AI available")
 
 
@@ -169,6 +179,9 @@ Fields:
 - "repeat": "" unless the request says it repeats ("every", "daily", "weekly"…); then one of daily, weekdays, weekly,
   monthly, yearly, or every:<n>:<minutes|hours|days|weeks>. "next monday" is NOT a repeat.
 Reply with JSON only."""
+    from .chat import _ollama_up
+    if not _ollama_up():  # a refused local port takes ~2 s on Windows — fall straight through to dateparser
+        raise RuntimeError("Ollama isn't running")
     out = _ask_ollama(prompt)
     task = str(out.get("task", "")).strip()
     return {"text": task[:1].upper() + task[1:], "due": resolve_when(str(out.get("when", "")), now),

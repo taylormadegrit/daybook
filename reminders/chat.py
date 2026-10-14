@@ -5,6 +5,7 @@ import html
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import os
 import threading
 import urllib.request
@@ -221,9 +222,13 @@ def model_list(include_claude=True):
 
 
 # ---------- Gemini (through the Gemini CLI the user is signed in to — installed from Chat → Terminal) ----------
+GEMINI_TIMEOUT_S = 300  # a stuck CLI (waiting for sign-in, network…) is stopped after this
+
+
 def gemini_cli():
     import shutil
-    for c in (shutil.which("gemini"), r"D:\Applications\gemini-cli\gemini.cmd", os.path.join(os.environ.get("APPDATA", ""), "npm", "gemini.cmd")):
+    for c in (shutil.which("gemini"), r"D:\Applications\gemini-cli\gemini.cmd", os.path.join(os.environ.get("APPDATA", ""), "npm", "gemini.cmd"),
+              os.path.join(os.environ.get("LOCALAPPDATA", ""), "Daybook-tools", "gemini-cli", "gemini.cmd")):
         if c and os.path.exists(c):
             return c
     return None
@@ -241,14 +246,20 @@ def generate_gemini(cid):
         yield sse("error", {"message": "Gemini CLI isn't installed — open Chat → Terminal → + → Gemini CLI to install it and sign in."})
         return
     STOP[cid] = False
+    errf = tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace")  # an unread stderr pipe can fill up and freeze the CLI
+    env = {**os.environ, "GEMINI_CLI_NO_RELAUNCH": "true"}  # skip the CLI restarting itself in a second Node process
     try:  # read-only: no tools may change files from here
         proc = subprocess.Popen([exe, "--skip-trust", "--approval-mode", "default", "-p", "Answer the conversation given on stdin."], stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
-                                cwd=str(db.DB_PATH.parent), creationflags=0x08000000)
+                                stdout=subprocess.PIPE, stderr=errf, text=True, encoding="utf-8", errors="replace",
+                                cwd=str(db.DB_PATH.parent), env=env, creationflags=0x08000000)
     except Exception as e:
+        errf.close()
         yield sse("error", {"message": f"Couldn't start Gemini: {e}"})
         return
     PROCS[cid] = proc
+    killer = threading.Timer(GEMINI_TIMEOUT_S, proc.kill)
+    killer.daemon = True
+    killer.start()
     proc.stdin.write(prompt)
     proc.stdin.close()
     text = ""
@@ -263,10 +274,16 @@ def generate_gemini(cid):
             continue
         text += line
         yield sse("token", {"t": line})
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    killer.cancel()
     PROCS.pop(cid, None)
+    errf.seek(0)
+    err = errf.read()[-400:]
+    errf.close()
     if proc.returncode not in (0, None) and not text.strip():
-        err = (proc.stderr.read() or "")[-400:]
         yield sse("error", {"message": "Gemini didn't answer — " + (err.strip() or "sign in once: Chat → Terminal → Gemini CLI.")})
         return
     if text.strip():
@@ -539,7 +556,9 @@ def regenerate(cid):
 def stop(cid):
     STOP[cid] = True
     if cid in PROCS:
-        try:
+        try:  # gemini.cmd / claude.cmd run node under cmd.exe: end the whole tree, not just cmd.exe
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(PROCS[cid].pid)], capture_output=True, timeout=10,
+                           creationflags=0x08000000)
             PROCS[cid].kill()
         except Exception:
             pass

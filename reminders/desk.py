@@ -458,6 +458,12 @@ class Manager:
                     w.apply_layer()
         except queue.Empty:
             pass
+        except Exception as e:  # one bad command (note deleted meanwhile, window already gone…) must not stop the pump
+            try:
+                with open(paths.DATA / "daemon.log", "a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} stickies: {e!r}\n")
+            except OSError:
+                pass
         self.root.after(300, self.pump)
 
     def peek(self):

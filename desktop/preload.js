@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld("desktop", {
     input: (id, data) => ipcRenderer.send("term:input", {id, data}),
     resize: (id, cols, rows) => ipcRenderer.send("term:resize", {id, cols, rows}),
     kill: id => ipcRenderer.send("term:kill", id),
+    list: () => ipcRenderer.invoke("term:list"),                         // sessions still running (after a reload)
+    attach: id => ipcRenderer.invoke("term:attach", id),
+    projects: () => ipcRenderer.invoke("term:projects"),
+    addProject: () => ipcRenderer.invoke("term:addProject"),
+    removeProject: dir => ipcRenderer.invoke("term:removeProject", dir),
     onData: fn => ipcRenderer.on("term:data", (_e, d) => fn(d)),
     onExit: fn => ipcRenderer.on("term:exit", (_e, d) => fn(d)),
   },

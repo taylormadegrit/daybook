@@ -1285,6 +1285,12 @@ async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 
 
 // ================= SETTINGS =================
 async function saveSetting(k, v) { S.settings = await api("/api/settings", {method: "PATCH", body: {[k]: v}}); }
+async function hotkeysEmacs(off) {  // Daybook's Ctrl+Alt hotkeys are Emacs' C-M- keys; give them back (or take them again)
+  const keys = ["Control+Alt+R", "Control+Alt+N", "Control+Alt+A", "Control+Alt+C", "Control+Alt+D", "Control+Alt+W", "Control+Alt+P"];
+  if (!window.desktop) return;
+  await desktop.settings({hotkeysOff: off ? keys : []});
+  toast(off ? "Ctrl+Alt hotkeys are off — Emacs gets them back. Use the tray icon or Alt shortcuts inside Daybook." : "Ctrl+Alt hotkeys are back on");
+}
 async function renderSettings() {
   renderVoiceSettings(); renderLayoutSettings(); renderDiscordSettings();
   const [st, set] = await Promise.all([api("/api/status"), api("/api/settings")]); S.settings = set;
@@ -1373,7 +1379,8 @@ const HELP = [
     <tr><td><span class="kb">Ctrl Alt P</span></td><td>Annotate the screen — draw, then Save or Copy (Alt P inside Daybook)</td></tr>
     <tr><td><span class="kb">?</span></td><td>This help page</td></tr>
     <tr><td><span class="kb">Ctrl S</span></td><td>Save the note you're editing</td></tr>
-    <tr><td><span class="kb">Esc</span></td><td>Close a window or the search</td></tr></table>`],
+    <tr><td><span class="kb">Esc</span></td><td>Close a window or the search</td></tr></table>
+    ${window.desktop ? `<p>Using Emacs? Its C-M- keys are the same as these Ctrl+Alt hotkeys. <button class="btn" onclick="hotkeysEmacs(true)">Give them to Emacs</button> <button class="btn" onclick="hotkeysEmacs(false)">Turn them back on</button></p>` : ""}`],
   ["reminders", "Reminders & routine", `<p>Write reminders the way you'd say them. Daybook shows a preview of what it understood before you save.</p>
     <table><tr><td><code>call mom sunday at 5pm</code></td><td>One-time, Sunday 5:00 PM</td></tr>
     <tr><td><code>take meds every day at 9am</code></td><td>Repeats daily</td></tr><tr><td><code>gym weekdays at 6am</code></td><td>Mon–Fri</td></tr>
@@ -1525,5 +1532,6 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
 <script src="/vendor/xterm/addon-fit.js"></script>
 <script src="/vendor/xterm/addon-web-links.js"></script>
 <script src="/app/terminal.js"></script>
+<script src="/app/chatlook.js"></script>
 </body>
 </html>

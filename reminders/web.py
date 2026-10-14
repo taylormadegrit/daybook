@@ -9,6 +9,20 @@ from . import db, nlp, notes, paths
 PORT = 8503
 STATIC = paths.WEB
 app = Flask(__name__, static_folder=None)
+ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+ALLOWED_ORIGINS = {"http://" + h for h in ALLOWED_HOSTS}
+
+
+@app.before_request
+def only_daybook():
+    """Only Daybook itself may use this service. Blocks web pages that try to reach it (DNS rebinding, or a
+    site posting a form to 127.0.0.1). Daybook's page, the desktop app and the helpers send no foreign Origin."""
+    if (request.host or "").lower() not in ALLOWED_HOSTS:
+        return jsonify(error="forbidden"), 403
+    origin = request.headers.get("Origin")
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin and origin.lower() not in ALLOWED_ORIGINS:
+        return jsonify(error="forbidden"), 403
+
 
 from .chat import bp as chat_bp  # noqa: E402
 

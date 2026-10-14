@@ -57,6 +57,24 @@ def _backup_before(what):
         pass
 
 
+def daily_backup():
+    """Once a day: a copy of the database in backups\\, one file per weekday (at most 7, rolling over).
+    Writes only those files; never touches the live database."""
+    try:
+        dst = DB_PATH.parent / "backups" / f"reminders-daily-{datetime.now():%a}.db"
+        if dst.exists() and datetime.fromtimestamp(dst.stat().st_mtime).date() == datetime.now().date():
+            return
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src, out = sqlite3.connect(DB_PATH), sqlite3.connect(dst)
+        try:
+            src.backup(out)
+        finally:
+            out.close()
+            src.close()
+    except Exception:
+        pass
+
+
 def fmt(dt):
     return dt.strftime(FMT)
 
@@ -210,6 +228,7 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "agenda_hour": "3",         # ...after this hour
     "nag_minutes": "5",         # pop-ups ring again every N minutes
     "ai_model": "qwen2.5:7b",   # local model for parsing + organizing notes
+    "ai_cloud_fallback": "1",   # '1' = ask Claude (cloud) when the local AI isn't running; '0' = stay on this PC
     "chat_model": "",           # default model for new chats ('' = first installed)
     "import_dir": paths.IMPORT_DIR,  # old-notes folder
     "user_name": "Taylor",

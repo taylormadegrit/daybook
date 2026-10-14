@@ -34,7 +34,9 @@ def guess(text):
         from . import nlp
         out = nlp.ask_json(f'Pick the best category for this task from {json.dumps(names)}. Task: "{text[:300]}". '
                            'Also rate importance: "high", "normal" or "low". Return JSON {"category": "...", "importance": "..."}.')
-        cat = next((n for n in names if n.lower() == str(out.get("category", "")).strip().lower()), "")
+        got = str(out.get("category", "")).strip().strip(".\"'").lower()
+        cat = next((n for n in names if n.lower() == got), "") or (
+            next((n for n in names if len(got) >= 3 and (n.lower() in got or got in n.lower())), "") if got else "")
         imp = {"high": 80, "normal": 50, "low": 25}.get(str(out.get("importance", "")).lower())
         if cat:
             return cat, imp
@@ -42,6 +44,10 @@ def guess(text):
         pass
     for name, pat in KEYWORDS.items():
         if name in names and re.search(pat, text, re.I):
+            return name, None
+    for name in names:  # custom categories: a word of the name in the task ("Ori uploads" ← "upload the ori short")
+        if name not in KEYWORDS and any(len(w) >= 4 and re.search(r"\b" + re.escape(w[:max(4, len(w) - 1)].lower()), text, re.I)
+                                        for w in re.findall(r"\w+", name)):
             return name, None
     return "", None
 
@@ -153,13 +159,22 @@ def p_plan():
 
 @bp.post("/api/plan/apply")
 def p_apply():
-    """Move the included tasks to their slots; the dragged order becomes their importance (top = most important)."""
+    """Move the included tasks to their slots. Importance changes only if you dragged the list into a new order,
+    and only for the tasks you kept in the plan (top = most important)."""
     j = request.get_json() or {}
-    p = plan(date.fromisoformat(j["date"]), j.get("order"), set(j.get("include") or []), j.get("minutes"))
-    n = len(p["tasks"])
-    for rank, t in enumerate(p["tasks"]):
-        fields = {"importance": round(90 - rank * (70 / max(1, n - 1))) if n > 1 else t["importance"]}
+    day, include = date.fromisoformat(j["date"]), set(j.get("include") or [])
+    p = plan(day, j.get("order"), include, j.get("minutes"))
+    picked = [t["id"] for t in p["tasks"] if t["include"]]
+    default = [t["id"] for t in plan(day, None, include, j.get("minutes"))["tasks"] if t["include"]]
+    reordered = picked != default
+    n = len(picked)
+    for t in p["tasks"]:
+        fields = {}
+        if reordered and t["include"] and n > 1:
+            fields["importance"] = round(90 - picked.index(t["id"]) * (70 / (n - 1)))
         if t["include"] and t["slot"]:
             fields["due"] = db.parse_dt(t["slot"])
-        db.update(t["id"], **fields)
+        if fields:
+            db.update(t["id"], **fields)
+    p["reordered"] = reordered
     return jsonify(p)

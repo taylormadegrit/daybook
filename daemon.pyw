@@ -100,6 +100,7 @@ def ai_worker():
     """Organizes pending notes with the local model, one at a time, in the background."""
     while True:
         try:
+            db.daily_backup()  # background thread: never delays pop-ups
             nid = notes.next_pending()
             if nid:
                 notes.organize(nid)
@@ -146,6 +147,7 @@ from reminders import dock  # noqa: E402
 dock.start()  # keeps docked browser windows tiled inside the Daybook window
 from reminders import pdflib  # noqa: E402
 
+root.report_callback_exception = tk_error
 root.after(20000, pdflib.scan_bg)  # refresh the PDF library shortly after start
 root.after(1000, poll)
 root.mainloop()

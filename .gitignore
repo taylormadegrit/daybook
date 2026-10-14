@@ -6,5 +6,7 @@ ai-libs/
 desktop/node_modules/
 desktop/dist/
 backend-dist/
-build/
+/build/
 *.spec.bak
+.claude/
+skills-lock.json

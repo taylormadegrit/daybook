@@ -100,7 +100,8 @@ function planToggle(id, on) {
 async function planApply() {
   const body = {date: PLAN.date, order: PLAN.data.tasks.map(t => t.id), include: PLAN.data.tasks.filter(t => t.include).map(t => t.id)};
   const p = await api("/api/plan/apply", {method: "POST", body});
-  closeModal(); toast(`Planned ${p.tasks.filter(t => t.include && t.slot).length} task${p.tasks.length === 1 ? "" : "s"} — your order is now their importance`); refresh();
+  const n = p.tasks.filter(t => t.include && t.slot).length;
+  closeModal(); toast(`Planned ${n} task${n === 1 ? "" : "s"}${p.reordered ? " — your order is now their importance" : ""}`); refresh();
 }
 
 // ---- Settings → Categories ----

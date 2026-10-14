@@ -518,7 +518,8 @@ setInterval(async () => {
 // ---------------- Terminal (Chat → Terminal): real shells, Claude / Gemini / local AI CLIs, Emacs, Orca ----------------
 // Runs here in the app (not on a web address), so only Daybook's own window can use it.
 const TOOLS_DIR = fs.existsSync("D:\\") ? "D:\\Applications" : path.join(process.env.LOCALAPPDATA || app.getPath("userData"), "Daybook-tools");
-const terms = new Map();                               // id → {pty, owner}
+const terms = new Map();                               // id → session {pty, owner, name, profile, cwd, log…}
+const TERM_LOG = 400000;                               // characters of recent output kept per session (for reattach)
 let termSeq = 1;
 function whichExe(name) {
   const dirs = (process.env.PATH || "").split(";").filter(Boolean).concat([path.join(TOOLS_DIR, "gemini-cli"), path.join(require("os").homedir(), ".local", "bin")]);
@@ -558,7 +559,7 @@ function termCommand(prof, opts) {
     case "ollama": return inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`);
     case "emacs": return [prof._emacs, ["-nw"]];
     case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
-    default: return [ps, ["-NoLogo"]];
+    default: return opts.run ? inPs(opts.run) : [ps, ["-NoLogo"]];
   }
 }
 const GEMINI_CLI_VERSION = "0.62.0";   // pinned: a release at least two weeks old
@@ -578,16 +579,56 @@ ipcMain.handle("term:create", (e, opts = {}) => {
   try { p = pty.spawn(cmd, args, {name: "xterm-256color", cols: Math.max(20, opts.cols | 0 || 100), rows: Math.max(5, opts.rows | 0 || 30), cwd, env, useConpty: true}); }
   catch (err) { console.error("terminal", err); return {error: `Couldn't start ${prof.name}: ${err.message}`}; }
   const id = termSeq++, owner = e.sender;
-  terms.set(id, {pty: p, owner});
+  const name = opts.model || (opts.run ? String(opts.run).slice(0, 40) : prof.name);
+  const t = {pty: p, owner, id, name, profile: prof.id, cwd, opts: {model: opts.model, run: opts.run}, started: Date.now(), log: "", exited: false, code: null};
+  terms.set(id, t);
   let buf = "", timer = null;   // batch output (~60 fps) so fast programs don't flood the page
-  p.onData(d => { buf += d; if (!timer) timer = setTimeout(() => { timer = null; if (!owner.isDestroyed()) owner.send("term:data", {id, data: buf}); buf = ""; }, 16); });
-  p.onExit(({exitCode}) => { terms.delete(id); if (!owner.isDestroyed()) { if (buf) owner.send("term:data", {id, data: buf}); owner.send("term:exit", {id, code: exitCode}); } });
+  const flush = () => { timer = null; if (buf && !owner.isDestroyed()) owner.send("term:data", {id, data: buf}); buf = ""; };
+  p.onData(d => {
+    t.log += d; if (t.log.length > TERM_LOG) t.log = t.log.slice(-TERM_LOG * 0.75);   // recent output, replayed on reattach
+    buf += d; if (!timer) timer = setTimeout(flush, 16);
+  });
+  p.onExit(({exitCode}) => {
+    if (timer) { clearTimeout(timer); flush(); }
+    t.exited = true; t.code = exitCode;
+    if (t.closing) terms.delete(id); else if (!owner.isDestroyed()) owner.send("term:exit", {id, code: exitCode});
+  });
   owner.once("destroyed", () => { try { p.kill(); } catch {} terms.delete(id); });
-  return {id, name: prof.name, profile: prof.id, cwd};
+  return {id, name, profile: prof.id, cwd};
 });
 ipcMain.on("term:input", (e, {id, data}) => { const t = terms.get(id); if (t && t.owner === e.sender && typeof data === "string") t.pty.write(data); });
 ipcMain.on("term:resize", (e, {id, cols, rows}) => { const t = terms.get(id); if (t && t.owner === e.sender && cols > 1 && rows > 1) try { t.pty.resize(cols | 0, rows | 0); } catch {} });
-ipcMain.on("term:kill", (e, id) => { const t = terms.get(id); if (t && t.owner === e.sender) try { t.pty.kill(); } catch {} });
+ipcMain.on("term:kill", (e, id) => {   // close a session for good
+  const t = terms.get(id); if (!t || t.owner !== e.sender) return;
+  t.closing = true; if (t.exited) terms.delete(id); else try { t.pty.kill(); } catch { terms.delete(id); }
+});
+// the page reloaded (or the Chat page was rebuilt): list the sessions still running and replay their output
+ipcMain.handle("term:list", e => [...terms.values()].filter(t => t.owner === e.sender && !t.closing)
+  .map(({id, name, profile, cwd, opts, started, exited, code}) => ({id, name, profile, cwd, opts, started, exited, code})));
+ipcMain.handle("term:attach", (e, id) => { const t = terms.get(id); return t && t.owner === e.sender ? {log: t.log} : null; });
+// Projects sidebar: git repos in D:\projects (or ~/projects) plus folders the user added
+function gitBranch(dir) {
+  try { const h = fs.readFileSync(path.join(dir, ".git", "HEAD"), "utf8").trim(); return h.startsWith("ref:") ? h.replace(/^ref:\s*refs\/heads\//, "") : h.slice(0, 7); } catch { return null; }
+}
+ipcMain.handle("term:projects", () => {
+  const out = [], seen = new Set(), add = (dir, mine) => {
+    const k = dir.toLowerCase(); if (seen.has(k) || !fs.existsSync(dir)) return; seen.add(k);
+    out.push({path: dir, name: path.basename(dir) || dir, branch: gitBranch(dir), mine: !!mine});
+  };
+  for (const d of loadState().termProjects || []) add(d, true);
+  for (const root of ["D:\\projects", path.join(require("os").homedir(), "projects")]) {
+    try { for (const f of fs.readdirSync(root, {withFileTypes: true})) if (f.isDirectory() && fs.existsSync(path.join(root, f.name, ".git"))) add(path.join(root, f.name)); } catch {}
+  }
+  return out;
+});
+ipcMain.handle("term:addProject", async e => {
+  const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), {title: "Add a project folder", properties: ["openDirectory"]});
+  if (r.canceled || !r.filePaths[0]) return null;
+  const st = loadState(), list = st.termProjects || [];
+  if (!list.some(d => d.toLowerCase() === r.filePaths[0].toLowerCase())) writeState({...st, termProjects: [r.filePaths[0], ...list]});
+  return r.filePaths[0];
+});
+ipcMain.handle("term:removeProject", (_e, dir) => { const st = loadState(); writeState({...st, termProjects: (st.termProjects || []).filter(d => d !== dir)}); return true; });
 ipcMain.handle("term:models", async () => {     // local models for "Local AI"
   try { const r = await fetch("http://127.0.0.1:11434/api/tags"); return ((await r.json()).models || []).map(m => m.name); } catch { return []; }
 });
