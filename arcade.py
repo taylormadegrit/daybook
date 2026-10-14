@@ -43,7 +43,22 @@ else:
     except Exception:
         pass
 
-SCORE_FILE = Path(__file__).resolve().parent / "arcade_scores.json"
+def get_score_file():
+    local_file = Path(__file__).resolve().parent / "arcade_scores.json"
+    try:
+        if local_file.exists():
+            return local_file
+        # Test directory write permission
+        test_file = Path(__file__).resolve().parent / ".test_write"
+        test_file.touch()
+        test_file.unlink()
+        return local_file
+    except Exception:
+        pass
+    return Path.home() / ".arcade_scores.json"
+
+
+SCORE_FILE = get_score_file()
 
 # ANSI Colors & Styles
 C_RESET = "\033[0m"
@@ -135,14 +150,21 @@ def get_key():
         dr, _, _ = select.select([sys.stdin], [], [], 0)
         if dr:
             ch = sys.stdin.read(1)
+            if not ch:
+                return None
             if ch == "\x1b":
                 dr2, _, _ = select.select([sys.stdin], [], [], 0.05)
                 if dr2:
                     seq = sys.stdin.read(2)
-                    return {"[A": "up", "[B": "down", "[C": "right", "[D": "left"}.get(seq, "escape")
+                    return {
+                        "[A": "up", "[B": "down", "[C": "right", "[D": "left",
+                        "OA": "up", "OB": "down", "OC": "right", "OD": "left",
+                    }.get(seq, "escape")
                 return "escape"
             if ch in ("\r", "\n"):
                 return "enter"
+            if ch == " ":
+                return " "
             return ch.lower()
         return None
 
