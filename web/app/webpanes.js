@@ -188,11 +188,12 @@ function bdMarkFocus() { $$(".bd-pane").forEach(e => e.classList.toggle("on", +e
 function bdSync(force) {
   const st = $("#bd-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || !!$(".dict.on");
-  const visible = S.view === "browser" && !!st && !overlay && document.visibilityState === "visible";
+  const anyFull = (BD.panes || []).some(p => p.full);
+  const visible = S.view === "browser" && !!st && !overlay && !anyFull && document.visibilityState === "visible";
   const rects = {}, items = [];
   if (visible) $$(".bd-pane").forEach(el => { const r = el.querySelector(".bd-body").getBoundingClientRect(), id = +el.dataset.id, rr = {x: r.x, y: r.y, w: r.width, h: r.height};
     if (id < 0) items.push({hwnd: -id, ...rr}); else rects[id] = rr; });
-  const key = JSON.stringify({visible, rects, items}); if (!force && key === BD.last) return; BD.last = key;
+  const key = JSON.stringify({visible, anyFull, rects, items}); if (!force && key === BD.last) return; BD.last = key;
   desktop.browser.layout({visible, rects});
   if (BD.chrome.length || items.length) fetch("/api/dock/embed/place", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({visible, items, dpr: devicePixelRatio, parent: BD.win && BD.win.hwnd})}).catch(() => {});
 }

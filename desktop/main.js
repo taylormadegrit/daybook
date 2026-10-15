@@ -103,12 +103,28 @@ async function createWindow(view, opts = {}) {
   const w = new BrowserWindow({
     ...bounds, minWidth: 900, minHeight: 600, show: false, title: "Daybook", icon: ICON, backgroundColor: "#0a0b10",
     titleBarStyle: "hidden", titleBarOverlay: {color: "#00000000", symbolColor: "#c9cdda", height: 34},
-    webPreferences: {preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, spellcheck: true, plugins: true},
+    webPreferences: {preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, spellcheck: true, plugins: true, disableHtmlFullscreenWindowResize: true},
   });
   w._layout = {visible: false, rects: {}};
   const relayout = () => { if (!w.isDestroyed()) w.webContents.send("browser:relayout"); };
   const hideDocked = () => post("/api/dock/embed/place", {visible: false, items: [], parent: hwndOf(w)});
   w.on("move", relayout); w.on("moved", relayout); w.on("resize", relayout); w.on("restore", relayout); w.on("show", relayout);
+  w.on("enter-full-screen", () => { layoutPanes(w); });
+  w.on("leave-full-screen", () => {
+    let changed = false;
+    for (const [, p] of panesOf(w)) {
+      if (p.full) {
+        p.full = false;
+        changed = true;
+        try { p.view.webContents.executeJavaScript("if (document.fullscreenElement) document.exitFullscreen().catch(()=>{})"); } catch (e) {}
+      }
+    }
+    if (w._restoreMaximized) {
+      w._restoreMaximized = false;
+      try { if (!w.isDestroyed() && !w.isMaximized()) w.maximize(); } catch (e) {}
+    }
+    if (changed) { layoutPanes(w); sendPanes(w); }
+  });
   w.on("hide", hideDocked); w.on("minimize", hideDocked);
   // Daybook's page draws its own right-click menu; for text boxes it lets this event through so it can show
   // spelling suggestions (Chromium only reports them here).
@@ -319,7 +335,7 @@ function prepareSession(part) {
 }
 function paneInfo(id, p) {
   const wc = p.view.webContents;
-  return {id, profile: p.profile, title: wc.getTitle() || "New tab", url: wc.getURL(), loading: wc.isLoading(), canBack: wc.navigationHistory.canGoBack(), canFwd: wc.navigationHistory.canGoForward(), favicon: p.favicon || "", muted: wc.isAudioMuted(), audible: wc.isCurrentlyAudible()};
+  return {id, profile: p.profile, title: wc.getTitle() || "New tab", url: wc.getURL(), loading: wc.isLoading(), canBack: wc.navigationHistory.canGoBack(), canFwd: wc.navigationHistory.canGoForward(), favicon: p.favicon || "", muted: wc.isAudioMuted(), audible: wc.isCurrentlyAudible(), full: !!p.full};
 }
 const panesOf = owner => [...panes].filter(([, p]) => p.owner === owner);
 function sendPanes(owner, extra) {
@@ -330,7 +346,7 @@ function openPane(profile, url, owner) {
   owner = owner || win;
   const part = partitionFor(profile);
   prepareSession(part);
-  const view = new WebContentsView({webPreferences: {partition: part, contextIsolation: true, sandbox: true, plugins: true, preload: path.join(__dirname, "browser-preload.js")}});
+  const view = new WebContentsView({webPreferences: {partition: part, contextIsolation: true, sandbox: true, plugins: true, disableHtmlFullscreenWindowResize: true, preload: path.join(__dirname, "browser-preload.js")}});
   view.setBackgroundColor("#ffffff");
   const id = paneSeq++;
   const p = {view, profile, owner};
@@ -346,8 +362,37 @@ function openPane(profile, url, owner) {
   });
   ["did-start-loading", "did-stop-loading", "page-title-updated", "did-navigate", "did-navigate-in-page", "audio-state-changed"].forEach(ev => wc.on(ev, () => sendPanes(owner)));
   wc.on("page-favicon-updated", (_e, icons) => { p.favicon = icons[0] || ""; sendPanes(owner); });
-  wc.on("enter-html-full-screen", () => { p.full = true; layoutPanes(owner); });
-  wc.on("leave-html-full-screen", () => { p.full = false; layoutPanes(owner); });
+  wc.on("enter-html-full-screen", () => {
+    p.full = true;
+    p._wasFullScreen = owner.isFullScreen();
+    p._wasMaximized = owner.isMaximized();
+    if (p._wasMaximized) owner._restoreMaximized = true;
+    if (!p._wasFullScreen) owner.setFullScreen(true);
+    layoutPanes(owner);
+    sendPanes(owner);
+  });
+  wc.on("leave-html-full-screen", () => {
+    p.full = false;
+    if (!p._wasFullScreen && !owner.isDestroyed() && owner.isFullScreen()) {
+      owner.setFullScreen(false);
+    } else if (p._wasMaximized && !owner.isDestroyed() && !owner.isMaximized()) {
+      owner.maximize();
+    }
+    layoutPanes(owner);
+    sendPanes(owner);
+  });
+  wc.on("did-navigate", () => {
+    if (p.full) {
+      p.full = false;
+      if (!p._wasFullScreen && !owner.isDestroyed() && owner.isFullScreen()) {
+        owner.setFullScreen(false);
+      } else if (p._wasMaximized && !owner.isDestroyed() && !owner.isMaximized()) {
+        owner.maximize();
+      }
+      layoutPanes(owner);
+      sendPanes(owner);
+    }
+  });
   wc.on("before-input-event", (e, i) => { // browser shortcuts inside a pane
     if (i.type !== "keyDown") return;
     const k = i.key.toLowerCase();
@@ -426,20 +471,30 @@ ipcMain.handle("browser:toNote", (_e, id) => pageToNote(id));
 
 function closePane(id) {
   const p = panes.get(id); if (!p) return;
+  if (p.full && !p._wasFullScreen && !p.owner.isDestroyed() && p.owner.isFullScreen()) {
+    p.owner.setFullScreen(false);
+    if (p._wasMaximized && !p.owner.isMaximized()) p.owner.maximize();
+  }
   if (!p.owner.isDestroyed()) p.owner.contentView.removeChildView(p.view);
   p.view.webContents.close();
   panes.delete(id); sendPanes(p.owner);
+  layoutPanes(p.owner);
 }
 function layoutPanes(owner, l) {
   if (!owner || owner.isDestroyed()) return;
   if (l) owner._layout = l;
-  const {visible, rects} = owner._layout;
+  const {visible, rects} = owner._layout || {};
   const mine = panesOf(owner), full = mine.find(([, p]) => p.full);
   for (const [id, p] of mine) {
-    const r = rects[id];
+    const r = rects ? rects[id] : null;
     let show, b = null;
-    if (full) { show = full[0] === id && visible; if (show) { const [w, h] = owner.getContentSize(); b = {x: 0, y: 0, width: w, height: h}; } }
-    else { show = !!(visible && r && r.w >= 20 && r.h >= 20); if (show) b = {x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h)}; }
+    if (full) {
+      show = (full[0] === id);
+      if (show) { const [w, h] = owner.getContentSize(); b = {x: 0, y: 0, width: w, height: h}; }
+    } else {
+      show = !!(visible && r && r.w >= 20 && r.h >= 20);
+      if (show) b = {x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h)};
+    }
     // only touch the view when something changed — re-showing a page mid-click can swallow the click
     if (b && JSON.stringify(b) !== p._b) { p.view.setBounds(b); p._b = JSON.stringify(b); }
     if (show !== p._shown) {
