@@ -722,6 +722,16 @@ ipcMain.handle("app:settings", (_e, s) => {
 });
 ipcMain.handle("app:info", e => ({version: app.getVersion(), packaged: app.isPackaged, ...loadState(), startAtLogin: app.getLoginItemSettings().openAtLogin,
   main: ownerOf(e) === win, windows: wins.size, hwnd: hwndOf(ownerOf(e))}));
+ipcMain.handle("app:reload", () => {
+  for (const w of wins) {
+    if (!w.isDestroyed()) w.webContents.reload();
+  }
+  return true;
+});
+ipcMain.handle("app:relaunch", () => {
+  app.relaunch();
+  app.exit(0);
+});
 const EDIT_ACTIONS = new Set(["cut", "copy", "paste", "selectAll", "undo", "redo", "pasteAndMatchStyle"]);
 ipcMain.on("app:edit", (e, action, arg) => {
   if (EDIT_ACTIONS.has(action)) e.sender[action]();

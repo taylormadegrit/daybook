@@ -3,6 +3,8 @@ const {contextBridge, ipcRenderer, webUtils} = require("electron");
 
 contextBridge.exposeInMainWorld("desktop", {
   isDesktop: true,
+  reload: () => ipcRenderer.invoke("app:reload"),
+  relaunch: () => ipcRenderer.invoke("app:relaunch"),
   info: () => ipcRenderer.invoke("app:info"),
   settings: s => ipcRenderer.invoke("app:settings", s),
   newWindow: view => ipcRenderer.invoke("app:newWindow", view),

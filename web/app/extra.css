@@ -872,3 +872,42 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .bd-find-input:focus{border-color:var(--a2);background:rgba(0,0,0,.45)}
 .bd-find-count{font-size:11.5px;color:var(--muted);white-space:nowrap;min-width:38px;text-align:center}
 
+/* ---- in-app updates & 1-click updater ---- */
+.update-pill{display:inline-flex;align-items:center;gap:8px;padding:3px 8px 3px 10px;border-radius:99px;background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(168,85,247,.12));border:1px solid color-mix(in srgb,var(--a1) 45%,transparent);box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer;transition:.18s;max-width:440px}
+.update-pill:hover{border-color:var(--a1);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.update-pulse{width:7px;height:7px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:updateGlow 2s infinite}
+@keyframes updateGlow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.85)}}
+.update-pill-badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#38bdf8}
+.update-pill-msg{font-size:12px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.update-now-btn{padding:2px 9px!important;font-size:11.5px!important;display:inline-flex;align-items:center;gap:4px;border-radius:6px!important;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+
+.update-status-box{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.update-status-box.up-to-date{border-color:color-mix(in srgb,var(--ok) 35%,transparent);background:color-mix(in srgb,var(--ok) 5%,transparent)}
+.update-status-box.has-update{border-color:color-mix(in srgb,var(--a1) 50%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--a1) 12%,transparent),color-mix(in srgb,var(--a2) 8%,transparent));box-shadow:0 0 20px color-mix(in srgb,var(--a1) 10%,transparent)}
+.update-icon-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.update-icon-circle.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)}
+.update-icon-circle.alert{background:color-mix(in srgb,var(--a1) 25%,transparent);color:#fff;border:1px solid color-mix(in srgb,var(--a1) 50%,transparent)}
+.update-box-content{flex:1;min-width:0}
+.update-box-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.update-box-sub{font-size:12.5px;color:var(--fg2);margin-bottom:4px}
+.update-latest-msg{font-size:13.5px;color:var(--fg);margin:6px 0;padding:6px 10px;background:rgba(0,0,0,.2);border-radius:6px;border-left:3px solid var(--a1)}
+.update-box-meta{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}
+.update-box-actions{display:flex;flex-direction:column;gap:6px;flex:none;align-items:flex-end}
+.update-big-btn{font-weight:700!important;padding:8px 16px!important;box-shadow:0 4px 14px color-mix(in srgb,var(--a1) 40%,transparent)}
+
+.update-commits-preview{margin:8px 0;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid var(--line)}
+.update-commits-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px}
+.update-commits-ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.update-commits-ul li{display:flex;align-items:baseline;gap:8px;line-height:1.35}
+.update-commits-ul code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:11px;color:var(--a2);flex:none}
+.update-commits-ul span{color:var(--fg);flex:1}
+
+.update-progress-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:8px;position:relative}
+.update-progress-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--a1),var(--a2),var(--a1));background-size:200% 100%;animation:updateMove 1.5s infinite linear;border-radius:3px}
+@keyframes updateMove{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.update-progress-text{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:8px}
+.update-log-box{max-height:140px;overflow-y:auto;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:11px;font-family:monospace;color:var(--muted);white-space:pre-wrap}
+.spin{display:inline-block;animation:spin 1s infinite linear}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+
+
