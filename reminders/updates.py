@@ -187,7 +187,7 @@ def check_updates():
         "update_available": update_available,
         "commits_behind": commits_behind,
         "commit_list": commit_list,
-        "current_version": "1.7.0",
+        "current_version": "1.7.1",
         "is_repo": is_git_repo(),
         "local": local,
         "remote": remote,
