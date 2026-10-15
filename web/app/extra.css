@@ -969,12 +969,24 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .wf-dest-ic{font-size:18px}
 .wf-dest-body{font-size:12.5px;color:var(--muted);line-height:1.4}
 
-/* ---- Clean Tabbed Settings ---- */
-.set-tabs-bar{display:flex;align-items:center;gap:6px;padding:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:20px;overflow-x:auto}
-.set-tab-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;border:0;background:none;color:var(--fg2);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
-.set-tab-btn:hover{background:rgba(255,255,255,.06);color:var(--fg)}
-.set-tab-btn.on{background:var(--a1);color:#fff;box-shadow:0 2px 10px color-mix(in srgb,var(--a1) 40%,transparent)}
-.set-tab-panel{display:none}
-.set-tab-panel.on{display:block}
+/* ---- Sticky Settings Quick-Jump Bar & Instant Search ---- */
+.set-topbar{
+  position:sticky;top:0;z-index:22;margin:-6px 0 20px;padding:8px 12px;
+  border-radius:14px;background:var(--panel);border:1px solid var(--line2);
+  box-shadow:0 8px 24px rgba(0,0,0,.35);backdrop-filter:blur(18px);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.set-filter-box{position:relative;flex:none;min-width:240px;display:flex;align-items:center}
+.set-filter-input{width:100%!important;height:32px!important;padding:0 10px 0 32px!important;border-radius:99px!important;font-size:12.5px!important}
+.set-filter-icon{position:absolute;left:10px;pointer-events:none;color:var(--muted);width:14px;height:14px}
+.set-pills{display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;padding-bottom:2px}
+.set-pill{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg2);font-size:12px;
+  font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.set-pill:hover{border-color:var(--a1);color:var(--fg);background:var(--card2)}
+.set-pill.on{border-color:var(--a1);background:color-mix(in srgb,var(--a1) 18%,transparent);color:var(--fg);font-weight:600}
+#v-settings .card{scroll-margin-top:64px}
 
 

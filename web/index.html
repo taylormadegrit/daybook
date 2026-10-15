@@ -595,22 +595,102 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 
     <!-- SETTINGS -->
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
-      <div class="set-tabs-bar" id="set-tabs-bar">
-        <button class="set-tab-btn on" data-tab="general" onclick="setSwitchTab('general')"><svg class="i sm" data-i="home"></svg>General &amp; Startup</button>
-        <button class="set-tab-btn" data-tab="appearance" onclick="setSwitchTab('appearance')"><svg class="i sm" data-i="palette"></svg>Appearance</button>
-        <button class="set-tab-btn" data-tab="updates" onclick="setSwitchTab('updates')"><svg class="i sm" data-i="sync"></svg>Updates</button>
-        <button class="set-tab-btn" data-tab="ai" onclick="setSwitchTab('ai')"><svg class="i sm" data-i="spark"></svg>AI &amp; Claude Sync</button>
-        <button class="set-tab-btn" data-tab="apps" onclick="setSwitchTab('apps')"><svg class="i sm" data-i="grid"></svg>Apps &amp; LocalSend</button>
-        <button class="set-tab-btn" data-tab="voice" onclick="setSwitchTab('voice')"><svg class="i sm" data-i="mic"></svg>Voice</button>
-        <button class="set-tab-btn" data-tab="reminders" onclick="setSwitchTab('reminders')"><svg class="i sm" data-i="bell"></svg>Reminders</button>
-        <button class="set-tab-btn" data-tab="files" onclick="setSwitchTab('files')"><svg class="i sm" data-i="note"></svg>Files &amp; Notes</button>
+      <!-- Sticky Quick-Jump Navigation Bar & Instant Filter -->
+      <div class="set-topbar">
+        <div class="set-filter-box">
+          <svg class="i sm set-filter-icon" data-i="search"></svg>
+          <input class="f set-filter-input" id="set-filter" placeholder="Filter settings… (theme, sidebar, mic, ai)" oninput="filterSettings(this.value)">
+        </div>
+        <div class="set-pills">
+          <button class="set-pill on" data-sec="set-sec-appearance" onclick="setJump('set-sec-appearance')"><svg class="i sm" data-i="palette"></svg>Appearance</button>
+          <button class="set-pill" data-sec="set-sec-layout" onclick="setJump('set-sec-layout')"><svg class="i sm" data-i="grid"></svg>Layout</button>
+          <button class="set-pill" data-sec="set-sec-categories" onclick="setJump('set-sec-categories')"><svg class="i sm" data-i="layers"></svg>Categories</button>
+          <button class="set-pill" data-sec="set-sec-privacy" onclick="setJump('set-sec-privacy')"><svg class="i sm" data-i="globe"></svg>Browser</button>
+          <button class="set-pill" data-sec="set-sec-discord" onclick="setJump('set-sec-discord')"><svg class="i sm" data-i="send"></svg>Discord</button>
+          <button class="set-pill" data-sec="set-sec-voice" onclick="setJump('set-sec-voice')"><svg class="i sm" data-i="mic"></svg>Voice</button>
+          <button class="set-pill" data-sec="claudecard" onclick="setJump('claudecard')"><svg class="i sm" data-i="spark"></svg>Claude</button>
+          <button class="set-pill" data-sec="set-sec-ai" onclick="setJump('set-sec-ai')"><svg class="i sm" data-i="spark"></svg>AI Exporter</button>
+          <button class="set-pill" data-sec="set-sec-apps" onclick="setJump('set-sec-apps')"><svg class="i sm" data-i="send"></svg>LocalSend &amp; Apps</button>
+          <button class="set-pill" data-sec="set-sec-general" onclick="setJump('set-sec-general')"><svg class="i sm" data-i="home"></svg>General</button>
+          <button class="set-pill" data-sec="set-sec-reminders" onclick="setJump('set-sec-reminders')"><svg class="i sm" data-i="bell"></svg>Reminders</button>
+          <button class="set-pill" data-sec="set-sec-notes" onclick="setJump('set-sec-notes')"><svg class="i sm" data-i="note"></svg>Notes</button>
+          <button class="set-pill" data-sec="updatecard" onclick="setJump('updatecard')"><svg class="i sm" data-i="sync"></svg>Updates</button>
+        </div>
       </div>
 
-      <!-- Tab: General & Startup -->
-      <div class="set-tab-panel on" id="set-tab-general">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="home"></svg>General &amp; Startup Settings</h3>
+      <!-- Appearance Card -->
+      <div class="card" id="set-sec-appearance" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
+        <div class="grouph" style="margin-top:0">Style</div>
+        <div class="stylepick" id="stylepick"></div>
+        <div class="grouph">Colors &amp; Themes</div>
+        <div class="themes" id="themes"></div>
+      </div>
+
+      <!-- Layout Card -->
+      <div class="card" id="set-sec-layout" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3>
+        <div id="layoutset"></div>
+      </div>
+
+      <!-- Categories Card -->
+      <div class="card" id="set-sec-categories" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="layers"></svg>Categories</h3>
+        <div id="catset"></div>
+      </div>
+
+      <!-- Browser & Privacy Card -->
+      <div class="card" id="set-sec-privacy" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3>
+        <div id="privacyset"></div>
+      </div>
+
+      <!-- Discord Card -->
+      <div class="card" id="set-sec-discord" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="send"></svg>Discord</h3>
+        <div id="discordset"></div>
+      </div>
+
+      <!-- Voice & Microphone Card -->
+      <div class="card" id="set-sec-voice" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="mic"></svg>Voice &amp; microphone</h3>
+        <div id="voiceset"></div>
+      </div>
+
+      <!-- Claude Card -->
+      <div class="card" id="claudecard" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="spark"></svg>Claude</h3>
+        <div id="claude"></div>
+      </div>
+
+      <!-- Claude-to-Gemini 1-Click Exporter -->
+      <div class="card" id="set-sec-ai" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="spark"></svg>Claude-to-Gemini 1-Click Exporter<button class="btn sm pri" onclick="exportClaudeToGemini()">Export Now</button></h3>
+        <p class="muted small">Migrate 2 months of Claude training, user persona, and instructions into Google Gemini in under 5 minutes.</p>
+        <div id="claude-to-gemini-box"></div>
+      </div>
+
+      <!-- LocalSend & In-App Web Apps Card -->
+      <div class="card" id="set-sec-apps" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="send"></svg>LocalSend &amp; In-App Web Apps</h3>
+        <div id="localsendset"></div>
+        <div class="grouph" style="margin-top:12px">In-App Web Apps</div>
+        <p class="muted small">Launch these apps directly inside Daybook without switching to an external browser.</p>
+        <div class="row" style="gap:8px;margin-top:10px">
+          <button class="btn sm" onclick="go('apps');awSwitch('localsend')">Open LocalSend</button>
+          <button class="btn sm" onclick="go('apps');awSwitch('gemini')">Open Gemini</button>
+          <button class="btn sm" onclick="go('apps');awSwitch('claude')">Open Claude</button>
+          <button class="btn sm" onclick="go('apps');awSwitch('chatgpt')">Open ChatGPT</button>
+          <button class="btn sm" onclick="go('apps');awSwitch('spotify')">Open Spotify</button>
+          <button class="btn sm" onclick="go('apps');awSwitch('youtube')">Open YouTube Studio</button>
+        </div>
+      </div>
+
+      <!-- Compact Cards Grid -->
+      <div class="set">
+        <div class="card" id="set-sec-general"><h3><svg class="i sm" data-i="home"></svg>General</h3>
           <div class="srow"><div class="d"><b>Your name</b><span>Used in greetings</span></div><input class="f" data-s="user_name"></div>
-          <div class="srow"><div class="d"><b>Open Daybook at startup</b><span>Shows this window when you sign into Windows</span></div><label class="switch"><input type="checkbox" data-s="open_at_startup"><span></span></label></div>
+          <div class="srow"><div class="d"><b>Open Daybook at startup</b><span>Shows this window when you sign in</span></div><label class="switch"><input type="checkbox" data-s="open_at_startup"><span></span></label></div>
           <div class="srow"><div class="d"><b>Default startup view / app</b><span>Which page or embedded app opens when Daybook starts</span></div>
             <select class="f" id="s-startup-view" onchange="saveSetting('startup_view',this.value);localStorage.setItem('daybook-startup-view',this.value);toast('Default startup view saved')">
               <option value="today">Today (Home schedule &amp; widgets)</option>
@@ -629,81 +709,35 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <div class="srow"><div class="d"><b>Morning agenda pop-up</b><span>Quick list of today's items, once a day</span></div><label class="switch"><input type="checkbox" data-s="agenda_popup"><span></span></label></div>
           <div class="srow"><div class="d"><b>Agenda after</b><span>Hour of the day it can appear</span></div><select class="f" data-s="agenda_hour"></select></div>
         </div>
-      </div>
 
-      <!-- Tab: Appearance -->
-      <div class="set-tab-panel" id="set-tab-appearance">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
-          <div class="grouph" style="margin-top:0">Style</div><div class="stylepick" id="stylepick"></div>
-          <div class="grouph">Colors &amp; Themes</div><div class="themes" id="themes"></div>
-        </div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout &amp; Sidebar</h3><div id="layoutset"></div></div>
-      </div>
-
-      <!-- Tab: Updates -->
-      <div class="set-tab-panel" id="set-tab-updates">
-        <div class="card" id="updatecard" style="margin-bottom:18px"><h3><svg class="i sm" data-i="sync"></svg>Updates &amp; GitHub Sync<button class="btn sm" onclick="checkUpdates(true)">Check for updates</button></h3><div id="updateset"></div></div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
-      </div>
-
-      <!-- Tab: AI & Claude Sync -->
-      <div class="set-tab-panel" id="set-tab-ai">
-        <div class="card" style="margin-bottom:18px">
-          <h3><svg class="i sm" data-i="spark"></svg>Claude-to-Gemini 1-Click Exporter<button class="btn sm pri" onclick="exportClaudeToGemini()">Export Now</button></h3>
-          <p class="muted small">Migrate 2 months of Claude training, user persona, and instructions into Google Gemini in under 5 minutes.</p>
-          <div id="claude-to-gemini-box"></div>
-        </div>
-        <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude Configuration</h3><div id="claude"></div></div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="chip"></svg>Local AI Models</h3>
-          <div class="srow"><div class="d"><b>Model for reminders &amp; notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
-          <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
-          <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
-        </div>
-      </div>
-
-      <!-- Tab: Apps & LocalSend -->
-      <div class="set-tab-panel" id="set-tab-apps">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>LocalSend LAN File Sharing</h3>
-          <div id="localsendset"></div>
-        </div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>In-App Web Apps</h3>
-          <p class="muted small">Launch these apps directly inside Daybook without switching to an external browser.</p>
-          <div class="row" style="gap:8px;margin-top:10px">
-            <button class="btn" onclick="go('apps');awSwitch('localsend')">Open LocalSend</button>
-            <button class="btn" onclick="go('apps');awSwitch('gemini')">Open Gemini</button>
-            <button class="btn" onclick="go('apps');awSwitch('claude')">Open Claude</button>
-            <button class="btn" onclick="go('apps');awSwitch('chatgpt')">Open ChatGPT</button>
-            <button class="btn" onclick="go('apps');awSwitch('spotify')">Open Spotify</button>
-            <button class="btn" onclick="go('apps');awSwitch('youtube')">Open YouTube Studio</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Voice -->
-      <div class="set-tab-panel" id="set-tab-voice">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice &amp; microphone</h3><div id="voiceset"></div></div>
-      </div>
-
-      <!-- Tab: Reminders -->
-      <div class="set-tab-panel" id="set-tab-reminders">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="bell"></svg>Reminders</h3>
+        <div class="card" id="set-sec-reminders"><h3><svg class="i sm" data-i="bell"></svg>Reminders</h3>
           <div class="srow"><div class="d"><b>Ring again every</b><span>Pop-ups keep ringing until Done / Snooze</span></div><select class="f" data-s="nag_minutes"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></div>
           <div class="srow"><div class="d"><b>Test a pop-up</b><span>Shows one in ~5 seconds</span></div><button class="btn" onclick="testPopup()">Send test</button></div>
           <div class="srow"><div class="d"><b>Wake PC at 2:58 AM</b><span>Windows task <code>LocalRemindersWakeUp</code> — so the 3 AM alarm fires from sleep</span></div><span class="badge">On</span></div>
         </div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
-      </div>
 
-      <!-- Tab: Files & Notes -->
-      <div class="set-tab-panel" id="set-tab-files">
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="note"></svg>Notes import &amp; Annotations</h3>
+        <div class="card" id="set-sec-ai-models"><h3><svg class="i sm" data-i="spark"></svg>Local AI</h3>
+          <div class="srow"><div class="d"><b>Model for reminders &amp; notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
+          <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
+          <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
+        </div>
+
+        <div class="card" id="set-sec-notes"><h3><svg class="i sm" data-i="note"></svg>Notes import</h3>
           <div class="srow"><div class="d"><b>Old notes folder</b><span>Read-only — files are never changed</span></div><input class="f" data-s="import_dir"></div>
           <div class="srow"><div class="d"><b>Annotations folder</b><span>Where screen annotations are saved</span></div><input class="f" data-s="annotations_dir"></div>
           <div class="srow"><div class="d"><b>Import new files</b><span>.txt .odt .md .docx · skips login/key files</span></div><button class="btn" onclick="importOld()">Import now</button></div>
           <div class="srow"><div class="d"><b>Welcome card</b><span>Show the getting-started card on Today again</span></div><button class="btn" onclick="saveSetting('welcome_seen','0');toast('It will show on Today')">Show again</button></div>
         </div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="layers"></svg>Categories</h3><div id="catset"></div></div>
-        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3><div id="privacyset"></div></div>
+      </div>
+
+      <!-- Updates & System Status -->
+      <div class="card" id="updatecard" style="margin-top:18px;margin-bottom:18px">
+        <h3><svg class="i sm" data-i="sync"></svg>Updates &amp; GitHub Sync<button class="btn sm" onclick="checkUpdates(true)">Check for updates</button></h3>
+        <div id="updateset"></div>
+      </div>
+      <div class="card" id="set-sec-updates" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3>
+        <div id="status"></div>
       </div>
     </div></section>
 
@@ -1420,11 +1454,45 @@ async function hotkeysEmacs(off) {  // Daybook's Ctrl+Alt hotkeys are Emacs' C-M
   await desktop.settings({hotkeysOff: off ? keys : []});
   toast(off ? "Ctrl+Alt hotkeys are off — Emacs gets them back. Use the tray icon or Alt shortcuts inside Daybook." : "Ctrl+Alt hotkeys are back on");
 }
-function setSwitchTab(t) {
-  store.set("daybook-set-tab", t);
-  $$(".set-tab-btn").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
-  $$(".set-tab-panel").forEach(p => p.classList.toggle("on", p.id === "set-tab-" + t));
-  if (t === "apps") renderLocalSendSettings();
+function setJump(secId) {
+  const fi = $("#set-filter");
+  if (fi && fi.value) { fi.value = ""; filterSettings(""); }
+  const el = document.getElementById(secId);
+  if (!el) return;
+  $$(".set-pill").forEach(p => p.classList.toggle("on", p.dataset.sec === secId));
+  el.scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function filterSettings(q) {
+  q = (q || "").toLowerCase().trim();
+  const cards = $$("#v-settings .card");
+  cards.forEach(c => {
+    if (!q) { c.style.display = ""; c.style.outline = ""; return; }
+    const match = c.textContent.toLowerCase().includes(q);
+    c.style.display = match ? "" : "none";
+    c.style.outline = match ? "2px solid color-mix(in srgb, var(--a1) 60%, transparent)" : "";
+  });
+}
+
+let _setScrollObs = null;
+function initSettingsObserver() {
+  if (_setScrollObs) _setScrollObs.disconnect();
+  const pills = $$(".set-pill");
+  const host = document.getElementById("v-settings");
+  if (!pills.length || !host || !window.IntersectionObserver) return;
+  const secIds = Array.from(pills).map(p => p.dataset.sec).filter(Boolean);
+  _setScrollObs = new IntersectionObserver((entries) => {
+    const visible = entries.filter(e => e.isIntersecting);
+    if (visible.length) {
+      visible.sort((a, b) => Math.abs(a.boundingClientRect.top - 80) - Math.abs(b.boundingClientRect.top - 80));
+      const targetId = visible[0].target.id;
+      pills.forEach(p => p.classList.toggle("on", p.dataset.sec === targetId));
+    }
+  }, { root: host, rootMargin: "-5% 0px -60% 0px", threshold: [0, 0.2] });
+  secIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) _setScrollObs.observe(el);
+  });
 }
 
 async function renderLocalSendSettings() {
@@ -1491,8 +1559,8 @@ async function renderSettings() {
   renderClaude(); renderThemes(); renderStylePick(); renderPrivacy(); renderCatSettings();
   const sv = $("#s-startup-view"); if (sv) sv.value = set.startup_view || localStorage.getItem("daybook-startup-view") || "today";
   const sc = $("#s-show-clock"); if (sc) sc.checked = store.get("daybook-show-clock", "1") !== "0";
-  setSwitchTab(store.get("daybook-set-tab", "general"));
   renderLocalSendSettings();
+  initSettingsObserver();
   const ai = st.counts.ai || {};
   $("#status").innerHTML = `<div class="stat">
       <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
