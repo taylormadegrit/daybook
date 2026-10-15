@@ -56,10 +56,19 @@ def _duration(path):
         with av.open(str(path)) as c:
             if c.duration:
                 return round(c.duration / 1_000_000, 1)
-            s = c.streams.audio[0]
-            return round(float(s.duration * s.time_base), 1)
+            if c.streams.audio:
+                s = c.streams.audio[0]
+                if s.duration and s.time_base:
+                    return round(float(s.duration * s.time_base), 1)
+                last_pts = None
+                for packet in c.demux(s):
+                    if packet.pts is not None:
+                        last_pts = packet.pts
+                if last_pts is not None and s.time_base:
+                    return round(float(last_pts * s.time_base), 1)
     except Exception:
-        return 0
+        pass
+    return 0
 
 
 def add(data, filename, title="", labels=(), memo_date=None, source="recorded", kind=None):
@@ -264,15 +273,39 @@ def memo_to_note(mid):
     return jsonify(note_id=nid)
 
 
+def _mimetype_for(path, kind="audio"):
+    ext = Path(path).suffix.lower()
+    mapping = {
+        ".webm": "audio/webm" if kind == "audio" else "video/webm",
+        ".m4a": "audio/mp4",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+        ".opus": "audio/opus",
+        ".aac": "audio/aac",
+        ".flac": "audio/flac",
+        ".caf": "audio/x-caf",
+        ".3gp": "audio/3gpp" if kind == "audio" else "video/3gpp",
+        ".mp4": "audio/mp4" if kind == "audio" else "video/mp4",
+        ".mov": "video/quicktime",
+        ".mkv": "video/x-matroska",
+    }
+    return mapping.get(ext)
+
+
 @bp.get("/memo-media/<int:mid>")
 def memo_media(mid):
     from flask import send_file
     m = get(mid)
     if not m or not media(m).exists():
         return ("", 404)
-    return send_file(media(m), conditional=True)
+    p = media(m)
+    mime = _mimetype_for(p, m.get("kind", "audio"))
+    return send_file(p, mimetype=mime, conditional=True)
 
 
 @bp.get("/memo-audio/<path:name>")
 def memo_audio(name):
-    return send_from_directory(MEMO_DIR, Path(name).name, conditional=True)
+    p = Path(name).name
+    mime = _mimetype_for(p, "audio")
+    return send_from_directory(MEMO_DIR, p, mimetype=mime, conditional=True)

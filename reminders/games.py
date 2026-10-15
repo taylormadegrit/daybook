@@ -464,3 +464,331 @@ def g_art(gid):
         if out.exists():
             return send_file(out, max_age=86400)
     return ("", 404)
+
+
+# ---------------- Emulator Hub ----------------
+
+EMU_CACHE = CACHE / "emulators.json"
+
+EMU_CATALOG = [
+    {
+        "id": "pcsx2",
+        "name": "PCSX2",
+        "system": "PlayStation 2",
+        "badge": "PS2",
+        "icon": "gamepad",
+        "desc": "PlayStation 2 emulator supporting 1080p/4K upscaling, widescreen patches, and save states.",
+        "exe_candidates": [
+            r"D:\PCSX2\pcsx2-qt.exe",
+            r"D:\Applications\pcsx2-v1.7.5672-windows-x64-Qt\pcsx2-qt.exe",
+            r"C:\Program Files\PCSX2\pcsx2-qt.exe",
+            r"D:\Games\PCSX2\pcsx2-qt.exe",
+        ],
+        "rom_dirs": [
+            r"D:\PS2 games",
+            r"D:\Games\PS2",
+            r"D:\ROMs\PS2",
+        ],
+        "exts": [".iso", ".bin", ".chd", ".cso", ".gz"],
+        "launch_args": ["-batch"],
+    },
+    {
+        "id": "cemu",
+        "name": "Cemu",
+        "system": "Nintendo Wii U",
+        "badge": "Wii U",
+        "icon": "cpu",
+        "desc": "High-performance Nintendo Wii U emulator for BotW, Super Mario 3D World, Tropical Freeze.",
+        "exe_candidates": [
+            r"D:\Applications\Cemu\Cemu.exe",
+            r"D:\Cemu\Cemu.exe",
+            r"C:\Program Files\Cemu\Cemu.exe",
+            r"D:\Games\Cemu\Cemu.exe",
+        ],
+        "rom_dirs": [
+            r"D:\Wii U games",
+            r"D:\Games\Wii U",
+            r"D:\ROMs\Wii U",
+        ],
+        "exts": [".wux", ".wud", ".rpx", ".iso", ".7z"],
+        "launch_args": ["-f", "-g"],
+    },
+    {
+        "id": "dolphin",
+        "name": "Dolphin",
+        "system": "GameCube / Wii",
+        "badge": "GC/Wii",
+        "icon": "disc",
+        "desc": "GameCube and Wii emulator with HD texture packs, netplay, and action replay cheat support.",
+        "exe_candidates": [
+            r"D:\Applications\dolphin-master-5.0-21460-x64\Dolphin-x64\Dolphin.exe",
+            r"D:\Dolphin\Dolphin.exe",
+            r"C:\Program Files\Dolphin\Dolphin.exe",
+            r"D:\Games\Dolphin\Dolphin.exe",
+        ],
+        "rom_dirs": [
+            r"D:\GameCube games",
+            r"D:\Wii games",
+            r"D:\Games\GameCube",
+            r"D:\Games\Wii",
+            r"D:\ROMs\GameCube",
+            r"D:\ROMs\Wii",
+        ],
+        "exts": [".iso", ".gcm", ".rvz", ".wbfs", ".cso"],
+        "launch_args": ["-b", "-e"],
+    },
+    {
+        "id": "retroarch",
+        "name": "RetroArch",
+        "system": "Multi-System Retro",
+        "badge": "Retro",
+        "icon": "layers",
+        "desc": "Modular frontend for retro game consoles (NES, SNES, Genesis, GBA, Arcade, PS1).",
+        "exe_candidates": [
+            os.path.expandvars(r"%APPDATA%\RetroArch\retroarch.exe"),
+            r"D:\Applications\RetroArch\retroarch.exe",
+            r"D:\RetroArch\retroarch.exe",
+            r"C:\Program Files\RetroArch\retroarch.exe",
+        ],
+        "rom_dirs": [
+            r"D:\ROMs",
+            r"D:\Games\ROMs",
+            r"D:\Games\Retro",
+        ],
+        "exts": [".nes", ".sfc", ".smc", ".gba", ".gbc", ".gb", ".zip", ".7z", ".chd"],
+        "launch_args": [],
+    },
+    {
+        "id": "duckstation",
+        "name": "DuckStation",
+        "system": "PlayStation 1",
+        "badge": "PS1",
+        "icon": "gamepad",
+        "desc": "PlayStation 1 emulator focusing on playability, speed, and long-term maintainability.",
+        "exe_candidates": [
+            r"D:\Applications\DuckStation\duckstation-qt-x64-ReleaseLTCG.exe",
+            r"D:\DuckStation\duckstation-qt-x64-ReleaseLTCG.exe",
+            r"C:\Program Files\DuckStation\duckstation-qt-x64-ReleaseLTCG.exe",
+        ],
+        "rom_dirs": [
+            r"D:\PS1 games",
+            r"D:\Games\PS1",
+            r"D:\ROMs\PS1",
+        ],
+        "exts": [".iso", ".bin", ".cue", ".chd", ".pbp"],
+        "launch_args": ["-batch"],
+    },
+    {
+        "id": "rpcs3",
+        "name": "RPCS3",
+        "system": "PlayStation 3",
+        "badge": "PS3",
+        "icon": "cpu",
+        "desc": "Open-source Sony PlayStation 3 emulator and debugger written in C++ for Windows and Linux.",
+        "exe_candidates": [
+            r"D:\Applications\RPCS3\rpcs3.exe",
+            r"D:\RPCS3\rpcs3.exe",
+            r"C:\Program Files\RPCS3\rpcs3.exe",
+        ],
+        "rom_dirs": [
+            r"D:\PS3 games",
+            r"D:\Games\PS3",
+            r"D:\ROMs\PS3",
+        ],
+        "exts": [".iso", ".pkg", ".bin"],
+        "launch_args": [],
+    },
+    {
+        "id": "ryujinx",
+        "name": "Ryujinx",
+        "system": "Nintendo Switch",
+        "badge": "Switch",
+        "icon": "sliders",
+        "desc": "Nintendo Switch emulator programmed in C# offering excellent accuracy and compatibility.",
+        "exe_candidates": [
+            r"D:\Applications\Ryujinx\Ryujinx.exe",
+            r"D:\Ryujinx\Ryujinx.exe",
+            r"C:\Program Files\Ryujinx\Ryujinx.exe",
+        ],
+        "rom_dirs": [
+            r"D:\Switch games",
+            r"D:\Games\Switch",
+            r"D:\ROMs\Switch",
+        ],
+        "exts": [".nsp", ".xci"],
+        "launch_args": [],
+    },
+    {
+        "id": "ppsspp",
+        "name": "PPSSPP",
+        "system": "PlayStation Portable",
+        "badge": "PSP",
+        "icon": "gamepad",
+        "desc": "Fast PSP emulator supporting full HD resolution, texture scaling, and controller mapping.",
+        "exe_candidates": [
+            r"D:\Applications\PPSSPP\PPSSPPWindows64.exe",
+            r"D:\PPSSPP\PPSSPPWindows64.exe",
+            r"C:\Program Files\PPSSPP\PPSSPPWindows64.exe",
+        ],
+        "rom_dirs": [
+            r"D:\PSP games",
+            r"D:\Games\PSP",
+            r"D:\ROMs\PSP",
+        ],
+        "exts": [".iso", ".cso", ".pbp"],
+        "launch_args": [],
+    },
+]
+
+
+def _emu_state():
+    try:
+        return json.loads(EMU_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_emu_state(s):
+    EMU_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    EMU_CACHE.write_text(json.dumps(s, indent=2), encoding="utf-8")
+
+
+def clean_rom_title(filename, suffix=""):
+    stem = filename[:-len(suffix)] if suffix and filename.lower().endswith(suffix.lower()) else Path(filename).stem
+    s = re.sub(r"\s*\([^)]*\)|\s*\[[^\]]*\]", "", stem).strip()
+    return s or stem
+
+
+def scan_emu_roms(rom_dir, exts):
+    if not rom_dir or not os.path.isdir(rom_dir):
+        return []
+    found = {}
+    exts_set = {e.lower() for e in exts}
+    try:
+        for p in Path(rom_dir).rglob("*"):
+            if not p.is_file():
+                continue
+            ext = p.suffix.lower()
+            if ext in exts_set:
+                title = clean_rom_title(p.name, ext)
+                if title.lower() in ("u-king", "readme", "unconfirmed"):
+                    continue
+                if title in found and ext in (".7z", ".zip"):
+                    continue
+                found[title] = {
+                    "id": p.stem,
+                    "name": title,
+                    "file": p.name,
+                    "path": str(p),
+                    "dir": str(p.parent),
+                    "size": p.stat().st_size,
+                    "ext": ext,
+                }
+    except Exception:
+        pass
+    return sorted(found.values(), key=lambda x: x["name"])
+
+
+def scan_emulators():
+    saved = _emu_state()
+    out = []
+    all_games = []
+
+    for item in EMU_CATALOG:
+        eid = item["id"]
+        cfg = saved.get(eid, {})
+
+        exe = cfg.get("exe")
+        if not exe or not os.path.isfile(exe):
+            exe = next((c for c in item["exe_candidates"] if os.path.isfile(c)), None)
+
+        roms_dir = cfg.get("roms_dir")
+        if not roms_dir or not os.path.isdir(roms_dir):
+            roms_dir = next((d for d in item["rom_dirs"] if os.path.isdir(d)), item["rom_dirs"][0])
+
+        games = scan_emu_roms(roms_dir, item["exts"])
+        for g in games:
+            g["system"] = item["system"]
+            g["badge"] = item["badge"]
+            g["emu_id"] = eid
+            g["emu_name"] = item["name"]
+            all_games.append(g)
+
+        out.append({
+            "id": eid,
+            "name": item["name"],
+            "system": item["system"],
+            "badge": item["badge"],
+            "icon": item["icon"],
+            "desc": item["desc"],
+            "exe": exe or "",
+            "roms_dir": roms_dir or "",
+            "installed": bool(exe and os.path.isfile(exe)),
+            "roms_exist": bool(roms_dir and os.path.isdir(roms_dir)),
+            "game_count": len(games),
+            "games": games,
+        })
+
+    all_games.sort(key=lambda x: x["name"])
+    return {"emulators": out, "games": all_games}
+
+
+@bp.get("/api/games/emulators")
+def emulators_list():
+    return jsonify(scan_emulators())
+
+
+@bp.post("/api/games/emulators/save")
+def emulators_save():
+    j = request.get_json() or {}
+    eid = j.get("id")
+    if not eid:
+        return jsonify(error="missing id"), 400
+    st = _emu_state()
+    st.setdefault(eid, {})
+    if "exe" in j:
+        st[eid]["exe"] = j["exe"].strip()
+    if "roms_dir" in j:
+        st[eid]["roms_dir"] = j["roms_dir"].strip()
+    _save_emu_state(st)
+    return jsonify(ok=True)
+
+
+@bp.post("/api/games/emulators/launch")
+def emulators_launch():
+    j = request.get_json() or {}
+    eid = j.get("emu_id")
+    rom_path = j.get("rom_path")
+
+    data = scan_emulators()
+    emu = next((e for e in data["emulators"] if e["id"] == eid), None)
+    if not emu:
+        return jsonify(error="Emulator not found"), 404
+    if not emu["installed"]:
+        return jsonify(error=f"{emu['name']} is not installed on this PC"), 400
+
+    exe = emu["exe"]
+    cwd = os.path.dirname(exe)
+    item_def = next((it for it in EMU_CATALOG if it["id"] == eid), {})
+    launch_args = list(item_def.get("launch_args", []))
+
+    cmd = [exe]
+    if rom_path and os.path.exists(rom_path):
+        cmd.extend(launch_args)
+        cmd.append(rom_path)
+
+    try:
+        subprocess.Popen(cmd, cwd=cwd, creationflags=0x00000008)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(error=str(e)[:200]), 400
+
+
+@bp.post("/api/games/emulators/folder")
+def emulators_folder():
+    j = request.get_json() or {}
+    p = j.get("path", "")
+    if p and os.path.exists(p):
+        os.startfile(p)
+        return jsonify(ok=True)
+    return jsonify(error="Path does not exist"), 404

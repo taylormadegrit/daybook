@@ -171,7 +171,12 @@ async function renderMemos() {
         ${m.source === "imported" ? `<span title="Imported from a phone or file">📱</span>` : ""}</div>
       ${m.transcript ? `<div class="su small muted" style="margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(m.transcript)}</div>` : ""}</div>`;
   }).join("") : `<div class="empty"><b>No voice memos yet</b>Press the red button to record, or drop phone recordings (m4a, mp3…) below.</div>`;
-  if (j.items.some(m => m.status === "pending" || m.status === "working")) debounce("memopoll", () => S.view === "memos" && (renderMemos(), M.cur && M.cur.status !== "done" && openMemo(M.cur.id, true)), 3000);
+  if (j.items.some(m => m.status === "pending" || m.status === "working")) {
+    debounce("memopoll", () => S.view === "memos" && (renderMemos(), M.cur && openMemo(M.cur.id, true)), 3000);
+  } else if (M.cur && (M.cur.status === "pending" || M.cur.status === "working")) {
+    const fresh = j.items.find(x => x.id === M.cur.id);
+    if (fresh && fresh.status === "done") { openMemo(M.cur.id, true); }
+  }
   if (!M.cur && j.items.length && !$("#medit").dataset.init) { $("#medit").dataset.init = 1; }
 }
 async function memoRecToggle() {
@@ -246,11 +251,14 @@ async function openMemo(id, quiet) {
       <span>${mmss(m.duration)} · ${(m.size / 1048576).toFixed(1)} MB · ${m.source === "imported" ? "📱 " + esc(m.original) : "recorded in Daybook"}</span>
       <span id="m-status">${memoStatus(m)}</span></div>
     ${m.kind === "video" ? `<video class="mvid" src="${memoURL(m)}" controls preload="metadata"></video><div class="row small muted" style="margin:-4px 0 10px">${m.source === "obs" ? "Recorded with OBS · " + esc(m.path) : ""}</div>` : `<div class="player"><button class="pp" id="m-pp" onclick="memoPlay()">${ic("play", "i")}</button>
-      <div style="flex:1;min-width:0"><canvas class="wave" id="m-wave"></canvas><div class="ptimes"><span id="m-cur">0:00</span><span>${mmss(m.duration)}</span></div></div>
+      <div style="flex:1;min-width:0"><canvas class="wave" id="m-wave"></canvas><div class="ptimes"><span id="m-cur">0:00</span><span id="m-dur">${mmss(m.duration)}</span></div></div>
       <div class="col" style="display:flex;flex-direction:column;gap:4px"><button class="btn sm" onclick="memoSkip(-15)">−15s</button><button class="btn sm" onclick="memoSkip(15)">+15s</button></div>
-      <select class="f" style="width:auto" onchange="M.audio&&(M.audio.playbackRate=+this.value)"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>`}
+      <select class="f" style="width:auto" onchange="M.audio&&(M.audio.playbackRate=+this.value)"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>
+      <div class="row" style="margin:4px 0 8px;opacity:0.85"><audio id="m-native-audio" src="${memoURL(m)}" controls preload="auto" style="width:100%;height:32px"></audio></div>`}
     <label class="small muted">Labels</label>${labelPicker("m-lbl", m.labels)}
-    <div class="row" style="margin:14px 0 6px"><b>Transcript</b><div class="sp"></div><button class="btn sm ghost" onclick="navigator.clipboard.writeText($('#m-trans').value);toast('Copied')">${ic("copy")}Copy</button></div>
+    <div class="row" style="margin:14px 0 6px"><b>Transcript</b><div class="sp"></div>
+      <button class="btn sm ghost" id="m-speak-btn" onclick="memoSpeakTranscript()">${ic("mic")}<span id="m-speak-txt">Read aloud</span></button>
+      <button class="btn sm ghost" onclick="navigator.clipboard.writeText($('#m-trans').value);toast('Copied')">${ic("copy")}Copy</button></div>
     <textarea class="f" id="m-trans" placeholder="${m.status === "done" ? "No speech found" : "Transcribing on this PC…"}" onchange="memoSave({transcript:this.value})">${esc(m.transcript)}</textarea>
     <label class="small muted" style="display:block;margin-top:10px">My notes</label>
     <div class="inmic"><textarea class="f" id="m-notes" style="min-height:80px" placeholder="Anything to add…" onchange="memoSave({notes:this.value})">${esc(m.notes)}</textarea></div>
@@ -265,11 +273,46 @@ async function openMemo(id, quiet) {
   $("#m-lbl input").addEventListener("keydown", e => e.key === "Enter" && setTimeout(() => memoSave({labels: pickedLabels("m-lbl")}), 0));
   micFor($("#m-notes"), $("#m-notes").parentElement, "iconbtn inmicbtn");
   if (m.kind === "video") { M.audio = null; return; }
-  M.audio = new Audio(memoURL(m)); M.audio.preload = "auto";
-  M.audio.ontimeupdate = () => { $("#m-cur") && ($("#m-cur").textContent = mmss(M.audio.currentTime)); drawWave(); };
-  M.audio.onended = M.audio.onpause = M.audio.onplay = () => { $("#m-pp") && ($("#m-pp").innerHTML = ic(M.audio.paused ? "play" : "pause", "i")); };
-  $("#m-wave").onclick = e => { const r = e.target.getBoundingClientRect(), d = M.audio.duration || m.duration; if (d) { M.audio.currentTime = (e.clientX - r.left) / r.width * d; drawWave(); } };
+  const aEl = $("#m-native-audio");
+  M.audio = aEl || new Audio(memoURL(m));
+  M.audio.preload = "auto";
+  const onMeta = () => {
+    const cur = (M.audio && isFinite(M.audio.currentTime)) ? M.audio.currentTime : 0;
+    const dur = memoDuration();
+    if ($("#m-cur")) $("#m-cur").textContent = mmss(cur);
+    if ($("#m-dur") && dur > 0) $("#m-dur").textContent = mmss(dur);
+    drawWave();
+  };
+  M.audio.onloadedmetadata = onMeta;
+  M.audio.ontimeupdate = () => {
+    const cur = (M.audio && isFinite(M.audio.currentTime)) ? M.audio.currentTime : 0;
+    if ($("#m-cur")) $("#m-cur").textContent = mmss(cur);
+    drawWave();
+  };
+  M.audio.onended = () => {
+    if ($("#m-pp")) $("#m-pp").innerHTML = ic("play", "i");
+    drawWave();
+  };
+  M.audio.onpause = () => {
+    if ($("#m-pp")) $("#m-pp").innerHTML = ic("play", "i");
+  };
+  M.audio.onplay = () => {
+    if ($("#m-pp")) $("#m-pp").innerHTML = ic("pause", "i");
+  };
+  $("#m-wave").onclick = e => {
+    const r = e.target.getBoundingClientRect(), dur = memoDuration();
+    if (dur > 0 && M.audio) {
+      const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      M.audio.currentTime = frac * dur;
+      drawWave();
+    }
+  };
   M.peaks = null; drawWave(); loadPeaks(m);
+}
+function memoDuration() {
+  if (M.audio && isFinite(M.audio.duration) && M.audio.duration > 0) return M.audio.duration;
+  if (M.cur && isFinite(M.cur.duration) && M.cur.duration > 0) return M.cur.duration;
+  return 0;
 }
 const memoStatus = m => m.status === "done" ? "✓ transcribed" : m.status === "error" ? `<span style="color:var(--bad)">couldn't transcribe</span>` : `<span class="badge ai">Transcribing…</span>`;
 async function loadPeaks(m) {
@@ -284,13 +327,52 @@ function drawWave() {
   const cv = $("#m-wave"); if (!cv) return;
   const w = cv.width = cv.clientWidth * devicePixelRatio, h = cv.height = cv.clientHeight * devicePixelRatio, c = cv.getContext("2d");
   const peaks = M.peaks || Array.from({length: 160}, (_, i) => .15 + .1 * Math.sin(i / 3));
-  const prog = M.audio && M.audio.duration ? M.audio.currentTime / M.audio.duration : 0, cs = getComputedStyle(document.body);
+  const dur = memoDuration();
+  const cur = (M.audio && isFinite(M.audio.currentTime)) ? M.audio.currentTime : 0;
+  const prog = (dur > 0) ? Math.max(0, Math.min(1, cur / dur)) : 0;
+  const cs = getComputedStyle(document.body);
   const bw = w / peaks.length;
   peaks.forEach((p, i) => { c.fillStyle = i / peaks.length < prog ? cs.getPropertyValue("--a2") : "rgba(160,170,200,.35)";
     const bh = Math.max(2, p * h * .92); c.fillRect(i * bw + bw * .15, (h - bh) / 2, bw * .7, bh); });
 }
-function memoPlay() { if (!M.audio) return; M.audio.paused ? M.audio.play().catch(e => toast("Can't play this format in the app — use Download")) : M.audio.pause(); }
-function memoSkip(s) { if (M.audio) { M.audio.currentTime = Math.max(0, M.audio.currentTime + s); drawWave(); } }
+function memoPlay() {
+  if (!M.audio) return;
+  if (M.audio.ended) M.audio.currentTime = 0;
+  if (M.audio.paused) {
+    const p = M.audio.play();
+    if (p && p.catch) {
+      p.catch(e => {
+        console.warn("Audio play error:", e);
+        toast("Playback error — try playing again or click the player below");
+      });
+    }
+  } else {
+    M.audio.pause();
+  }
+}
+function memoSkip(s) {
+  if (M.audio) {
+    const dur = memoDuration();
+    const cur = (isFinite(M.audio.currentTime)) ? M.audio.currentTime : 0;
+    const tgt = Math.max(0, cur + s);
+    M.audio.currentTime = dur > 0 ? Math.min(dur, tgt) : tgt;
+    drawWave();
+  }
+}
+function memoSpeakTranscript() {
+  if (window.speechSynthesis && window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    if ($("#m-speak-txt")) $("#m-speak-txt").textContent = "Read aloud";
+    return;
+  }
+  const text = ($("#m-trans") ? $("#m-trans").value : "").trim();
+  if (!text) return toast("No transcript text to read");
+  if (!('speechSynthesis' in window)) return toast("Speech synthesis not supported in this browser");
+  const u = new SpeechSynthesisUtterance(text);
+  u.onend = u.onerror = () => { if ($("#m-speak-txt")) $("#m-speak-txt").textContent = "Read aloud"; };
+  window.speechSynthesis.speak(u);
+  if ($("#m-speak-txt")) $("#m-speak-txt").textContent = "Stop reading";
+}
 async function memoSave(f) { if (!M.cur) return; M.cur = await api("/api/memos/" + M.cur.id, {method: "PATCH", body: f}); renderMemos(); }
 async function memoToNote() { await memoSave({transcript: $("#m-trans").value, notes: $("#m-notes").value}); const j = await api(`/api/memos/${M.cur.id}/to-note`, {method: "POST"}); toast("Saved to Notes ✓"); openNote(j.note_id); }
 function memoDel(btn) {

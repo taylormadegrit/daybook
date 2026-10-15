@@ -284,7 +284,7 @@ def annotate_start():
     """Launch the screen annotation overlay (separate process so the screen grab is clean)."""
     import subprocess
     subprocess.Popen(paths.helper_cmd("annotate", "--delay"),
-                     cwd=str(root))
+                     cwd=str(paths.APP))
     return jsonify(ok=True)
 
 

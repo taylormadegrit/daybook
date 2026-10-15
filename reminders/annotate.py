@@ -51,6 +51,63 @@ def virtual_screen():
     return u32.GetSystemMetrics(76), u32.GetSystemMetrics(77), u32.GetSystemMetrics(78), u32.GetSystemMetrics(79)
 
 
+def grab_virtual_screen(L, T, W, H):
+    """Capture the full virtual screen across all monitors, handling negative coordinates on multi-monitor setups."""
+    if sys.platform == "win32":
+        try:
+            gdi32 = ctypes.windll.gdi32
+            hScreenDC = u32.GetDC(0)
+            hMemoryDC = gdi32.CreateCompatibleDC(hScreenDC)
+            hBitmap = gdi32.CreateCompatibleBitmap(hScreenDC, W, H)
+            hOldBitmap = gdi32.SelectObject(hMemoryDC, hBitmap)
+
+            SRCCOPY = 0x00CC0020
+            CAPTUREBLT = 0x40000000
+            gdi32.BitBlt(hMemoryDC, 0, 0, W, H, hScreenDC, L, T, SRCCOPY | CAPTUREBLT)
+
+            class BITMAPINFOHEADER(ctypes.Structure):
+                _fields_ = [
+                    ('biSize', wintypes.DWORD),
+                    ('biWidth', wintypes.LONG),
+                    ('biHeight', wintypes.LONG),
+                    ('biPlanes', wintypes.WORD),
+                    ('biBitCount', wintypes.WORD),
+                    ('biCompression', wintypes.DWORD),
+                    ('biSizeImage', wintypes.DWORD),
+                    ('biXPelsPerMeter', wintypes.LONG),
+                    ('biYPelsPerMeter', wintypes.LONG),
+                    ('biClrUsed', wintypes.DWORD),
+                    ('biClrImportant', wintypes.DWORD)
+                ]
+
+            class BITMAPINFO(ctypes.Structure):
+                _fields_ = [('bmiHeader', BITMAPINFOHEADER), ('bmiColors', wintypes.DWORD * 3)]
+
+            bmi = BITMAPINFO()
+            bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+            bmi.bmiHeader.biWidth = W
+            bmi.bmiHeader.biHeight = -H  # top-down DIB
+            bmi.bmiHeader.biPlanes = 1
+            bmi.bmiHeader.biBitCount = 32
+            bmi.bmiHeader.biCompression = 0
+
+            buf = ctypes.create_string_buffer(W * H * 4)
+            gdi32.GetDIBits(hMemoryDC, hBitmap, 0, H, buf, ctypes.byref(bmi), 0)
+
+            gdi32.SelectObject(hMemoryDC, hOldBitmap)
+            gdi32.DeleteObject(hBitmap)
+            gdi32.DeleteDC(hMemoryDC)
+            u32.ReleaseDC(0, hScreenDC)
+
+            return Image.frombuffer('RGBA', (W, H), buf, 'raw', 'BGRA', 0, 1).convert('RGB')
+        except Exception:
+            pass
+    try:
+        return ImageGrab.grab(bbox=(L, T, L + W, T + H), all_screens=True)
+    except Exception:
+        return ImageGrab.grab()
+
+
 def copy_to_clipboard(img):
     buf = io.BytesIO()
     img.convert("RGB").save(buf, "BMP")
@@ -78,7 +135,7 @@ class Annotator:
             u32.ShowWindow(hide_hwnd, 6)  # minimize Daybook so it isn't in the shot
             time.sleep(0.45)
         self.L, self.T, self.W, self.H = virtual_screen()
-        self.shot = ImageGrab.grab(bbox=(self.L, self.T, self.L + self.W, self.T + self.H), all_screens=True)
+        self.shot = grab_virtual_screen(self.L, self.T, self.W, self.H)
         self.mons = monitors()
         self.root = tk.Tk()
         self.root.overrideredirect(True)

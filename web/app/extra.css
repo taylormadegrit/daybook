@@ -452,6 +452,24 @@ body.lay-comfy .navi{padding:11px 12px;font-size:15px}
 .gm-head .gm-sort{width:auto;flex:none;padding-right:30px}
 .gm-recent{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 
+/* ---- emulators hub ---- */
+.emu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:22px}
+.emu-card{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);transition:border-color .15s}
+.emu-card:hover{border-color:rgba(255,255,255,.18)}
+.emu-top{display:flex;align-items:center;gap:10px}
+.emu-badge{font:700 11px/1 Inter;padding:4px 8px;border-radius:6px;background:var(--a1);color:#fff}
+.emu-badge.ps2,.gsrc.ps2{background:#00439c;color:#fff}
+.emu-badge.wiiu,.gsrc.wiiu,.gsrc.wii{background:#009ac7;color:#fff}
+.emu-badge.gc,.gsrc.gc{background:#654296;color:#fff}
+.emu-badge.retro,.gsrc.retro{background:#e53935;color:#fff}
+.emu-badge.ps1,.gsrc.ps1{background:#303f9f;color:#fff}
+.emu-badge.ps3,.gsrc.ps3{background:#1a237e;color:#fff}
+.emu-badge.switch,.gsrc.switch{background:#e60012;color:#fff}
+.emu-badge.psp,.gsrc.psp{background:#455a64;color:#fff}
+.emu-dir{font-size:11.5px;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.emu-dir:hover{color:#fff;text-decoration:underline}
+.emu-acts{display:flex;gap:8px;margin-top:auto;padding-top:4px;flex-wrap:wrap;align-items:center}
+
 /* ---- desktop app (Electron): custom title bar ---- */
 body.desktop .topbar{-webkit-app-region:drag;padding-right:150px}
 body.desktop .topbar button,body.desktop .topbar input,body.desktop .topbar a,body.desktop .topbar select,body.desktop .topbar .menu,body.desktop .topbar .quick{-webkit-app-region:no-drag}

@@ -965,6 +965,7 @@ function renderEditor() {
       <button class="btn pri" onclick="saveNote()">${ic("check")}Save<span class="kbd" style="border-color:rgba(0,0,0,.25);color:var(--on)">Ctrl S</span></button>
       <button class="btn" onclick="aiNote()">${ic("spark")}Organize with AI</button>
       <button class="btn" title="Insert a citation from your Zotero library" onclick="citeModal()">${ic("book")}Cite</button>
+      <button class="btn" id="n-speak-btn" title="Read this note aloud" onclick="speakNote()">${ic("mic")}<span id="n-speak-txt">Read aloud</span></button>
       <button class="btn" title="Send this note to Discord as a .txt or PDF" onclick="saveNote(false).then(()=>discordSend('note',S.cur.id))">${ic("send")}Discord</button>
       <span class="small muted" id="n-saved">${n.source.startsWith("file:") ? "Imported from " + esc(n.source.slice(5)) : ""}</span>
       <div class="sp"></div><button class="btn ghost danger" onclick="delNote(this)">${ic("trash")}Delete</button>
@@ -1007,6 +1008,20 @@ async function actAddSelected() {
 function delNote(btn) {
   if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to delete"; return; }
   api("/api/notes/" + S.cur.id, {method: "DELETE"}).then(() => { S.cur = null; $("#ed").innerHTML = `<div class="empty"><b>Deleted</b></div>`; loadNotes(); });
+}
+function speakNote() {
+  if (window.speechSynthesis && window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    if ($("#n-speak-txt")) $("#n-speak-txt").textContent = "Read aloud";
+    return;
+  }
+  const text = ($("#n-body") ? $("#n-body").value : (S.cur ? S.cur.body : "")).trim();
+  if (!text) return toast("Note is empty");
+  if (!('speechSynthesis' in window)) return toast("Speech synthesis not supported in this browser");
+  const u = new SpeechSynthesisUtterance(text);
+  u.onend = u.onerror = () => { if ($("#n-speak-txt")) $("#n-speak-txt").textContent = "Read aloud"; };
+  window.speechSynthesis.speak(u);
+  if ($("#n-speak-txt")) $("#n-speak-txt").textContent = "Stop reading";
 }
 async function importOld() { toast("Importing…"); const j = await api("/api/import", {method: "POST"}); toast(`Imported ${j.added} new note${j.added === 1 ? "" : "s"}`); }
 

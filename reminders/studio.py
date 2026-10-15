@@ -198,4 +198,4 @@ def st_delete(name):
 
 @bp.get("/creations/<path:name>")
 def st_file(name):
-    return send_from_directory(OUT, Path(name).name)
+    return send_from_directory(OUT, Path(name).name, conditional=True)

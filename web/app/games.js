@@ -1,5 +1,5 @@
-// ================= GAMES (Launchpad tab): one tidy library + a free-games store =================
-const GM = {data: null, view: store.get("daybook-gm-view", "library"), q: "", sort: store.get("daybook-gm-sort", "recent"), src: "all", genre: "All", poll: 0};
+// ================= GAMES (Launchpad tab): one tidy library + emulator hub + free-games =================
+const GM = {data: null, emus: null, view: store.get("daybook-gm-view", "library"), q: "", sort: store.get("daybook-gm-sort", "recent"), src: "all", genre: "All", emuSys: "all", poll: 0};
 const gmSize = b => !b ? "" : b > 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.max(1, Math.round(b / 1e6)) + " MB";
 const SRC_NAME = {steam: "Steam", epic: "Epic", free: "Free"};
 const gmHue = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
@@ -11,22 +11,33 @@ const playedText = g => !g.last ? "" : (d => { const days = Math.floor((Date.now
 const gmHost = () => S.view === "games" ? $("#lp-games") : $("#lp");
 async function renderGames(refresh) {
   if (!GM.data || refresh) GM.data = await api("/api/games");
+  if (!GM.emus || refresh) {
+    try { GM.emus = await api("/api/games/emulators"); } catch (e) { GM.emus = {emulators: [], games: []}; }
+  }
   const other = S.view === "games" ? $("#lp") : $("#lp-games"); if (other && other.querySelector("#gm-body")) other.innerHTML = "";
-  const d = GM.data, games = d.owned.filter(g => g.kind === "game");
+  const d = GM.data, games = d.owned.filter(g => g.kind === "game"), emuGames = (GM.emus && GM.emus.games) || [];
   gmHost().innerHTML = `<div class="lp-top">${S.view === "games" ? `<div class="lp-tabs"><button class="on">Games</button></div>` : lpTabs()}<div class="sp"></div><span class="lp-clock" id="lp-clock"></span></div>
     <div class="gm-head">
-      <div class="seg gm-views"><button class="${GM.view === "library" ? "on" : ""}" onclick="gmView('library')">${ic("grid")}My library <span class="cnt">${games.length}</span></button>
-        <button class="${GM.view === "free" ? "on" : ""}" onclick="gmView('free')">${ic("down")}Get free games <span class="cnt">${d.free.length}</span></button></div>
-      <div class="gm-search">${ic("search")}<input id="gm-q" placeholder="${GM.view === "library" ? "Search your games…" : "Search free games…"}" value="${esc(GM.q)}" oninput="GM.q=this.value;debounce('gmq',gmBody,120)"></div>
+      <div class="seg gm-views">
+        <button class="${GM.view === "library" ? "on" : ""}" onclick="gmView('library')">${ic("grid")}My library <span class="cnt">${games.length}</span></button>
+        <button class="${GM.view === "emulators" ? "on" : ""}" onclick="gmView('emulators')">${ic("gamepad")}Emulators <span class="cnt">${emuGames.length}</span></button>
+        <button class="${GM.view === "free" ? "on" : ""}" onclick="gmView('free')">${ic("down")}Get free games <span class="cnt">${d.free.length}</span></button>
+      </div>
+      <div class="gm-search">${ic("search")}<input id="gm-q" placeholder="${GM.view === "emulators" ? "Search console games & emulators…" : GM.view === "library" ? "Search your games…" : "Search free games…"}" value="${esc(GM.q)}" oninput="GM.q=this.value;debounce('gmq',gmBody,120)"></div>
       ${GM.view === "library" ? `<select class="f gm-sort" onchange="GM.sort=this.value;store.set('daybook-gm-sort',this.value);gmBody()">
           ${[["recent", "Recently played"], ["az", "A → Z"], ["size", "Largest first"]].map(([k, l]) => `<option value="${k}" ${GM.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
-      <button class="iconbtn" title="Refresh" onclick="renderGames(true)">${ic("rep")}</button></div>
+      <button class="iconbtn" title="Refresh & rescan" onclick="renderGames(true)">${ic("rep")}</button></div>
     <div id="gm-body"></div>`;
   paintIcons(gmHost()); lpClock(); gmBody();
   if (d.free.some(g => g.job && ["starting", "downloading", "extracting"].includes(g.job.state))) { clearTimeout(GM.poll); GM.poll = setTimeout(() => (S.view === "games" || (S.view === "launchpad" && LP.view === "games")) && renderGames(true), 1500); }
 }
 function gmView(v) { GM.view = v; GM.q = ""; store.set("daybook-gm-view", v); renderGames(); }
-function gmBody() { GM.view === "free" ? gmFree() : gmLibrary(); paintIcons($("#gm-body")); }
+function gmBody() {
+  if (GM.view === "emulators") gmEmulators();
+  else if (GM.view === "free") gmFree();
+  else gmLibrary();
+  paintIcons($("#gm-body"));
+}
 
 function gmLibrary() {
   const d = GM.data, q = GM.q.toLowerCase();
@@ -90,6 +101,149 @@ function freeCard(g) {
 }
 async function gmDownload(id) { await api(`/api/games/${id}/download`, {method: "POST"}); toast("Downloading…"); renderGames(true); }
 async function gmRemove(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Click again to uninstall"; return; } await api(`/api/games/${id}/remove`, {method: "POST"}); closeModal(); toast("Uninstalled"); renderGames(true); }
+
+// ================= EMULATOR HUB =================
+function gmEmulators() {
+  const emus = (GM.emus && GM.emus.emulators) || [], allGames = (GM.emus && GM.emus.games) || [];
+  const q = GM.q.toLowerCase().trim();
+  const match = g => (GM.emuSys === "all" || g.emu_id === GM.emuSys || g.badge.toLowerCase() === GM.emuSys.toLowerCase()) && (!q || g.name.toLowerCase().includes(q) || g.emu_name.toLowerCase().includes(q) || g.badge.toLowerCase().includes(q));
+  const games = allGames.filter(match);
+  const systems = ["all", ...new Set(allGames.map(g => g.emu_id))];
+  const sysCounts = s => s === "all" ? allGames.length : allGames.filter(g => g.emu_id === s).length;
+  const sysBadge = s => { const e = emus.find(x => x.id === s); return e ? e.badge : s.toUpperCase(); };
+
+  const emuCard = e => `
+    <div class="emu-card">
+      <div class="emu-top">
+        <span class="emu-badge ${e.badge.toLowerCase()}">${esc(e.badge)}</span>
+        <b>${esc(e.name)}</b>
+        <span class="badge" style="margin-left:auto;color:${e.installed ? "var(--ok)" : "var(--warn)"}">${e.installed ? "✓ Ready" : "Not detected"}</span>
+      </div>
+      <div class="small muted" style="line-height:1.3">${esc(e.desc)}</div>
+      <div class="emu-dir" onclick="gmOpenFolder('${esc(e.roms_dir).replace(/'/g, "\\'")}')" title="Click to open ROMs folder in Explorer">
+        📁 ${esc(e.roms_dir || "No folder configured")}
+      </div>
+      <div class="emu-acts">
+        ${e.installed ? `<button class="btn sm pri" onclick="gmLaunchEmu('${e.id}')">${ic("play")}Launch ${esc(e.name)}</button>` : `<button class="btn sm" onclick="gmConfigEmu('${e.id}')">Set .exe path</button>`}
+        ${e.roms_exist ? `<button class="btn sm ghost" onclick="gmOpenFolder('${esc(e.roms_dir).replace(/'/g, "\\'")}')">${ic("ext")}ROMs (${e.game_count})</button>` : ""}
+        <button class="iconbtn sm" title="Configure emulator" onclick="gmConfigEmu('${e.id}')">${ic("sliders")}</button>
+      </div>
+    </div>`;
+
+  const gameCard = g => `
+    <div class="gcard" title="${esc(g.name)}">
+      <div class="gcover" onclick="gmEmuDetails('${esc(g.path).replace(/'/g, "\\'")}')">
+        ${gmArt({id: "emu-" + g.id, name: g.name})}
+        <button class="gplay" title="Play ${esc(g.name)}" onclick="event.stopPropagation();gmLaunchRom('${g.emu_id}','${esc(g.path).replace(/'/g, "\\'")}')">${ic("play", "i")}</button>
+        <i class="gsrc ${g.badge.toLowerCase()}">${esc(g.badge)}</i>
+      </div>
+      <div class="gname" onclick="gmEmuDetails('${esc(g.path).replace(/'/g, "\\'")}')">${esc(g.name)}</div>
+      <div class="gmeta">${esc(g.emu_name)} · ${gmSize(g.size)}</div>
+    </div>`;
+
+  $("#gm-body").innerHTML = `
+    <div class="gm-sec">
+      <div class="gm-sech">
+        <h4>Installed Emulators <span class="muted">${emus.filter(e => e.installed).length} ready</span></h4>
+        <div class="sp"></div>
+        <button class="btn sm ghost" onclick="renderGames(true)"><svg class="i sm" data-i="rep"></svg>Rescan drives</button>
+      </div>
+      <div class="emu-grid">${emus.map(emuCard).join("")}</div>
+    </div>
+
+    <div class="gm-sec">
+      <div class="gm-sech">
+        <h4>${q ? `Results for “${esc(GM.q)}”` : "Console Games"} <span class="muted">${games.length}</span></h4>
+        <div class="chips">
+          ${systems.map(s => `<button class="chipb ${GM.emuSys === s ? "on" : ""}" onclick="GM.emuSys='${s}';gmBody()">${s === "all" ? "All consoles" : sysBadge(s)} · ${sysCounts(s)}</button>`).join("")}
+        </div>
+      </div>
+      <div class="gm-grid">
+        ${games.map(gameCard).join("") || `<div class="empty" style="grid-column:1/-1"><b>No games match</b>Try selecting All consoles or check your ROM directory.</div>`}
+      </div>
+    </div>
+    <div class="muted small" style="margin:6px 0 20px">
+      Emulators run directly with your local saves, controller profiles, and shaders. Press <b>Play</b> to boot a game directly into its emulator. Click any ROMs folder to open it in Explorer.
+    </div>`;
+}
+
+async function gmLaunchRom(emu_id, rom_path) {
+  try {
+    await api("/api/games/emulators/launch", {method: "POST", body: {emu_id, rom_path}});
+    toast("Booting game in emulator…");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function gmLaunchEmu(emu_id) {
+  try {
+    await api("/api/games/emulators/launch", {method: "POST", body: {emu_id}});
+    toast("Opening emulator…");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function gmOpenFolder(path) {
+  try {
+    await api("/api/games/emulators/folder", {method: "POST", body: {path}});
+  } catch (e) {
+    toast("Folder not found: " + path);
+  }
+}
+
+function gmEmuDetails(path) {
+  const allGames = (GM.emus && GM.emus.games) || [];
+  const g = allGames.find(x => x.path === path);
+  if (!g) return;
+  modal(`<div class="gdet">${gmArt({id: "emu-" + g.id, name: g.name}, true)}<button class="iconbtn gdet-x" onclick="closeModal()">${ic("x")}</button></div>
+    <h2 style="margin:14px 0 2px">${esc(g.name)}</h2>
+    <div class="row small muted" style="gap:8px">
+      <span class="badge ${g.badge.toLowerCase()}">${esc(g.badge)}</span>
+      <span class="badge">${esc(g.system)}</span>
+      <span>${esc(g.emu_name)}</span>
+      <span>${gmSize(g.size)}</span>
+    </div>
+    <div class="small muted" style="margin:12px 0 4px;word-break:break-all"><b>File:</b> ${esc(g.file)}<br><b>Location:</b> ${esc(g.dir)}</div>
+    <div class="row" style="margin-top:16px;gap:8px">
+      <button class="btn pri lg" onclick="closeModal();gmLaunchRom('${g.emu_id}','${esc(g.path).replace(/'/g, "\\'")}')">${ic("play")}Play in ${esc(g.emu_name)}</button>
+      <button class="btn ghost" onclick="gmOpenFolder('${esc(g.dir).replace(/'/g, "\\'")}')">${ic("ext")}Open folder</button>
+      <button class="btn ghost" onclick="closeModal();gmConfigEmu('${g.emu_id}')">${ic("sliders")}Configure emulator</button>
+    </div>`, true);
+}
+
+function gmConfigEmu(id) {
+  const emus = (GM.emus && GM.emus.emulators) || [];
+  const e = emus.find(x => x.id === id);
+  if (!e) return;
+  modal(`<h2>${ic("sliders", "i")}Configure ${esc(e.name)}<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+    <div class="muted small" style="margin-bottom:12px">${esc(e.desc)}</div>
+    <div class="frm">
+      <label>Executable (.exe)</label>
+      <input class="f" id="cfg-emu-exe" value="${esc(e.exe)}" placeholder="e.g. D:\\Applications\\${e.name}\\${e.name}.exe">
+      <label>ROMs / Games Directory</label>
+      <input class="f" id="cfg-emu-roms" value="${esc(e.roms_dir)}" placeholder="e.g. D:\\${e.badge} games">
+    </div>
+    <div class="row" style="margin-top:16px;gap:8px">
+      <button class="btn pri" onclick="gmSaveEmuConfig('${e.id}')">${ic("check")}Save & Rescan</button>
+      ${e.installed ? `<button class="btn" onclick="gmLaunchEmu('${e.id}')">${ic("play")}Test Launch</button>` : ""}
+      ${e.roms_dir ? `<button class="btn ghost" onclick="gmOpenFolder('${esc(e.roms_dir).replace(/'/g, "\\'")}')">${ic("ext")}Open ROMs</button>` : ""}
+    </div>`);
+}
+
+async function gmSaveEmuConfig(id) {
+  const exe = ($("#cfg-emu-exe") ? $("#cfg-emu-exe").value : "").trim();
+  const roms_dir = ($("#cfg-emu-roms") ? $("#cfg-emu-roms").value : "").trim();
+  try {
+    await api("/api/games/emulators/save", {method: "POST", body: {id, exe, roms_dir}});
+    closeModal();
+    toast("Saved configuration ✓ — rescanning");
+    await renderGames(true);
+  } catch (e) {
+    toast(e.message);
+  }
+}
 // home widget: recently played covers
 async function gamesWidget() {
   const el = $("#w-games"); if (!el) return;
