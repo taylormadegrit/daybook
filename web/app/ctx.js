@@ -45,7 +45,38 @@ addEventListener("keydown", e => { if (e.key === "Escape" && $(".ctxm")) { ctxHi
 addEventListener("blur", ctxHide); addEventListener("resize", ctxHide);
 addEventListener("wheel", e => { if (!e.target.closest(".ctxm")) ctxHide(); }, {capture: true, passive: true});
 
-const ctxEdit = a => window.desktop && desktop.edit ? desktop.edit(a) : document.execCommand(a);
+async function ctxEdit(a, el) {
+  if (!el && CTXP.pending && CTXP.pending.typed) el = CTXP.pending.typed;
+  if (!el && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) el = document.activeElement;
+  if (el && typeof el.focus === "function") el.focus();
+
+  if (a === "paste") {
+    let clip = "";
+    try {
+      if (window.desktop && desktop.clipboard && desktop.clipboard.readText) clip = await desktop.clipboard.readText();
+      else if (navigator.clipboard && navigator.clipboard.readText) clip = await navigator.clipboard.readText();
+    } catch (e) {}
+
+    if (clip && el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      if (typeof el.setRangeText === "function") {
+        el.setRangeText(clip, start, end, "end");
+      } else {
+        el.value = el.value.slice(0, start) + clip + el.value.slice(end);
+      }
+      el.dispatchEvent(new Event("input", {bubbles: true}));
+      return;
+    }
+    if (clip && el && el.isContentEditable) {
+      document.execCommand("insertText", false, clip);
+      return;
+    }
+  }
+
+  if (window.desktop && desktop.edit) desktop.edit(a);
+  else document.execCommand(a);
+}
 function ctxSearchWeb(q) {
   const url = "https://www.google.com/search?q=" + encodeURIComponent(q);
   if (window.desktop) bdNew("personal", url); else open(url, "_blank");
@@ -131,9 +162,9 @@ document.addEventListener("contextmenu", e => {
   else if (typed) {
     typed.focus();
     const has = typed.value !== undefined ? typed.selectionStart !== typed.selectionEnd : !!sel;
-    own = [{t: "Undo", i: "left", k: "Ctrl Z", run: () => ctxEdit("undo")}, "-",
-      {t: "Cut", i: "copy", k: "Ctrl X", off: !has, run: () => ctxEdit("cut")}, {t: "Copy", i: "copy", k: "Ctrl C", off: !has, run: () => ctxEdit("copy")},
-      {t: "Paste", i: "copy", k: "Ctrl V", run: () => ctxEdit("paste")}, {t: "Select all", i: "check", k: "Ctrl A", run: () => typed.select ? typed.select() : ctxEdit("selectAll")},
+    own = [{t: "Undo", i: "left", k: "Ctrl Z", run: () => ctxEdit("undo", typed)}, "-",
+      {t: "Cut", i: "copy", k: "Ctrl X", off: !has, run: () => ctxEdit("cut", typed)}, {t: "Copy", i: "copy", k: "Ctrl C", off: !has, run: () => ctxEdit("copy", typed)},
+      {t: "Paste", i: "copy", k: "Ctrl V", run: () => ctxEdit("paste", typed)}, {t: "Select all", i: "check", k: "Ctrl A", run: () => typed.select ? typed.select() : ctxEdit("selectAll", typed)},
       typeof dictate === "function" ? {t: "Dictate (speech to text)", i: "mic", run: () => dictate(typed)} : null].filter(Boolean);
   } else {
     if (link) own.push({t: "Open link in Daybook's browser", i: "globe", run: () => window.desktop ? bdNew("personal", link.href) : open(link.href, "_blank")},
@@ -167,9 +198,9 @@ function ctxTyped(params) {
   const spell = params && params.misspelledWord ? [
     ...(params.suggestions.length ? params.suggestions.map(w => ({t: w, i: "check", run: () => desktop.edit("replaceMisspelling", w)})) : [{t: "No spelling suggestions", off: true}]),
     {t: `Add “${params.misspelledWord}” to dictionary`, i: "plus", run: () => { desktop.edit("addToDictionary", params.misspelledWord); toast("Added to your dictionary"); }}, "-"] : [];
-  const items = [...spell, {t: "Undo", i: "left", k: "Ctrl Z", run: () => ctxEdit("undo")}, "-",
-    {t: "Cut", i: "copy", k: "Ctrl X", off: !has, run: () => ctxEdit("cut")}, {t: "Copy", i: "copy", k: "Ctrl C", off: !has, run: () => ctxEdit("copy")},
-    {t: "Paste", i: "copy", k: "Ctrl V", run: () => ctxEdit("paste")}, {t: "Select all", i: "check", k: "Ctrl A", run: () => typed.select ? typed.select() : ctxEdit("selectAll")},
+  const items = [...spell, {t: "Undo", i: "left", k: "Ctrl Z", run: () => ctxEdit("undo", typed)}, "-",
+    {t: "Cut", i: "copy", k: "Ctrl X", off: !has, run: () => ctxEdit("cut", typed)}, {t: "Copy", i: "copy", k: "Ctrl C", off: !has, run: () => ctxEdit("copy", typed)},
+    {t: "Paste", i: "copy", k: "Ctrl V", run: () => ctxEdit("paste", typed)}, {t: "Select all", i: "check", k: "Ctrl A", run: () => typed.select ? typed.select() : ctxEdit("selectAll", typed)},
     typeof dictate === "function" ? {t: "Dictate (speech to text)", i: "mic", run: () => dictate(typed)} : null, "-", ...ctxGeneral()].filter(Boolean);
   ctxShow(p.x, p.y, items);
 }

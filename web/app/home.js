@@ -140,6 +140,8 @@ function applyScene() {
   const c = sceneCfg(); SC.cfg = c;
   const show = c.scene !== "none" && (c.everywhere || S.view === "today");
   document.body.classList.toggle("scened", show);
+  document.body.classList.toggle("scene-sakura", show && c.scene === "sakura");
+  document.body.classList.toggle("scene-light", show && (c.scene === "sakura" || c.scene === "dunes"));
   document.body.classList.toggle("custombg", c.scene === "custom");
   let dim = $("#scenedim"); if (dim) dim.style.background = `rgba(4,5,10,${c.dim})`;
   const bg = $("#scenebg");

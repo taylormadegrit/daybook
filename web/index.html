@@ -302,6 +302,12 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 [data-theme=paper] ::-webkit-scrollbar-thumb{background-color:rgba(0,0,0,.15)}
 [data-theme=paper] input.f,[data-theme=paper] select.f,[data-theme=paper] textarea.f,[data-theme=paper] .seg{background:rgba(0,0,0,.03)}
 [data-theme=paper] .scrim{background:rgba(240,236,228,.55)}
+[data-theme=sakura]{--bg:#fcedf2;--glass:rgba(255,240,245,.82);--glass2:rgba(255,230,238,.72);--card:rgba(255,255,255,.75);--card2:rgba(255,255,255,.9);--line:rgba(180,80,120,.16);--line2:rgba(180,80,120,.24);
+  --fg:#201117;--fg2:#482333;--muted:#78485e;--a1:#d94676;--a2:#8b5cf6;--a3:#ec4899;--ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--panel:#fff5f8;--code:#fae8ee;--on:#ffffff}
+[data-theme=sakura] body::before{opacity:.5}
+[data-theme=sakura] ::-webkit-scrollbar-thumb{background-color:rgba(180,80,120,.2)}
+[data-theme=sakura] input.f,[data-theme=sakura] select.f,[data-theme=sakura] textarea.f,[data-theme=sakura] .seg{background:rgba(255,255,255,.85);color:#201117}
+[data-theme=sakura] .scrim{background:rgba(250,235,240,.55)}
 body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(--a1) 22%,transparent),transparent 70%),
   radial-gradient(34% 30% at 92% 18%,color-mix(in srgb,var(--a2) 15%,transparent),transparent 70%),
   radial-gradient(40% 40% at 60% 105%,color-mix(in srgb,var(--a3) 12%,transparent),transparent 70%)!important}
@@ -349,6 +355,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
     <div class="navi" data-v="games"><svg class="i" data-i="gamepad"></svg>Games<span class="k">Alt G</span></div>
     <div class="navi" data-v="workflows"><svg class="i" data-i="play"></svg>Workflows<span class="k">Alt K</span></div>
     <div class="navi" data-v="browser"><svg class="i" data-i="globe"></svg>Browser<span class="k">Alt B</span></div>
+    <div class="navi" data-v="apps"><svg class="i" data-i="grid"></svg>Apps<span class="k">Alt A</span></div>
     <div class="navi" data-v="calendar"><svg class="i" data-i="cal"></svg>Calendar<span class="k">Alt 2</span></div>
     <div class="navi" data-v="reminders"><svg class="i" data-i="bell"></svg>Reminders<span class="cnt" id="ov-count" style="display:none"></span><span class="k" id="rk">Alt 3</span></div>
     <div class="navi" data-v="notes"><svg class="i" data-i="note"></svg>Notes<span class="k">Alt 4</span></div>
@@ -382,6 +389,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
         <button class="iconbtn" title="New sticky note (Alt S · Ctrl Alt S anywhere)" onclick="newSticky()"><svg class="i" data-i="sticky"></svg></button>
         <button class="iconbtn" title="Show / tuck away all sticky notes (Alt W · Ctrl Alt W anywhere)" onclick="peekStickies()"><svg class="i" data-i="layers"></svg></button>
         <button class="iconbtn" title="Annotate the screen (Alt P · Ctrl Alt P anywhere)" onclick="annotateNow()"><svg class="i" data-i="brush"></svg></button>
+        <div id="top-rec-pill" class="top-rec-pill" style="display:none"><span class="rec-dot"></span><span id="top-rec-lbl" class="rec-lbl">Recording</span><canvas id="top-rec-wave" width="54" height="16"></canvas><span id="top-rec-t" class="rec-t">0:00</span><button class="top-rec-btn top-rec-stop" id="top-rec-stop" title="Stop & save">${ic("check")}Done</button><button class="top-rec-btn top-rec-cancel" id="top-rec-cancel" title="Discard">${ic("x")}</button></div>
         <button class="iconbtn micbtn" id="topmic" title="Dictate into the box you were typing in (Alt M) — or record a voice memo" onclick="V.mode?dictateStop():dictate()"><svg class="i" data-i="mic"></svg></button>
         <button class="iconbtn" title="Timers & alarms (Alt 6)" onclick="go('clock')"><svg class="i" data-i="timer"></svg></button>
       </div>
@@ -411,7 +419,11 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           </div>
         </div>
       </div>
-      <span class="clock" id="clock"></span>
+      <div class="clock-wrap" id="clock-wrap" title="Click for timers/alarms · Right-click to hide time" onclick="go('clock')" oncontextmenu="event.preventDefault();toggleClockVisible(false)">
+        <span class="clock-time" id="clock-time"></span>
+        <span class="clock-date" id="clock-date"></span>
+        <button class="clock-close" id="clock-close" title="Hide time from top bar" onclick="event.stopPropagation();toggleClockVisible(false)">×</button>
+      </div>
     </header>
 
     <!-- TODAY -->
@@ -578,42 +590,120 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
         <a class="btn sm ghost" href="https://huggingface.co/models?library=gguf&sort=trending" target="_blank" rel="noopener"><svg class="i sm" data-i="ext"></svg>Browse Hugging Face</a></h3><div id="installed"></div></div>
     </div></section>
 
+    <!-- APPS: In-App Web Wrapper -->
+    <section class="view" id="v-apps"></section>
+
     <!-- SETTINGS -->
     <section class="view" id="v-settings"><div class="pad" style="max-width:1100px">
-      <div class="card" id="updatecard" style="margin-bottom:18px"><h3><svg class="i sm" data-i="sync"></svg>Updates &amp; GitHub Sync<button class="btn sm" onclick="checkUpdates(true)">Check for updates</button></h3><div id="updateset"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
-        <div class="grouph" style="margin-top:0">Style</div><div class="stylepick" id="stylepick"></div>
-        <div class="grouph">Colors</div><div class="themes" id="themes"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="layers"></svg>Categories</h3><div id="catset"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3><div id="privacyset"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout — simple or power user</h3><div id="layoutset"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
-      <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice & microphone</h3><div id="voiceset"></div></div>
-      <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude</h3><div id="claude"></div></div>
-      <div class="set">
-        <div class="card"><h3><svg class="i sm" data-i="home"></svg>General</h3>
+      <div class="set-tabs-bar" id="set-tabs-bar">
+        <button class="set-tab-btn on" data-tab="general" onclick="setSwitchTab('general')"><svg class="i sm" data-i="home"></svg>General &amp; Startup</button>
+        <button class="set-tab-btn" data-tab="appearance" onclick="setSwitchTab('appearance')"><svg class="i sm" data-i="palette"></svg>Appearance</button>
+        <button class="set-tab-btn" data-tab="updates" onclick="setSwitchTab('updates')"><svg class="i sm" data-i="sync"></svg>Updates</button>
+        <button class="set-tab-btn" data-tab="ai" onclick="setSwitchTab('ai')"><svg class="i sm" data-i="spark"></svg>AI &amp; Claude Sync</button>
+        <button class="set-tab-btn" data-tab="apps" onclick="setSwitchTab('apps')"><svg class="i sm" data-i="grid"></svg>Apps &amp; LocalSend</button>
+        <button class="set-tab-btn" data-tab="voice" onclick="setSwitchTab('voice')"><svg class="i sm" data-i="mic"></svg>Voice</button>
+        <button class="set-tab-btn" data-tab="reminders" onclick="setSwitchTab('reminders')"><svg class="i sm" data-i="bell"></svg>Reminders</button>
+        <button class="set-tab-btn" data-tab="files" onclick="setSwitchTab('files')"><svg class="i sm" data-i="note"></svg>Files &amp; Notes</button>
+      </div>
+
+      <!-- Tab: General & Startup -->
+      <div class="set-tab-panel on" id="set-tab-general">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="home"></svg>General &amp; Startup Settings</h3>
           <div class="srow"><div class="d"><b>Your name</b><span>Used in greetings</span></div><input class="f" data-s="user_name"></div>
-          <div class="srow"><div class="d"><b>Open Daybook at startup</b><span>Shows this window when you sign in</span></div><label class="switch"><input type="checkbox" data-s="open_at_startup"><span></span></label></div>
+          <div class="srow"><div class="d"><b>Open Daybook at startup</b><span>Shows this window when you sign into Windows</span></div><label class="switch"><input type="checkbox" data-s="open_at_startup"><span></span></label></div>
+          <div class="srow"><div class="d"><b>Default startup view / app</b><span>Which page or embedded app opens when Daybook starts</span></div>
+            <select class="f" id="s-startup-view" onchange="saveSetting('startup_view',this.value);localStorage.setItem('daybook-startup-view',this.value);toast('Default startup view saved')">
+              <option value="today">Today (Home schedule &amp; widgets)</option>
+              <option value="apps:localsend">LocalSend (LAN File Sharing)</option>
+              <option value="apps:gemini">Google Gemini AI</option>
+              <option value="apps:claude">Anthropic Claude</option>
+              <option value="apps:chatgpt">OpenAI ChatGPT</option>
+              <option value="apps:spotify">Spotify Music</option>
+              <option value="apps:youtube">YouTube Studio</option>
+              <option value="browser">Browser Workspace</option>
+              <option value="notes">Notes</option>
+              <option value="workflows">Workflows</option>
+            </select>
+          </div>
+          <div class="srow"><div class="d"><b>Show clock in top bar</b><span>Display time and date in the top bar</span></div><label class="switch"><input type="checkbox" id="s-show-clock" onchange="toggleClockVisible(this.checked)"><span></span></label></div>
           <div class="srow"><div class="d"><b>Morning agenda pop-up</b><span>Quick list of today's items, once a day</span></div><label class="switch"><input type="checkbox" data-s="agenda_popup"><span></span></label></div>
           <div class="srow"><div class="d"><b>Agenda after</b><span>Hour of the day it can appear</span></div><select class="f" data-s="agenda_hour"></select></div>
         </div>
-        <div class="card"><h3><svg class="i sm" data-i="bell"></svg>Reminders</h3>
+      </div>
+
+      <!-- Tab: Appearance -->
+      <div class="set-tab-panel" id="set-tab-appearance">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
+          <div class="grouph" style="margin-top:0">Style</div><div class="stylepick" id="stylepick"></div>
+          <div class="grouph">Colors &amp; Themes</div><div class="themes" id="themes"></div>
+        </div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>Layout &amp; Sidebar</h3><div id="layoutset"></div></div>
+      </div>
+
+      <!-- Tab: Updates -->
+      <div class="set-tab-panel" id="set-tab-updates">
+        <div class="card" id="updatecard" style="margin-bottom:18px"><h3><svg class="i sm" data-i="sync"></svg>Updates &amp; GitHub Sync<button class="btn sm" onclick="checkUpdates(true)">Check for updates</button></h3><div id="updateset"></div></div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="zap"></svg>System status<button class="btn sm" onclick="renderSettings()">Refresh</button></h3><div id="status"></div></div>
+      </div>
+
+      <!-- Tab: AI & Claude Sync -->
+      <div class="set-tab-panel" id="set-tab-ai">
+        <div class="card" style="margin-bottom:18px">
+          <h3><svg class="i sm" data-i="spark"></svg>Claude-to-Gemini 1-Click Exporter<button class="btn sm pri" onclick="exportClaudeToGemini()">Export Now</button></h3>
+          <p class="muted small">Migrate 2 months of Claude training, user persona, and instructions into Google Gemini in under 5 minutes.</p>
+          <div id="claude-to-gemini-box"></div>
+        </div>
+        <div class="card" style="margin-bottom:18px" id="claudecard"><h3><svg class="i sm" data-i="spark"></svg>Claude Configuration</h3><div id="claude"></div></div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="chip"></svg>Local AI Models</h3>
+          <div class="srow"><div class="d"><b>Model for reminders &amp; notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
+          <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
+          <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
+        </div>
+      </div>
+
+      <!-- Tab: Apps & LocalSend -->
+      <div class="set-tab-panel" id="set-tab-apps">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>LocalSend LAN File Sharing</h3>
+          <div id="localsendset"></div>
+        </div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="grid"></svg>In-App Web Apps</h3>
+          <p class="muted small">Launch these apps directly inside Daybook without switching to an external browser.</p>
+          <div class="row" style="gap:8px;margin-top:10px">
+            <button class="btn" onclick="go('apps');awSwitch('localsend')">Open LocalSend</button>
+            <button class="btn" onclick="go('apps');awSwitch('gemini')">Open Gemini</button>
+            <button class="btn" onclick="go('apps');awSwitch('claude')">Open Claude</button>
+            <button class="btn" onclick="go('apps');awSwitch('chatgpt')">Open ChatGPT</button>
+            <button class="btn" onclick="go('apps');awSwitch('spotify')">Open Spotify</button>
+            <button class="btn" onclick="go('apps');awSwitch('youtube')">Open YouTube Studio</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Voice -->
+      <div class="set-tab-panel" id="set-tab-voice">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="mic"></svg>Voice &amp; microphone</h3><div id="voiceset"></div></div>
+      </div>
+
+      <!-- Tab: Reminders -->
+      <div class="set-tab-panel" id="set-tab-reminders">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="bell"></svg>Reminders</h3>
           <div class="srow"><div class="d"><b>Ring again every</b><span>Pop-ups keep ringing until Done / Snooze</span></div><select class="f" data-s="nag_minutes"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></div>
           <div class="srow"><div class="d"><b>Test a pop-up</b><span>Shows one in ~5 seconds</span></div><button class="btn" onclick="testPopup()">Send test</button></div>
           <div class="srow"><div class="d"><b>Wake PC at 2:58 AM</b><span>Windows task <code>LocalRemindersWakeUp</code> — so the 3 AM alarm fires from sleep</span></div><span class="badge">On</span></div>
         </div>
-        <div class="card"><h3><svg class="i sm" data-i="spark"></svg>Local AI</h3>
-          <div class="srow"><div class="d"><b>Model for reminders & notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
-          <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
-          <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
-        </div>
-        <div class="card"><h3><svg class="i sm" data-i="note"></svg>Notes import</h3>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="send"></svg>Discord</h3><div id="discordset"></div></div>
+      </div>
+
+      <!-- Tab: Files & Notes -->
+      <div class="set-tab-panel" id="set-tab-files">
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="note"></svg>Notes import &amp; Annotations</h3>
           <div class="srow"><div class="d"><b>Old notes folder</b><span>Read-only — files are never changed</span></div><input class="f" data-s="import_dir"></div>
           <div class="srow"><div class="d"><b>Annotations folder</b><span>Where screen annotations are saved</span></div><input class="f" data-s="annotations_dir"></div>
           <div class="srow"><div class="d"><b>Import new files</b><span>.txt .odt .md .docx · skips login/key files</span></div><button class="btn" onclick="importOld()">Import now</button></div>
           <div class="srow"><div class="d"><b>Welcome card</b><span>Show the getting-started card on Today again</span></div><button class="btn" onclick="saveSetting('welcome_seen','0');toast('It will show on Today')">Show again</button></div>
         </div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="layers"></svg>Categories</h3><div id="catset"></div></div>
+        <div class="card" style="margin-bottom:18px"><h3><svg class="i sm" data-i="globe"></svg>Browser &amp; privacy</h3><div id="privacyset"></div></div>
       </div>
     </div></section>
 
@@ -645,6 +735,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 <script src="/app/browser.js"></script>
 <script src="/app/research.js"></script>
 <script src="/app/webpanes.js"></script>
+<script src="/app/appwrap.js"></script>
 <script src="/app/library.js"></script>
 <script src="/app/splitters.js"></script>
 <script src="/app/network.js"></script>
@@ -715,7 +806,7 @@ function paintIcons(root = document) { root.querySelectorAll("svg[data-i]").forE
 // ================= state & routing =================
 const S = {view: "today", dayOffset: 0, weekOffset: 0, remFilter: "upcoming", settings: {}, meta: {}, models: [], personas: [],
   cat: "", tag: "", cur: null, chat: null, chats: [], streaming: false, logId: null, viewDate: null};
-const VIEWS = {workflows: ["Workflows", "Open everything a task needs in one click"], games: ["Games", "Your Steam & Epic library and free games"], research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
+const VIEWS = {workflows: ["Workflows", "Open everything a task needs in one click"], games: ["Games", "Your Steam & Epic library and free games"], research: ["Library", "Your PDFs, books and Zotero sources"], browser: ["Browser", "Browse the web without leaving Daybook"], apps: ["Apps", "In-app wrapper for LocalSend, Gemini, Claude, Spotify and web apps"], studio: ["AI Studio", "Create images and speech with the AI models on this PC"], launchpad: ["Launchpad", "Your browser profiles, accounts and apps"], memos: ["Voice & video notes", "Record or import, then name, label and date them like journal entries"], clock: ["Clock", "World clock · alarms · stopwatch · timers"], today: ["Today", ""], calendar: ["Calendar", "Your week at a glance"], reminders: ["Reminders", "Everything that will pop up"],
   notes: ["Notes", "Meetings, learning, ideas and daily logs — organized by your local AI"], chat: ["Chat", "Private chat with your local models"],
   desktop: ["Desktop", "Sticky notes on your desktop and screen annotations"],
   models: ["Models", "Find, install and manage local AI models that fit this PC"],
@@ -729,11 +820,29 @@ function go(v, sub) {
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
   if (!VIEWS[v]) v = "today";
-  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), research: () => renderResearch(), games: () => renderGames(), workflows: () => renderWorkflows(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
+  ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), apps: () => renderAppWrapper(sub), research: () => renderResearch(), games: () => renderGames(), workflows: () => renderWorkflows(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene(); dockSync(); setTimeout(splPages, 400);
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
-setInterval(() => $("#clock").textContent = new Date().toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}), 1000);
+function updateTopClock() {
+  const wrap = $("#clock-wrap");
+  if (!wrap) return;
+  const show = store.get("daybook-show-clock", "1") !== "0";
+  wrap.style.display = show ? "inline-flex" : "none";
+  if (!show) return;
+  const now = new Date();
+  const tEl = $("#clock-time"), dEl = $("#clock-date");
+  if (tEl) tEl.textContent = now.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+  if (dEl) dEl.textContent = now.toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"});
+}
+function toggleClockVisible(show) {
+  store.set("daybook-show-clock", show ? "1" : "0");
+  const chk = $("#s-show-clock"); if (chk) chk.checked = show;
+  updateTopClock();
+  toast(show ? "Clock visible in topbar" : "Clock hidden (re-enable in Settings → General)");
+}
+setInterval(updateTopClock, 1000);
+setTimeout(updateTopClock, 50);
 
 // ================= TODAY =================
 function shiftDay(n) { S.dayOffset += n; renderToday(); }
@@ -1240,7 +1349,8 @@ const THEMES = [["aurora", "Aurora", "Violet & ice blue", "#0a0b10", "#8b7bff", 
   ["synthwave", "Synthwave", "Neon pink & cyan", "#0f0618", "#ff2fb3", "#22e4ff", "#ffd319"],
   ["candy", "Candy", "Bubblegum pastels", "#150c1c", "#ff8bd1", "#9b8cff", "#7ef0ff"],
   ["ember", "Ember", "Fire orange & amber", "#120706", "#ff5a36", "#ffa62b", "#ffd23f"],
-  ["paper", "Paper", "Light & clean", "#f4f1ea", "#6c5ce7", "#0ea5e9", "#ec4899"]];
+  ["paper", "Paper", "Light & clean", "#f4f1ea", "#6c5ce7", "#0ea5e9", "#ec4899"],
+  ["sakura", "Cherry Blossom", "Soft petal pink & plum", "#fcedf2", "#d94676", "#8b5cf6", "#f472b6"]];
 function applyStyle(s) { document.documentElement.dataset.style = s; try { localStorage.setItem("daybook-style", s); } catch {} }
 function renderStylePick() {
   const cur = document.documentElement.dataset.style || "classic", el = $("#stylepick"); if (!el) return;
@@ -1310,6 +1420,63 @@ async function hotkeysEmacs(off) {  // Daybook's Ctrl+Alt hotkeys are Emacs' C-M
   await desktop.settings({hotkeysOff: off ? keys : []});
   toast(off ? "Ctrl+Alt hotkeys are off — Emacs gets them back. Use the tray icon or Alt shortcuts inside Daybook." : "Ctrl+Alt hotkeys are back on");
 }
+function setSwitchTab(t) {
+  store.set("daybook-set-tab", t);
+  $$(".set-tab-btn").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  $$(".set-tab-panel").forEach(p => p.classList.toggle("on", p.id === "set-tab-" + t));
+  if (t === "apps") renderLocalSendSettings();
+}
+
+async function renderLocalSendSettings() {
+  const host = $("#localsendset");
+  if (!host) return;
+  try {
+    const st = await api("/api/localsend/status");
+    host.innerHTML = `
+      <div class="srow">
+        <div class="d"><b>Status</b><span>${st.running ? "🟢 Running on port " + st.port : st.installed ? "⚪ Installed (not running)" : "🔴 Not installed"}</span></div>
+        <div class="row" style="gap:6px">
+          ${st.installed ? `<button class="btn sm pri" onclick="api('/api/localsend/launch',{method:'POST'}).then(r=>toast(r.error||'LocalSend opened')).catch(e=>toast(e.message))">Launch LocalSend</button>` : `<a href="https://localsend.org" target="_blank" class="btn sm pri">Download LocalSend</a>`}
+          <button class="btn sm" onclick="go('apps');awSwitch('localsend')">Open In-App LocalSend</button>
+        </div>
+      </div>
+      <div class="srow">
+        <div class="d"><b>Local Wi-Fi IP</b><span>Use this address for Wi-Fi file &amp; audio sharing</span></div>
+        <span class="badge" style="font-size:13px">${esc(st.lan_ip)}</span>
+      </div>
+      <div class="muted small" style="margin-top:8px">LocalSend is an open-source, encrypted AirDrop alternative that works across Windows, Android, iOS, and macOS on your local Wi-Fi without internet.</div>
+    `;
+  } catch (e) {
+    host.innerHTML = `<div class="muted small">${esc(e.message)}</div>`;
+  }
+}
+
+async function exportClaudeToGemini() {
+  const box = $("#claude-to-gemini-box");
+  toast("Compiling Claude training into Gemini instructions…");
+  try {
+    const res = await api("/api/ai/claude-to-gemini");
+    if (box) {
+      box.innerHTML = `
+        <div class="card" style="background:rgba(0,0,0,.25);border:1px solid var(--line2);padding:14px;margin-top:10px">
+          <div class="row" style="margin-bottom:8px">
+            <b>${esc(res.title)}</b>
+            <span class="badge">${res.char_count} chars</span>
+            <div class="sp"></div>
+            <button class="btn sm pri" onclick="navigator.clipboard.writeText($('#gem-prompt-txt').value);toast('Copied Gemini prompt to clipboard!')">${ic('copy')}Copy Instructions</button>
+            <a href="${res.target_url}" target="_blank" class="btn sm">${ic('ext')}Open Gemini</a>
+          </div>
+          <textarea class="f" id="gem-prompt-txt" style="width:100%;height:180px;font-family:monospace;font-size:12px" readonly>${esc(res.gemini_prompt)}</textarea>
+          <div class="muted small" style="margin-top:6px">✓ Paste into Gemini Gems → System Instructions to transfer all 2 months of Claude training in under 5 minutes.</div>
+        </div>
+      `;
+    }
+    toast("✓ Gemini prompt created & ready to copy!");
+  } catch (e) {
+    toast("Export failed: " + e.message);
+  }
+}
+
 async function renderSettings() {
   if (typeof renderUpdatesSettings === "function") renderUpdatesSettings();
   renderVoiceSettings(); renderLayoutSettings(); renderDiscordSettings();
@@ -1322,6 +1489,10 @@ async function renderSettings() {
     el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
   });
   renderClaude(); renderThemes(); renderStylePick(); renderPrivacy(); renderCatSettings();
+  const sv = $("#s-startup-view"); if (sv) sv.value = set.startup_view || localStorage.getItem("daybook-startup-view") || "today";
+  const sc = $("#s-show-clock"); if (sc) sc.checked = store.get("daybook-show-clock", "1") !== "0";
+  setSwitchTab(store.get("daybook-set-tab", "general"));
+  renderLocalSendSettings();
   const ai = st.counts.ai || {};
   $("#status").innerHTML = `<div class="stat">
       <div><b>${st.counts.reminders}</b><span>open reminders (${st.counts.routine} routine)</span></div>
@@ -1535,7 +1706,17 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
   if (S.settings.ui_style && S.settings.ui_style !== document.documentElement.dataset.style) applyStyle(S.settings.ui_style);
   applyLayout();
   const [v, sub] = location.hash.slice(1).split("/");
-  go(v || layoutCfg().start || "today", sub);
+  const startupView = S.settings.startup_view || localStorage.getItem("daybook-startup-view") || "";
+  let targetView = v, targetSub = sub;
+  if (!v && startupView) {
+    if (startupView.startsWith("apps:")) {
+      targetView = "apps";
+      targetSub = startupView.slice(5);
+    } else {
+      targetView = startupView;
+    }
+  }
+  go(targetView || layoutCfg().start || "today", targetSub);
   if (v === "notes" && sub) openNote(+sub);
   pollStatus(); clockFetch(); setInterval(() => document.visibilityState === "visible" && !C.poll && clockFetch(), 15000);
   micFor($("#cinput"), $("#cmic"), "send");

@@ -20,16 +20,97 @@ async function renderWorkflows() {
       <button class="wf-card wf-new" onclick="wfModal()">${ic("plus", "i")}<b>New workflow</b><span>e.g. “Editing” = your recordings folder + CapCut + YouTube Studio</span></button></div>`;
   paintIcons(host);
 }
-// Start: folders → Files hub panes, sites/profiles → Daybook's browser, apps → launched on the PC
-async function wfRun(i) {
+// Start: folders → Files hub panes, sites/profiles → Daybook's browser / workflow space, apps → launched on the PC
+function wfRun(i, forcePrompt) {
+  wfData().then(d => {
+    const w = d.workflows[i]; if (!w) return;
+    const folders = w.items.filter(x => x.type === "folder");
+    const web = w.items.filter(x => x.type === "url" || x.type === "profile");
+    const savedDest = store.get("daybook-wf-dest", "");
+    if (web.length && (!savedDest || forcePrompt)) {
+      modal(`<h2>${ic("play", "i")}Start “${esc(w.name)}”<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+        <p class="muted">This workflow opens ${web.length} web page${web.length > 1 ? "s" : ""}${folders.length ? ` and ${folders.length} folder${folders.length > 1 ? "s" : ""}` : ""}. Where would you like the browser pages to open?</p>
+        <div class="wf-dest-grid">
+          <div class="wf-dest-card" onclick="wfRunExecute(${i}, 'space')">
+            <div class="wf-dest-top"><span class="wf-dest-ic">📁 🌐</span><b>In this Workflow space (alongside your files)</b></div>
+            <div class="wf-dest-body">Opens your folders in Files, and keeps browser tabs accessible right in the workflow so you don't have to go back and forth.</div>
+          </div>
+          <div class="wf-dest-card" onclick="wfRunExecute(${i}, 'browser')">
+            <div class="wf-dest-top"><span class="wf-dest-ic">🌐</span><b>In Daybook's Browser hub</b></div>
+            <div class="wf-dest-body">Opens tabs in Daybook's dedicated browser view with full browsing controls.</div>
+          </div>
+          <div class="wf-dest-card" onclick="wfRunExecute(${i}, 'window')">
+            <div class="wf-dest-top"><span class="wf-dest-ic">🪟</span><b>In a New Daybook Window (recommended for dual screens)</b></div>
+            <div class="wf-dest-body">Puts the browser on your second screen or side-by-side while your files stay right here.</div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <label class="row small muted" style="cursor:pointer;gap:6px">
+            <input type="checkbox" id="wf-save-dest"> Remember my choice for future workflows
+          </label>
+        </div>`);
+      return;
+    }
+    wfRunExecute(i, savedDest || "space");
+  });
+}
+
+async function wfRunExecute(i, dest) {
+  const remember = $("#wf-save-dest") && $("#wf-save-dest").checked;
+  if (remember) store.set("daybook-wf-dest", dest);
+  closeModal();
+
   const d = await wfData(); const w = d.workflows[i]; if (!w) return;
-  const inApp = !!window.desktop, folders = w.items.filter(x => x.type === "folder"), web = w.items.filter(x => x.type === "url" || x.type === "profile");
+  const inApp = !!window.desktop;
+  const folders = w.items.filter(x => x.type === "folder");
+  const web = w.items.filter(x => x.type === "url" || x.type === "profile");
   const j = await api(`/api/workflows/${i}/run`, {method: "POST", body: {hub: inApp}}).catch(e => ({opened: 0, error: e.message}));
+
   if (inApp) {
-    for (const x of web) { if (x.type === "profile") await bdChromeOpen(x.browser, x.profile); else await desktop.browser.open("personal", x.url); }
-    if (folders.length) { LP.view = "folders"; go("launchpad", "folders"); for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path); }
-    else if (web.length) go("browser");
+    if (dest === "window") {
+      if (window.desktop && desktop.newWindow) desktop.newWindow("browser");
+      else window.open("/#browser", "_blank");
+      for (const x of web) {
+        if (x.type === "profile") await bdChromeOpen(x.browser, x.profile);
+        else await desktop.browser.open("personal", x.url);
+      }
+      if (folders.length) {
+        LP.view = "folders"; go("launchpad", "folders");
+        for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path);
+      }
+    } else if (dest === "space") {
+      if (folders.length) {
+        LP.view = "folders"; go("launchpad", "folders");
+        for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path);
+      }
+      for (const x of web) {
+        if (x.type === "profile") await bdChromeOpen(x.browser, x.profile);
+        else await desktop.browser.open("personal", x.url);
+      }
+      if (folders.length && web.length) {
+        FD.activeWorkflow = {name: w.name, web};
+        toast(`“${w.name}” started — folders & ${web.length} web page${web.length > 1 ? "s" : ""} active in workflow`);
+      } else if (web.length) {
+        go("browser");
+      }
+    } else {
+      for (const x of web) {
+        if (x.type === "profile") await bdChromeOpen(x.browser, x.profile);
+        else await desktop.browser.open("personal", x.url);
+      }
+      if (folders.length) {
+        LP.view = "folders";
+        for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path);
+      }
+      go("browser");
+    }
+  } else {
+    if (folders.length) {
+      LP.view = "folders"; go("launchpad", "folders");
+      for (const f of folders) if (!FD.panes.some(p => p.path.toLowerCase() === f.path.toLowerCase())) fdNewPane(f.path);
+    }
   }
+
   const parts = [folders.length && `${folders.length} folder${folders.length > 1 ? "s" : ""}`, web.length && `${web.length} page${web.length > 1 ? "s" : ""}`, (inApp ? j.opened : 0) && `${j.opened} app${j.opened > 1 ? "s" : ""}`].filter(Boolean);
   toast(`Started “${w.name}”${inApp && parts.length ? " — " + parts.join(", ") : ""}`);
 }

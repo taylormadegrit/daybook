@@ -732,6 +732,8 @@ ipcMain.handle("app:relaunch", () => {
   app.relaunch();
   app.exit(0);
 });
+ipcMain.handle("clipboard:readText", () => require("electron").clipboard.readText());
+ipcMain.handle("clipboard:writeText", (_e, text) => { require("electron").clipboard.writeText(String(text || "")); return true; });
 const EDIT_ACTIONS = new Set(["cut", "copy", "paste", "selectAll", "undo", "redo", "pasteAndMatchStyle"]);
 ipcMain.on("app:edit", (e, action, arg) => {
   if (EDIT_ACTIONS.has(action)) e.sender[action]();
@@ -933,8 +935,26 @@ app.whenReady().then(async () => {
   if (!PRIMARY) return;
   adblockInit();
   registerHotkeys();
-  // mic + screen capture for voice/video notes inside Daybook's own pages
-  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));
+  const appMenu = Menu.buildFromTemplate([
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "pasteAndMatchStyle" },
+        { role: "delete" },
+        { type: "separator" },
+        { role: "selectAll" }
+      ]
+    }
+  ]);
+  Menu.setApplicationMenu(appMenu);
+  // mic + screen capture + clipboard read/write for voice/video notes and editing
+  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "clipboard-read", "notifications", "fullscreen"].includes(perm)));
   setupDownloads(session.defaultSession);
   session.defaultSession.setDisplayMediaRequestHandler(async (req, cb) => {
     const sources = await desktopCapturer.getSources({types: ["screen", "window"], thumbnailSize: {width: 0, height: 0}});

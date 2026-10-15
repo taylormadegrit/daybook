@@ -58,7 +58,91 @@ function cleanupRec() {
 }
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-// ---------- dictation into any text field ----------
+// ---------- Top recording indicator & dictation ----------
+function topRecPill() {
+  let p = $("#top-rec-pill");
+  if (!p) {
+    p = document.createElement("div");
+    p.id = "top-rec-pill";
+    p.className = "top-rec-pill";
+    p.innerHTML = `<span class="rec-dot"></span><span id="top-rec-lbl" class="rec-lbl">Recording</span><canvas id="top-rec-wave" width="54" height="16"></canvas><span id="top-rec-t" class="rec-t">0:00</span><button class="top-rec-btn top-rec-stop" id="top-rec-stop" title="Stop & save">${ic("check")}Done</button><button class="top-rec-btn top-rec-cancel" id="top-rec-cancel" title="Discard">${ic("x")}</button>`;
+    const topmic = $("#topmic");
+    if (topmic && topmic.parentElement) {
+      topmic.parentElement.style.position = "relative";
+      topmic.before(p);
+    } else {
+      const topbar = $(".topbar");
+      if (topbar) topbar.appendChild(p); else document.body.appendChild(p);
+    }
+  }
+  return p;
+}
+
+function showTopRecIndicator(label, onStop, onCancel) {
+  const p = topRecPill();
+  const lbl = $("#top-rec-lbl"); if (lbl) lbl.textContent = label || "Recording…";
+  p.style.display = "inline-flex";
+  p.classList.add("on");
+  const topmic = $("#topmic");
+  if (topmic) topmic.classList.add("rec");
+  const stopBtn = $("#top-rec-stop");
+  if (stopBtn) stopBtn.onclick = (e) => { e.stopPropagation(); onStop && onStop(); };
+  const cancelBtn = $("#top-rec-cancel");
+  if (cancelBtn) cancelBtn.onclick = (e) => { e.stopPropagation(); onCancel ? onCancel() : dictateStop(true); };
+}
+
+function hideTopRecIndicator() {
+  const p = $("#top-rec-pill");
+  if (p) {
+    p.classList.remove("on");
+    p.style.display = "none";
+  }
+  const topmic = $("#topmic");
+  if (topmic) topmic.classList.remove("rec");
+  $$(".micbtn").forEach(b => b.classList.remove("rec"));
+}
+
+async function quickVoiceRecord() {
+  if (V.mode === "quickmemo") return quickVoiceStop();
+  if (V.mode) return dictateStop();
+  V.mode = "quickmemo";
+  showTopRecIndicator("Voice Memo", quickVoiceStop, quickVoiceCancel);
+  const pill = topRecPill();
+  try {
+    await startRecording(pill.querySelector("canvas"));
+  } catch (e) {
+    V.mode = null;
+    hideTopRecIndicator();
+    return micError(e);
+  }
+  V.tick = setInterval(() => {
+    const s = (Date.now() - V.start) / 1000;
+    const t = $("#top-rec-t");
+    if (t) t.textContent = mmss(s);
+  }, 250);
+}
+
+async function quickVoiceStop() {
+  if (V.mode !== "quickmemo") return;
+  clearInterval(V.tick);
+  hideTopRecIndicator();
+  const blob = await stopRecording();
+  V.mode = null;
+  if (!blob || blob.size < 2000) return toast("Too short — nothing recorded");
+  M.recBlob = blob;
+  M.recKind = "audio";
+  memoSaveModal(blob, (Date.now() - V.start) / 1000);
+}
+
+function quickVoiceCancel() {
+  if (V.mode !== "quickmemo") return;
+  clearInterval(V.tick);
+  hideTopRecIndicator();
+  cleanupRec();
+  V.mode = null;
+  toast("Voice memo discarded");
+}
+
 function trackFields() {
   document.addEventListener("focusin", e => { const t = e.target;
     if (t.matches("textarea, input.f:not([type]), input.f[type=text], input.f[type=search], #cinput, #n-title")) V.lastField = t; });
@@ -74,20 +158,28 @@ function dictBar() {
   return b;
 }
 async function dictate(target) {
+  if (V.mode === "quickmemo") return quickVoiceStop();
   if (V.mode) return dictateStop();
   target = target || (V.lastField && document.body.contains(V.lastField) ? V.lastField : null);
-  if (!target) { go("memos"); setTimeout(memoRecToggle, 200); return; }
+  if (!target) { return quickVoiceRecord(); }
   V.target = target; V.mode = "dict";
   const bar = dictBar(); bar.classList.remove("busy"); $("#dict-lbl").textContent = "Listening… speak now";
+  showTopRecIndicator("Dictating…", () => dictateStop(), () => dictateStop(true));
   try { await startRecording(bar.querySelector("canvas")); }
-  catch (e) { V.mode = null; micError(e); return; }
+  catch (e) { V.mode = null; hideTopRecIndicator(); micError(e); return; }
   bar.classList.add("on");
   $$(".micbtn").forEach(b => b.classList.toggle("rec", b._for === target));
-  V.tick = setInterval(() => { $("#dict-t").textContent = mmss((Date.now() - V.start) / 1000); }, 250);
+  V.tick = setInterval(() => {
+    const s = (Date.now() - V.start) / 1000;
+    $("#dict-t").textContent = mmss(s);
+    const t = $("#top-rec-t");
+    if (t) t.textContent = mmss(s);
+  }, 250);
 }
 async function dictateStop(cancel) {
   if (V.mode !== "dict") return;
   clearInterval(V.tick);
+  hideTopRecIndicator();
   const blob = await stopRecording(), bar = $("#dict"), target = V.target;
   $$(".micbtn").forEach(b => b.classList.remove("rec"));
   if (cancel || !blob || blob.size < 1500) { bar.classList.remove("on"); V.mode = null; if (!cancel) toast("Didn't catch anything"); return; }
@@ -182,16 +274,22 @@ async function renderMemos() {
 async function memoRecToggle() {
   const btn = $("#recbtn");
   if (V.mode === "memo") {
-    clearInterval(V.tick); const blob = await stopRecording(); V.mode = null; btn.classList.remove("on");
-    $("#rect").textContent = "Tap to record";
+    clearInterval(V.tick); const blob = await stopRecording(); V.mode = null; btn && btn.classList.remove("on");
+    hideTopRecIndicator();
+    if ($("#rect")) $("#rect").textContent = "Tap to record";
     if (!blob || blob.size < 2000) return toast("Too short — nothing saved");
     M.recBlob = blob; M.recKind = "audio"; memoSaveModal(blob, (Date.now() - V.start) / 1000);
     return;
   }
   if (V.mode) return;
   try { await startRecording($("#recwave")); } catch (e) { return micError(e); }
-  V.mode = "memo"; btn.classList.add("on");
-  V.tick = setInterval(() => { $("#rect").textContent = "Recording " + mmss((Date.now() - V.start) / 1000) + " · tap to stop"; }, 250);
+  V.mode = "memo"; btn && btn.classList.add("on");
+  showTopRecIndicator("Voice Memo", memoRecToggle, () => { cleanupRec(); V.mode = null; hideTopRecIndicator(); const b = $("#recbtn"); if (b) b.classList.remove("on"); if ($("#rect")) $("#rect").textContent = "Tap to record"; });
+  V.tick = setInterval(() => {
+    const s = (Date.now() - V.start) / 1000;
+    if ($("#rect")) $("#rect").textContent = "Recording " + mmss(s) + " · tap to stop";
+    const t = $("#top-rec-t"); if (t) t.textContent = mmss(s);
+  }, 250);
 }
 function labelPicker(id, chosen) {
   const all = [...new Set([...M.suggested, ...M.labels.map(([l]) => l), ...chosen])];
@@ -265,6 +363,7 @@ async function openMemo(id, quiet) {
     <div class="row" style="margin-top:12px">
       <button class="btn pri" onclick="memoToNote()">${ic("note")}${m.note_id ? "Save again as note" : "Save as note"}</button>
       <button class="btn" onclick="discordSend('memo',${m.id})">${ic("send")}Discord</button>
+      <button class="btn" onclick="shareMemoLocalSend(${m.id})">${ic("send")}LocalSend</button>
       <button class="btn" onclick="memoSave({starred:${m.starred ? 0 : 1}}).then(()=>openMemo(${m.id}))">${m.starred ? "★ Starred" : "☆ Star"}</button>
       <button class="btn" onclick="api('/api/memos/${m.id}/retranscribe',{method:'POST'}).then(()=>{toast('Transcribing again…');renderMemos();openMemo(${m.id})})">${ic("rep")}Re-transcribe</button>
       <a class="btn ghost" href="${memoURL(m)}" download="${esc((m.title || "memo").replace(/[\\/:*?"<>|]/g, ""))}${m.file.slice(m.file.lastIndexOf("."))}">${ic("down")}Download</a>
@@ -378,4 +477,34 @@ async function memoToNote() { await memoSave({transcript: $("#m-trans").value, n
 function memoDel(btn) {
   if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = ic("trash") + "Click again to delete"; return; }
   api("/api/memos/" + M.cur.id, {method: "DELETE"}).then(() => { if (M.audio) M.audio.pause(); M.cur = null; $("#medit").innerHTML = `<div class="empty"><b>Deleted</b></div>`; renderMemos(); });
+}
+
+async function shareMemoLocalSend(id) {
+  toast("Preparing LocalSend share…");
+  try {
+    const res = await api("/api/localsend/share", {method: "POST", body: {memo_id: id}});
+    if (res.launched_localsend) {
+      toast("✓ LocalSend opened with your recording! Ready to send to phone or PC.");
+    } else {
+      modal(`<h2>${ic("send", "i")}Share via LocalSend / Wi-Fi<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+        <p class="muted">Share this voice memo wirelessly to your phone or any device on your local Wi-Fi.</p>
+        <div class="frm">
+          <label>Option 1: Direct LAN Download Link</label>
+          <div class="row" style="flex-wrap:nowrap">
+            <input class="f" id="ls-link" value="${esc(res.lan_download_url || '')}" readonly>
+            <button class="btn" onclick="navigator.clipboard.writeText($('#ls-link').value);toast('Link copied!')">${ic("copy")}Copy</button>
+          </div>
+          <div class="muted small" style="margin-top:4px">Open this link in your phone's browser while connected to the same Wi-Fi.</div>
+          <label style="margin-top:14px">Option 2: Open LocalSend App</label>
+          <div class="row" style="gap:8px">
+            <button class="btn pri" onclick="api('/api/localsend/launch',{method:'POST'}).then(r=>toast(r.error||'LocalSend launched')).catch(e=>toast(e.message))">Launch LocalSend</button>
+            <button class="btn" onclick="go('apps');awSwitch('localsend');closeModal()">Open In-App LocalSend</button>
+            <a href="https://localsend.org" target="_blank" class="btn ghost">Download LocalSend</a>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px"><button class="btn" onclick="closeModal()">Close</button></div>`);
+    }
+  } catch (e) {
+    toast("Share error: " + e.message);
+  }
 }

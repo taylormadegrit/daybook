@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld("desktop", {
   settings: s => ipcRenderer.invoke("app:settings", s),
   newWindow: view => ipcRenderer.invoke("app:newWindow", view),
   edit: (action, arg) => ipcRenderer.send("app:edit", action, arg),
+  clipboard: {
+    readText: () => ipcRenderer.invoke("clipboard:readText"),
+    writeText: text => ipcRenderer.invoke("clipboard:writeText", text),
+  },
   menu: (items, x, y) => ipcRenderer.invoke("app:menu", items, x, y),           // native menu → id of the picked item
   onContextParams: fn => ipcRenderer.on("ctx:params", (_e, d) => fn(d)),
   onAppKey: fn => ipcRenderer.on("app:key", (_e, d) => fn(d)),            // shortcuts pressed inside a web page

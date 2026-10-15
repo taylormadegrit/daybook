@@ -19,6 +19,31 @@
   --gl-shadow:0 12px 36px rgba(40,30,10,.14),0 2px 6px rgba(40,30,10,.08);
   --card:rgba(255,255,255,.55);--card2:rgba(255,255,255,.75);
 }
+[data-style=glass][data-theme=sakura],
+[data-style=glass] body.scene-sakura,
+[data-style=glass] body.scene-light{
+  --gl-fill:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,242,248,.84));
+  --gl-fill-strong:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,246,251,.94));
+  --gl-edge:rgba(217,70,118,.28);
+  --gl-rim:inset 0 1px 0 rgba(255,255,255,1),inset 0 -1px 0 rgba(160,40,80,.08);
+  --gl-shadow:0 12px 36px rgba(70,20,40,.12),0 2px 8px rgba(70,20,40,.06);
+  --card:rgba(255,255,255,.88);--card2:rgba(255,255,255,.96);
+  --fg:#201117!important;--fg2:#462232!important;--muted:#74435b!important;
+  --line:rgba(180,60,110,.16)!important;--line2:rgba(180,60,110,.26)!important;
+}
+[data-style=glass][data-theme=sakura] body::before,
+[data-style=glass] body.scene-sakura::before{opacity:.35}
+[data-style=glass][data-theme=sakura] .f,
+[data-style=glass] body.scene-sakura .f,
+[data-style=glass] body.scene-sakura input.f,
+[data-style=glass] body.scene-sakura textarea.f,
+[data-style=glass] body.scene-sakura select.f{
+  background:rgba(255,255,255,.94)!important;color:#201117!important;border-color:rgba(217,70,118,.3)!important}
+[data-style=glass][data-theme=sakura] .card,
+[data-style=glass] body.scene-sakura .card,
+[data-style=glass] body.scene-sakura .nav,
+[data-style=glass] body.scene-sakura .fp,
+[data-style=glass] body.scene-sakura .topbar{color:#201117!important}
 [data-style=glass] body{font-family:-apple-system,"SF Pro Text","Segoe UI Variable Text","Segoe UI Variable",Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:-.005em}
 /* a vivid wallpaper behind everything, so the glass has something to frost */
 [data-style=glass] body::before{inset:-25%;filter:blur(60px);opacity:1;

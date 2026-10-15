@@ -72,6 +72,9 @@ app.register_blueprint(categories_bp)
 from .updates import bp as updates_bp  # noqa: E402
 
 app.register_blueprint(updates_bp)
+from .localsend import bp as localsend_bp  # noqa: E402
+
+app.register_blueprint(localsend_bp)
 BG_DIR = paths.DATA / "backgrounds"
 BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
