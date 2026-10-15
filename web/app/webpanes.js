@@ -24,7 +24,8 @@ const bdProf = id => webProfiles().find(p => p.id === id) || {id, name: id, colo
 function bdUrl(v) {
   v = v.trim(); if (!v) return "";
   if (/^[a-z]+:\/\//i.test(v)) return v;
-  if (/^[\w-]+(\.[\w-]+)+(\/|$|:)/.test(v) || v.startsWith("localhost")) return "https://" + v;
+  if (v.startsWith("localhost") || v.startsWith("127.0.0.1")) return "http://" + v;
+  if (/^[\w-]+(\.[\w-]+)+(\/|$|:)/.test(v)) return "https://" + v;
   return "https://www.google.com/search?q=" + encodeURIComponent(v);
 }
 async function renderBrowserDesktop() {
@@ -46,7 +47,20 @@ async function renderBrowserDesktop() {
       if (d.action === "save") bdSaveLink(d.id);
       if (d.action === "saved") { if (typeof LK !== "undefined") LK.saved[d.url] = d.lid; bdPaint(); }
       if (d.action === "address") { go("browser"); setTimeout(() => { const i = $(`.bd-pane[data-id="${d.id}"] .bd-url`); if (i) { i.focus(); i.select(); } }, 60); }
+      if (d.action === "downloads") bdToggleDownloads();
+      if (d.action === "find") bdOpenFind(d.id);
     });
+    if (desktop.browser.downloads) {
+      desktop.browser.downloads.onUpdate(list => { BD.downloads = list || []; bdUpdateDownloads(); });
+      desktop.browser.downloads.list().then(list => { BD.downloads = list || []; bdUpdateDownloads(); }).catch(() => {});
+    }
+    if (desktop.browser.onFindResult) {
+      desktop.browser.onFindResult(d => {
+        const el = $(`.bd-pane[data-id="${d.id}"] .bd-find-bar`); if (!el) return;
+        const c = el.querySelector(".bd-find-count");
+        if (c) c.textContent = d.total ? `${d.active} of ${d.total}` : "0/0";
+      });
+    }
   }
   BD.panes = await desktop.browser.list(); await bdChromeRefresh();
   clearInterval(BD.poll); BD.poll = setInterval(async () => { if (S.view !== "browser") return; const was = JSON.stringify(BD.chrome); await bdChromeRefresh(); if (was !== JSON.stringify(BD.chrome)) bdPaint(); }, 2500);
@@ -64,13 +78,15 @@ async function renderBrowserDesktop() {
       <div class="bd-profs">${profs.map(p => `<button class="bd-prof" style="--c:${p.color}" title="New ${esc(p.name)} tab (Ctrl+T)" onclick="bdNew('${p.id}')"><i></i>${esc(p.name)}<span>${ic("plus")}</span></button>`).join("")}
         <button class="iconbtn" title="Add a browser profile (separate logins)" onclick="bdProfileModal()">${ic("plus")}</button></div>
       <div class="sp"></div>
+      <div style="position:relative"><button class="btn sm ghost" id="bd-dl-btn" title="Downloads (Ctrl+J)" onclick="bdToggleDownloads(event)">${ic("down")}<span id="bd-dl-txt">Downloads</span><span id="bd-dl-badge" class="bd-dl-badge" style="display:none"></span></button>
+        <div class="menu bd-dl-menu" id="bd-dl-menu" style="right:0;top:36px;width:380px;max-width:92vw;max-height:75vh;overflow-y:auto;padding:0;z-index:100;box-shadow:0 12px 36px rgba(0,0,0,.5);border:1px solid var(--line2)"></div></div>
       <button class="btn sm ghost" id="bd-adb" title="Blocks ads and trackers in Daybook's browser (YouTube ads too)" onclick="bdAdblock(true)">🛡 Ad blocker</button>
       <div class="seg sm">${[["tabs", "Tabs"], ["auto", "Split"], ["grid", "Grid"], ["rows", "Rows"]].map(([k, l]) => `<button class="${BD.layout === k ? "on" : ""}" onclick="bdLayout('${k}')">${l}</button>`).join("")}</div>
       <div style="position:relative"><button class="btn sm" title="Your real Chrome profiles — already signed in — inside Daybook" onclick="bdChromeMenu(event)">${ic("globe")}Chrome profiles</button>
         <div class="menu" id="bw-profiles" style="right:0;top:36px;max-height:60vh;overflow:auto;min-width:280px"></div></div></div>
     <div class="bd-tabs" id="bd-tabs"></div>
     <div class="bd-stage" id="bd-stage"></div>`;
-  paintIcons($("#v-browser")); bdAdblock();
+  paintIcons($("#v-browser")); bdAdblock(); bdUpdateDownloads();
   if (!BD.ro) BD.ro = new ResizeObserver(() => { bdPaint(); });
   BD.ro.observe($("#bd-stage"));
   bdPaint(); bdSync(true); setTimeout(() => { if (S.view === "browser") bdSync(); }, 450);  // after the slide-in, even if no animation event fires
@@ -139,9 +155,10 @@ function bdPaint() {
         <button class="iconbtn" data-a="back" title="Back (Alt+←)">${ic("left")}</button><button class="iconbtn" data-a="forward" title="Forward (Alt+→)">${ic("right")}</button>
         <button class="iconbtn" data-a="reload" title="Reload (Ctrl+R)">${ic("rep")}</button>
         <input class="bd-url" spellcheck="false" placeholder="Search or type a web address"><button class="iconbtn bd-star" data-a="save" title="Save to your Library (Ctrl+D)">☆</button><button class="iconbtn" data-a="tonote" title="Send this page to Daybook as a note (e.g. an AI chat)">${ic("note")}</button><span class="bd-pbadge"></span>
+        <button class="iconbtn" data-a="find" title="Find in page (Ctrl+F)">${ic("search")}</button>
         <button class="iconbtn" data-a="mute" title="Mute / unmute">🔈</button><button class="iconbtn" data-a="external" title="Open in your normal browser">${ic("ext")}</button>
         <button class="iconbtn" data-a="close" title="Close (Ctrl+W)">${ic("x")}</button></div><div class="bd-body"></div>`;
-      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : b.dataset.a === "save" ? bdSaveLink(p.id) : b.dataset.a === "tonote" ? bdToNote(p.id) : desktop.browser.nav(p.id, b.dataset.a));
+      el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => b.dataset.a === "close" ? desktop.browser.close(p.id) : b.dataset.a === "save" ? bdSaveLink(p.id) : b.dataset.a === "tonote" ? bdToNote(p.id) : b.dataset.a === "find" ? bdOpenFind(p.id) : desktop.browser.nav(p.id, b.dataset.a));
       const u = el.querySelector(".bd-url");
       u.onkeydown = e => { if (e.key === "Enter") { const url = bdUrl(u.value); if (url) { desktop.browser.nav(p.id, "go", url); desktop.browser.nav(p.id, "focus"); } } if (e.key === "Escape") u.blur(); };
       u.onfocus = () => setTimeout(() => u.select(), 0);
@@ -224,3 +241,120 @@ async function bdChromeMenu(e) {
   m.innerHTML = `<div class="mh">Your signed-in Chrome profiles — open inside Daybook</div>` + LP.data.browsers.flatMap(b => b.profiles.map(p => `<div onclick="bdChromeOpen('${b.id}',${JSON.stringify(p.id).replace(/"/g, "&quot;")})">${p.picture ? `<img class="bw-av" src="/browser-avatar/${b.id}/${encodeURIComponent(p.id)}">` : `<span class="bw-av" style="background:${p.color}">${esc(p.name[0])}</span>`}${esc(p.name)}<span class="kbd">${esc(b.name.replace("Google ", ""))}</span></div>`)).join("");
   $$(".menu").forEach(x => x.classList.remove("on")); m.classList.toggle("on", on); bdSync();
 }
+
+// ---- In-Page Find (Ctrl+F) ----
+function bdOpenFind(id) {
+  const el = $(`.bd-pane[data-id="${id}"]`); if (!el) return;
+  let fb = el.querySelector(".bd-find-bar");
+  if (!fb) {
+    fb = document.createElement("div"); fb.className = "bd-find-bar";
+    fb.innerHTML = `<input class="bd-find-input" placeholder="Find in page…" spellcheck="false">
+      <span class="bd-find-count">0/0</span>
+      <button class="iconbtn sm" data-fa="prev" title="Previous (Shift+Enter)">${ic("up")}</button>
+      <button class="iconbtn sm" data-fa="next" title="Next (Enter)">${ic("down")}</button>
+      <button class="iconbtn sm" data-fa="close" title="Close (Esc)">${ic("x")}</button>`;
+    const inp = fb.querySelector(".bd-find-input");
+    const doFind = (fwd, next) => {
+      const q = inp.value; if (!q) { desktop.browser.stopFind(id); fb.querySelector(".bd-find-count").textContent = "0/0"; return; }
+      desktop.browser.find(id, q, {forward: fwd, findNext: next});
+    };
+    inp.oninput = () => doFind(true, false);
+    inp.onkeydown = e => {
+      if (e.key === "Enter") { e.preventDefault(); doFind(!e.shiftKey, true); }
+      if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+    };
+    fb.querySelector('[data-fa="next"]').onclick = () => doFind(true, true);
+    fb.querySelector('[data-fa="prev"]').onclick = () => doFind(false, true);
+    const closeFind = () => { desktop.browser.stopFind(id); fb.remove(); };
+    fb.querySelector('[data-fa="close"]').onclick = closeFind;
+    el.appendChild(fb); paintIcons(fb);
+  }
+  const inp = fb.querySelector(".bd-find-input");
+  inp.focus(); inp.select();
+}
+
+// ---- Downloads Manager (Ctrl+J) ----
+function bdFmtBytes(b) {
+  if (!b || b <= 0) return "0 B";
+  const u = ["B", "KB", "MB", "GB", "TB"], i = Math.floor(Math.log(b) / Math.log(1024));
+  return (b / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0) + " " + u[i];
+}
+function bdUpdateDownloads() {
+  const list = BD.downloads || [];
+  const active = list.filter(d => d.state === "progressing");
+  const badge = $("#bd-dl-badge"), btn = $("#bd-dl-btn");
+  if (badge) {
+    if (active.length) {
+      badge.style.display = "";
+      const p = active[0].percent || 0;
+      badge.textContent = active.length > 1 ? `${active.length}` : `${p}%`;
+      if (btn) btn.classList.add("pri");
+    } else {
+      badge.style.display = "none";
+      if (btn) btn.classList.remove("pri");
+    }
+  }
+  const m = $("#bd-dl-menu");
+  if (m && m.classList.contains("on")) bdRenderDownloadsMenu();
+}
+async function bdToggleDownloads(e) {
+  if (e) e.stopPropagation();
+  const m = $("#bd-dl-menu"); if (!m) return;
+  const on = !m.classList.contains("on");
+  $$(".menu").forEach(x => x.classList.remove("on"));
+  m.classList.toggle("on", on);
+  if (on) {
+    try { if (desktop.browser.downloads) BD.downloads = await desktop.browser.downloads.list(); } catch (e) {}
+    bdRenderDownloadsMenu();
+  }
+  bdSync();
+}
+function bdRenderDownloadsMenu() {
+  const m = $("#bd-dl-menu"); if (!m) return;
+  const list = BD.downloads || [];
+  let h = `<div class="bd-dl-h">
+    <b>Downloads</b>
+    <div style="display:flex;gap:6px">
+      <button class="btn sm ghost" title="Open Downloads folder in Windows Explorer" onclick="desktop.browser.downloads.openFolder()">${ic("folder")}Folder</button>
+      <button class="btn sm ghost" title="Clear completed downloads" onclick="desktop.browser.downloads.clear().then(bdRefreshDownloads)">Clear</button>
+    </div>
+  </div>`;
+  if (!list.length) {
+    h += `<div class="muted small" style="padding:28px 16px;text-align:center">No downloads yet — files you download in any tab or profile will appear here.</div>`;
+  } else {
+    h += `<div class="bd-dl-list">`;
+    for (const d of list) {
+      const isProg = d.state === "progressing";
+      const isDone = d.state === "completed";
+      const sizeStr = isProg
+        ? `${bdFmtBytes(d.receivedBytes)} of ${d.totalBytes ? bdFmtBytes(d.totalBytes) : "?"} · ${d.percent || 0}%`
+        : isDone
+        ? `${bdFmtBytes(d.totalBytes || d.receivedBytes)} · Done`
+        : `${bdFmtBytes(d.receivedBytes)} · ${d.state}`;
+      h += `<div class="bd-dl-item ${d.state}">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="font-size:18px;flex:none">${isDone ? "📄" : isProg ? "⏳" : "⚠️"}</span>
+          <div style="flex:1;min-width:0">
+            <div class="bd-dl-name" title="${esc(d.filename)}" onclick="desktop.browser.downloads.open(${d.id})">${esc(d.filename)}</div>
+            <div class="bd-dl-meta">${esc(sizeStr)}</div>
+          </div>
+          <div class="bd-dl-acts">
+            ${isProg ? `<button class="iconbtn sm danger" title="Cancel download" onclick="desktop.browser.downloads.cancel(${d.id})">${ic("x")}</button>` : ""}
+            ${isDone ? `<button class="iconbtn sm" title="Open file" onclick="desktop.browser.downloads.open(${d.id})">${ic("ext")}</button>
+                        <button class="iconbtn sm" title="Show in folder" onclick="desktop.browser.downloads.show(${d.id})">${ic("folder")}</button>` : ""}
+          </div>
+        </div>
+        ${isProg ? `<div class="bd-dl-bar"><div class="bd-dl-fill" style="width:${d.percent || 5}%"></div></div>` : ""}
+      </div>`;
+    }
+    h += `</div>`;
+  }
+  m.innerHTML = h;
+  paintIcons(m);
+}
+async function bdRefreshDownloads() {
+  try { if (desktop.browser.downloads) BD.downloads = await desktop.browser.downloads.list(); } catch (e) {}
+  bdUpdateDownloads();
+  bdRenderDownloadsMenu();
+}
+

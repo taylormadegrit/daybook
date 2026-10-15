@@ -180,6 +180,103 @@ function createTray() {
 // ---------------- in-app browser panes ----------------
 function partitionFor(profile) { return "persist:daybook-" + String(profile || "personal").toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
 const prepared = new Set();
+// ---- Central Download Manager: Chrome-like download handling for all sessions and profiles ----
+const downloads = new Map();
+let downloadSeq = 1;
+function setupDownloads(s) {
+  if (!s || s._hasDownloads) return;
+  s._hasDownloads = true;
+  s.on("will-download", (_e, item, wc) => handleDownload(item, wc));
+}
+function handleDownload(item, wc) {
+  const dId = downloadSeq++;
+  const rawName = item.getFilename() || "download";
+  let cleanName = rawName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
+  if (!cleanName || cleanName === "." || cleanName === "..") cleanName = "download";
+  const {name, ext} = path.parse(cleanName);
+  const dir = app.getPath("downloads");
+  try { fs.mkdirSync(dir, {recursive: true}); } catch (e) {}
+  let file = path.join(dir, (name || "download") + ext);
+  for (let n = 1; fs.existsSync(file); n++) file = path.join(dir, `${name || "download"} (${n})${ext}`);
+  item.setSavePath(file);
+
+  const owner = (wc && BrowserWindow.fromWebContents(wc)) ||
+    [...panes.values()].find(p => p.view.webContents === wc)?.owner ||
+    win;
+
+  const dl = {
+    id: dId,
+    filename: path.basename(file),
+    savePath: file,
+    url: item.getURL() || "",
+    mimeType: item.getMimeType() || "",
+    totalBytes: item.getTotalBytes() || 0,
+    receivedBytes: 0,
+    state: "progressing",
+    percent: 0,
+    startTime: Date.now(),
+    doneTime: null,
+  };
+  downloads.set(dId, {record: dl, item, wc, owner});
+
+  // If a pane was spawned purely to trigger this download (e.g. target="_blank" download link), hide it so the user doesn't see a blank tab
+  let placeholderId = null;
+  for (const [id, p] of panes) {
+    if (p.view.webContents === wc) {
+      if (!p._loadedAnyPage || p.view.webContents.getURL() === "" || p.view.webContents.getURL() === "about:blank" || p.view.webContents.getURL() === item.getURL()) {
+        placeholderId = id;
+        p._downloadPlaceholder = true;
+      }
+      break;
+    }
+  }
+  if (placeholderId && owner && !owner.isDestroyed()) {
+    layoutPanes(owner);
+    sendPanes(owner);
+  }
+
+  broadcastDownloads();
+
+  item.on("updated", (_e, state) => {
+    dl.state = state;
+    dl.receivedBytes = item.getReceivedBytes();
+    dl.totalBytes = item.getTotalBytes();
+    if (dl.totalBytes > 0) {
+      dl.percent = Math.min(100, Math.round((dl.receivedBytes / dl.totalBytes) * 100));
+    }
+    broadcastDownloads();
+  });
+
+  item.once("done", (_e, state) => {
+    dl.state = state; // "completed", "cancelled", "interrupted"
+    dl.receivedBytes = item.getReceivedBytes();
+    if (state === "completed") dl.percent = 100;
+    dl.doneTime = Date.now();
+    broadcastDownloads();
+
+    if (placeholderId) {
+      closePane(placeholderId);
+    }
+
+    if (owner && !owner.isDestroyed()) {
+      sendPanes(owner, {
+        toast: state === "completed"
+          ? `Downloaded ${dl.filename} → Downloads`
+          : `Download ${state}: ${dl.filename}`,
+        downloadId: dId
+      });
+    }
+  });
+}
+
+function broadcastDownloads() {
+  const list = [...downloads.values()].map(d => d.record).reverse().slice(0, 50);
+  for (const w of wins) {
+    if (!w.isDestroyed()) {
+      w.webContents.send("browser:downloads", list);
+    }
+  }
+}
 // Ad blocker for the in-app browser (ads + trackers, YouTube ads included). Block lists are cached on disk,
 // and a copy ships inside the app, so it works with no internet from the very first launch.
 const ADB = {blocker: null, on: loadState().adblock !== false, blocked: 0, sessions: new Set()};
@@ -288,6 +385,7 @@ function prepareSession(part) {
   const s = session.fromPartition(part);
   s.setUserAgent(CHROME_UA);                                   // so sites treat it as normal Chrome
   adblockSession(s);
+  setupDownloads(s);
   s.webRequest.onBeforeSendHeaders((d, cb) => {
     const h = d.requestHeaders;
     if (privacySignals) { h["DNT"] = "1"; h["Sec-GPC"] = "1"; }  // ask sites not to track or sell your data
@@ -298,7 +396,7 @@ function prepareSession(part) {
     cb({requestHeaders: h});
   });
   s.setPermissionRequestHandler(async (wc, perm, cb, details) => {
-    if (["fullscreen", "clipboard-sanitized-write", "notifications", "pointerLock"].includes(perm)) return cb(true);
+    if (["fullscreen", "clipboard-sanitized-write", "clipboard-read", "notifications", "pointerLock", "idle-detection", "window-management"].includes(perm)) return cb(true);
     if (["media", "geolocation", "midiSysex", "display-capture"].includes(perm)) {
       let site = ""; try { site = new URL(details.requestingUrl || wc.getURL()).host; } catch (e) {}
       const what = perm === "media" ? ((details.mediaTypes || []).join(" & ") || "camera/microphone") : perm === "geolocation" ? "location" : perm;
@@ -317,19 +415,10 @@ function prepareSession(part) {
   });
   // sites that check before asking (Google search does) see the remembered answer and don't ask again
   s.setPermissionCheckHandler((wc, perm, origin, details) => {
-    if (["fullscreen", "clipboard-sanitized-write", "notifications", "pointerLock"].includes(perm)) return true;
+    if (["fullscreen", "clipboard-sanitized-write", "clipboard-read", "notifications", "pointerLock", "idle-detection", "window-management"].includes(perm)) return true;
     let site = ""; try { site = new URL(origin || (details && details.requestingUrl) || "").host; } catch (e) {}
     const saved = loadPerms()[permKey(part, site, perm === "media" ? "media" : perm, details && details.mediaType ? [details.mediaType] : null)];
     return saved === true;
-  });
-  s.on("will-download", (_e, item, wc) => {
-    // never overwrite a file you already have: "report.pdf" → "report (1).pdf"
-    const dir = app.getPath("downloads"), {name, ext} = path.parse(item.getFilename());
-    let file = path.join(dir, name + ext);
-    for (let n = 1; fs.existsSync(file); n++) file = path.join(dir, `${name} (${n})${ext}`);
-    item.setSavePath(file);
-    const owner = [...panes.values()].find(p => p.view.webContents === wc)?.owner || win;
-    item.once("done", (_x, state) => sendPanes(owner, {toast: state === "completed" ? `Downloaded ${path.basename(file)} → Downloads` : `Download ${state}`}));
   });
   return s;
 }
@@ -337,7 +426,7 @@ function paneInfo(id, p) {
   const wc = p.view.webContents;
   return {id, profile: p.profile, title: wc.getTitle() || "New tab", url: wc.getURL(), loading: wc.isLoading(), canBack: wc.navigationHistory.canGoBack(), canFwd: wc.navigationHistory.canGoForward(), favicon: p.favicon || "", muted: wc.isAudioMuted(), audible: wc.isCurrentlyAudible(), full: !!p.full};
 }
-const panesOf = owner => [...panes].filter(([, p]) => p.owner === owner);
+const panesOf = owner => [...panes].filter(([, p]) => p.owner === owner && !p._downloadPlaceholder);
 function sendPanes(owner, extra) {
   if (!owner || owner.isDestroyed()) return;
   owner.webContents.send("browser:update", {panes: panesOf(owner).map(([id, p]) => paneInfo(id, p)), ...(extra || {})});
@@ -361,6 +450,12 @@ function openPane(profile, url, owner) {
     openPane(profile, u, owner); return {action: "deny"};                               // links that open a new tab → a new pane
   });
   ["did-start-loading", "did-stop-loading", "page-title-updated", "did-navigate", "did-navigate-in-page", "audio-state-changed"].forEach(ev => wc.on(ev, () => sendPanes(owner)));
+  wc.on("did-finish-load", () => { p._loadedAnyPage = true; });
+  wc.on("found-in-page", (_e, res) => {
+    if (!owner.isDestroyed()) {
+      owner.webContents.send("browser:findResult", {id, active: res.activeMatchOrdinal, total: res.matches, final: res.finalUpdate});
+    }
+  });
   wc.on("page-favicon-updated", (_e, icons) => { p.favicon = icons[0] || ""; sendPanes(owner); });
   wc.on("enter-html-full-screen", () => {
     p.full = true;
@@ -393,17 +488,31 @@ function openPane(profile, url, owner) {
       sendPanes(owner);
     }
   });
-  wc.on("before-input-event", (e, i) => { // browser shortcuts inside a pane
+  wc.on("before-input-event", (e, i) => { // browser shortcuts inside a pane (matching full Chrome behavior)
     if (i.type !== "keyDown") return;
     const k = i.key.toLowerCase();
     if (i.control && k === "w") { e.preventDefault(); closePane(id); }
     else if (i.control && k === "t") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "new", profile}); }
     else if (i.control && k === "d") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "save", id}); }
     else if (i.control && k === "l") { e.preventDefault(); owner.webContents.focus(); owner.webContents.send("browser:shortcut", {action: "address", id}); }
+    else if (i.control && k === "j") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "downloads"}); }
+    else if (i.control && k === "f") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "find", id}); }
+    else if (i.control && k === "p") { e.preventDefault(); wc.print(); }
+    else if (i.control && k === "s") {
+      e.preventDefault();
+      const defaultName = (wc.getTitle() || "page").replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() + ".html";
+      dialog.showSaveDialog(owner, {defaultPath: path.join(app.getPath("downloads"), defaultName)}).then(res => {
+        if (!res.canceled && res.filePath) wc.savePage(res.filePath, "HTMLComplete");
+      });
+    }
+    else if ((i.control && i.shift && k === "r") || (i.control && k === "f5")) { e.preventDefault(); wc.reloadIgnoringCache(); }
     else if ((i.control && k === "r") || k === "f5") { e.preventDefault(); wc.reload(); }
+    else if ((i.control && i.shift && k === "i") || k === "f12") { e.preventDefault(); if (wc.isDevToolsOpened()) wc.closeDevTools(); else wc.openDevTools({mode: "detach"}); }
+    else if (i.control && (k === "=" || k === "+" || k === "numpadadd")) { e.preventDefault(); wc.setZoomFactor(Math.min(3, wc.getZoomFactor() + 0.1)); }
+    else if (i.control && (k === "-" || k === "_" || k === "numpadsubtract")) { e.preventDefault(); wc.setZoomFactor(Math.max(0.3, wc.getZoomFactor() - 0.1)); }
+    else if (i.control && (k === "0" || k === "numpad0")) { e.preventDefault(); wc.setZoomFactor(1); }
     else if (i.alt && k === "arrowleft") { e.preventDefault(); wc.navigationHistory.goBack(); }
     else if (i.alt && k === "arrowright") { e.preventDefault(); wc.navigationHistory.goForward(); }
-    // Everything else belongs to the web page (Ctrl+K, Alt+letters… are used by Discord, Slack, Docs, ChatGPT).
   });
   wc.on("render-process-gone", () => sendPanes(owner, {toast: "A page crashed — press reload"}));
   wc.on("context-menu", (_e, m) => {
@@ -415,35 +524,58 @@ function openPane(profile, url, owner) {
     const saveLink = (url, title) => postJson("/api/links", {url, title}).then(j => { sendPanes(owner, {toast: j && j.new === false ? "Already in your Library" : "Saved to your Library (Library → Saved links)"}); if (j && j.link) owner.webContents.send("browser:shortcut", {action: "saved", url: j.link.url, lid: j.link.id}); });
     if (m.linkURL) {
       t.push({label: "Save link to Daybook Library", click: () => saveLink(m.linkURL, (m.linkText || "").trim())},
+             {label: "Save link as…", click: () => wc.downloadURL(m.linkURL)},
              {label: "Open link in new tab", click: () => openPane(profile, m.linkURL, owner)},
              {label: "Open link in your normal browser", click: () => shell.openExternal(m.linkURL)},
-             {label: "Copy link address", click: () => require("electron").clipboard.writeText(m.linkURL)}); sep();
+             {label: "Copy link address", click: () => require("electron").clipboard.writeText(m.linkURL)},
+             {label: "Copy link text", click: () => require("electron").clipboard.writeText((m.linkText || "").trim())}); sep();
     }
     if (m.mediaType === "image" && m.srcURL) {
       t.push({label: "Open image in new tab", click: () => openPane(profile, m.srcURL, owner)},
-             {label: "Save image…", click: () => wc.downloadURL(m.srcURL)},
-             {label: "Copy image", click: () => wc.copyImageAt(m.x, m.y)}); sep();
+             {label: "Save image as…", click: () => wc.downloadURL(m.srcURL)},
+             {label: "Copy image", click: () => wc.copyImageAt(m.x, m.y)},
+             {label: "Copy image address", click: () => require("electron").clipboard.writeText(m.srcURL)}); sep();
+    }
+    if (m.mediaType === "video" || m.mediaType === "audio") {
+      if (m.srcURL) {
+        t.push({label: "Save media as…", click: () => wc.downloadURL(m.srcURL)},
+               {label: "Copy media address", click: () => require("electron").clipboard.writeText(m.srcURL)}); sep();
+      }
     }
     if (m.isEditable) {
-      t.push({label: "Undo", role: "undo", enabled: m.editFlags.canUndo}, {type: "separator"},
-             {label: "Cut", role: "cut", enabled: m.editFlags.canCut}, {label: "Copy", role: "copy", enabled: m.editFlags.canCopy},
-             {label: "Paste", role: "paste", enabled: m.editFlags.canPaste}, {label: "Select all", role: "selectAll"}); sep();
+      t.push({label: "Undo", role: "undo", enabled: m.editFlags.canUndo},
+             {label: "Redo", role: "redo", enabled: m.editFlags.canRedo}, {type: "separator"},
+             {label: "Cut", role: "cut", enabled: m.editFlags.canCut},
+             {label: "Copy", role: "copy", enabled: m.editFlags.canCopy},
+             {label: "Paste", role: "paste", enabled: m.editFlags.canPaste},
+             {label: "Paste and match style", role: "pasteAndMatchStyle", enabled: m.editFlags.canPaste},
+             {label: "Select all", role: "selectAll"}); sep();
     } else if (m.selectionText.trim()) {
       const q = m.selectionText.trim().slice(0, 200);
       t.push({label: "Copy", role: "copy"},
              {label: `Search Google for “${q.length > 30 ? q.slice(0, 30) + "…" : q}”`, click: () => openPane(profile, "https://www.google.com/search?q=" + encodeURIComponent(q), owner)},
-             {label: "Save to a new Daybook note", click: () => post("/api/notes", {title: (wc.getTitle() || "Web clip").slice(0, 80), body: q + "\n\nFrom: " + wc.getURL()}).then(() => sendPanes(owner, {toast: "Saved to Notes"}))}); sep();
+             {label: "Save to a new Daybook note", click: () => post("/api/notes", {title: (wc.getTitle() || "Web clip").slice(0, 80), body: q + "\n\nFrom: " + wc.getURL()}).then(() => sendPanes(owner, {toast: "Saved to Notes"}))},
+             {label: "Print…", click: () => wc.print()}); sep();
     }
     if (/^https?:/.test(wc.getURL())) t.push({label: "Save this page to Daybook Library", accelerator: "Ctrl+D", click: () => saveLink(wc.getURL(), wc.getTitle())},
       {label: "Send page to Daybook as a note", click: () => pageToNote(id).then(r => sendPanes(owner, {toast: r && r.id ? `Saved “${r.title || "page"}” to Notes` : (r && r.error) || "Couldn't save"}))}, {type: "separator"});
     t.push({label: "Back", enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack()},
            {label: "Forward", enabled: wc.navigationHistory.canGoForward(), click: () => wc.navigationHistory.goForward()},
-           {label: "Reload", click: () => wc.reload()}, {type: "separator"},
+           {label: "Reload", click: () => wc.reload()},
+           {label: "Hard reload", click: () => wc.reloadIgnoringCache()}, {type: "separator"},
+           {label: "Save page as…", click: () => {
+             const defaultName = (wc.getTitle() || "page").replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() + ".html";
+             dialog.showSaveDialog(owner, {defaultPath: path.join(app.getPath("downloads"), defaultName)}).then(res => {
+               if (!res.canceled && res.filePath) wc.savePage(res.filePath, "HTMLComplete");
+             });
+           }},
+           {label: "Print…", click: () => wc.print()},
+           {label: "Find in page…", click: () => owner.webContents.send("browser:shortcut", {action: "find", id})}, {type: "separator"},
            {label: "Open page in your normal browser", click: () => shell.openExternal(wc.getURL())},
            {label: "Copy page address", click: () => require("electron").clipboard.writeText(wc.getURL())},
            {label: "Forget this site's permissions (location, camera…)", click: () => { try { forgetSite(partitionFor(profile), new URL(wc.getURL()).host); sendPanes(owner, {toast: "This site will ask again next time"}); } catch {} }},
            {label: "Close tab", click: () => closePane(id)}, {type: "separator"},
-           {label: "Inspect", click: () => wc.inspectElement(m.x, m.y)});
+           {label: "Inspect element", click: () => wc.inspectElement(m.x, m.y)});
     Menu.buildFromTemplate(t).popup({window: owner});
   });
   wc.loadURL(url || "https://www.google.com");
@@ -508,15 +640,80 @@ ipcMain.handle("browser:open", (e, {profile, url}) => openPane(profile, url, own
 ipcMain.handle("browser:close", (_e, id) => closePane(id));
 ipcMain.handle("browser:list", e => panesOf(ownerOf(e)).map(([id, p]) => paneInfo(id, p)));
 ipcMain.on("browser:layout", (e, l) => layoutPanes(ownerOf(e), l));
-ipcMain.handle("browser:nav", (_e, {id, action, url}) => {
+ipcMain.handle("browser:nav", async (_e, {id, action, url}) => {
   const p = panes.get(id); if (!p) return; const wc = p.view.webContents;
-  if (action === "back") wc.navigationHistory.goBack(); else if (action === "forward") wc.navigationHistory.goForward();
-  else if (action === "reload") wc.reload(); else if (action === "stop") wc.stop(); else if (action === "mute") wc.setAudioMuted(!wc.isAudioMuted());
-  else if (action === "go" && url) wc.loadURL(url); else if (action === "focus") wc.focus();
+  if (action === "back") wc.navigationHistory.goBack();
+  else if (action === "forward") wc.navigationHistory.goForward();
+  else if (action === "reload") wc.reload();
+  else if (action === "hardreload") wc.reloadIgnoringCache();
+  else if (action === "stop") wc.stop();
+  else if (action === "mute") wc.setAudioMuted(!wc.isAudioMuted());
+  else if (action === "go" && url) wc.loadURL(url);
+  else if (action === "focus") wc.focus();
   else if (action === "external") shell.openExternal(wc.getURL());
-  else if (action === "zoomin") wc.setZoomFactor(Math.min(3, wc.getZoomFactor() + 0.1)); else if (action === "zoomout") wc.setZoomFactor(Math.max(0.3, wc.getZoomFactor() - 0.1));
+  else if (action === "zoomin") wc.setZoomFactor(Math.min(3, wc.getZoomFactor() + 0.1));
+  else if (action === "zoomout") wc.setZoomFactor(Math.max(0.3, wc.getZoomFactor() - 0.1));
+  else if (action === "zoomreset") wc.setZoomFactor(1);
+  else if (action === "print") wc.print();
+  else if (action === "devtools") { if (wc.isDevToolsOpened()) wc.closeDevTools(); else wc.openDevTools({mode: "detach"}); }
+  else if (action === "savepage") {
+    const defaultName = (wc.getTitle() || "page").replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() + ".html";
+    const res = await dialog.showSaveDialog(p.owner, {defaultPath: path.join(app.getPath("downloads"), defaultName)});
+    if (!res.canceled && res.filePath) wc.savePage(res.filePath, "HTMLComplete");
+  }
   else if (action === "clear") { session.fromPartition(partitionFor(p.profile)).clearStorageData(); }
   sendPanes(p.owner);
+});
+ipcMain.handle("browser:downloads:list", () => {
+  return [...downloads.values()].map(d => d.record).reverse().slice(0, 50);
+});
+ipcMain.handle("browser:downloads:open", (_e, id) => {
+  const d = downloads.get(id);
+  if (d && d.record && d.record.savePath && fs.existsSync(d.record.savePath)) {
+    shell.openPath(d.record.savePath);
+    return true;
+  }
+  return false;
+});
+ipcMain.handle("browser:downloads:show", (_e, id) => {
+  const d = downloads.get(id);
+  if (d && d.record && d.record.savePath) {
+    if (fs.existsSync(d.record.savePath)) {
+      shell.showItemInFolder(d.record.savePath);
+    } else {
+      shell.openPath(path.dirname(d.record.savePath));
+    }
+    return true;
+  }
+  return false;
+});
+ipcMain.handle("browser:downloads:cancel", (_e, id) => {
+  const d = downloads.get(id);
+  if (d && d.item && d.record.state === "progressing") {
+    d.item.cancel();
+    return true;
+  }
+  return false;
+});
+ipcMain.handle("browser:downloads:clear", () => {
+  for (const [id, d] of downloads) {
+    if (d.record.state !== "progressing") downloads.delete(id);
+  }
+  broadcastDownloads();
+  return true;
+});
+ipcMain.handle("browser:downloads:openFolder", () => {
+  shell.openPath(app.getPath("downloads"));
+  return true;
+});
+ipcMain.handle("browser:find", (_e, {id, text, forward = true, findNext = false, matchCase = false}) => {
+  const p = panes.get(id); if (!p) return null;
+  if (!text) { p.view.webContents.stopFindInPage("clearSelection"); return null; }
+  return p.view.webContents.findInPage(text, {forward, findNext, matchCase});
+});
+ipcMain.handle("browser:stopFind", (_e, {id, action = "clearSelection"}) => {
+  const p = panes.get(id); if (!p) return;
+  p.view.webContents.stopFindInPage(action);
 });
 ipcMain.handle("app:settings", (_e, s) => {
   const st = {...loadState(), ...s}; writeState(st);
@@ -549,11 +746,14 @@ ipcMain.on("files:drag", (e, paths) => {
 ipcMain.handle("app:newWindow", (e, view) => { createWindow(view || "today", {extra: true, from: ownerOf(e)}); return true; });
 
 // ---------------- start ----------------
-// every page in a browser pane (and sign-in pop-ups): match navigator.userAgent to the headers above
 app.on("web-contents-created", (_e, wc) => {
+  if (wc.session) setupDownloads(wc.session);
   if (wc.getType() === "webview" || !wc.session || wc.session === session.defaultSession) return;
   wc.on("did-start-navigation", d => { if (!d.isMainFrame) return; const ua = isGoogleAuth(d.url) ? FIREFOX_UA : CHROME_UA; if (wc.getUserAgent() !== ua) wc.setUserAgent(ua); });
-  wc.on("did-create-window", w => w.webContents.setUserAgent(isGoogleAuth(w.webContents.getURL()) ? FIREFOX_UA : CHROME_UA));
+  wc.on("did-create-window", w => {
+    if (w.webContents && w.webContents.session) setupDownloads(w.webContents.session);
+    w.webContents.setUserAgent(isGoogleAuth(w.webContents.getURL()) ? FIREFOX_UA : CHROME_UA);
+  });
 });
 // Watchdog: if Daybook's background service stops answering (crash, killed), start it again and
 // bring back any window that was showing the "service didn't start" page.
@@ -725,6 +925,7 @@ app.whenReady().then(async () => {
   registerHotkeys();
   // mic + screen capture for voice/video notes inside Daybook's own pages
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "notifications", "fullscreen"].includes(perm)));
+  setupDownloads(session.defaultSession);
   session.defaultSession.setDisplayMediaRequestHandler(async (req, cb) => {
     const sources = await desktopCapturer.getSources({types: ["screen", "window"], thumbnailSize: {width: 0, height: 0}});
     const names = sources.map(s => s.name);

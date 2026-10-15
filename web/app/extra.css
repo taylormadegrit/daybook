@@ -833,3 +833,24 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 #v-chat[data-look="paper"] .compose .box{background:#fff;box-shadow:0 6px 24px rgba(60,50,30,.12)}#v-chat[data-look="midnight"] .compose .box{background:#121a38}
 #v-chat[data-look="mono"] .compose .box{background:#21252b}
 #v-chat.t-work .chatwrap{grid-template-columns:minmax(0,1fr)}#v-chat.t-work .clist{display:none}
+
+/* ---- browser downloads menu & find bar ---- */
+.bd-dl-menu{background:var(--card);border-radius:12px;overflow:hidden}
+.bd-dl-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.15)}
+.bd-dl-h b{font-size:13.5px}
+.bd-dl-list{max-height:60vh;overflow-y:auto}
+.bd-dl-item{padding:9px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:5px;transition:background .12s}
+.bd-dl-item:hover{background:rgba(255,255,255,.04)}
+.bd-dl-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.bd-dl-name:hover{color:var(--a2);text-decoration:underline}
+.bd-dl-meta{font-size:11px;color:var(--muted)}
+.bd-dl-acts{display:flex;align-items:center;gap:4px;flex:none}
+.bd-dl-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;width:100%;margin-top:2px}
+.bd-dl-fill{height:100%;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width .2s}
+.bd-dl-badge{display:inline-block;padding:1px 6px;border-radius:99px;font-size:10.5px;font-weight:700;background:var(--a1);color:#fff;margin-left:5px}
+
+.bd-find-bar{position:absolute;top:38px;right:10px;z-index:70;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:10px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.bd-find-input{width:160px;height:26px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,.3);padding:0 8px;font-size:12px;color:var(--fg);outline:none}
+.bd-find-input:focus{border-color:var(--a2);background:rgba(0,0,0,.45)}
+.bd-find-count{font-size:11.5px;color:var(--muted);white-space:nowrap;min-width:38px;text-align:center}
+

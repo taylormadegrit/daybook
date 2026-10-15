@@ -43,5 +43,17 @@ contextBridge.exposeInMainWorld("desktop", {
     onRelayout: fn => ipcRenderer.on("browser:relayout", () => fn()),     // the Daybook window moved / came back
     adblock: on => ipcRenderer.invoke("browser:adblock", on),        // no argument = just read the state
     toNote: id => ipcRenderer.invoke("browser:toNote", id),            // page text → new note → {id,title} or {error}
+    downloads: {
+      list: () => ipcRenderer.invoke("browser:downloads:list"),
+      open: id => ipcRenderer.invoke("browser:downloads:open", id),
+      show: id => ipcRenderer.invoke("browser:downloads:show", id),
+      cancel: id => ipcRenderer.invoke("browser:downloads:cancel", id),
+      clear: () => ipcRenderer.invoke("browser:downloads:clear"),
+      openFolder: () => ipcRenderer.invoke("browser:downloads:openFolder"),
+      onUpdate: fn => ipcRenderer.on("browser:downloads", (_e, d) => fn(d)),
+    },
+    find: (id, text, opts) => ipcRenderer.invoke("browser:find", {id, text, ...(opts || {})}),
+    stopFind: (id, action) => ipcRenderer.invoke("browser:stopFind", {id, action}),
+    onFindResult: fn => ipcRenderer.on("browser:findResult", (_e, d) => fn(d)),
   },
 });
