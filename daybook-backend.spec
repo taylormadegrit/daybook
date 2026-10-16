@@ -6,7 +6,7 @@ datas = [("web", "web"), ("daemon.pyw", "."), ("quickadd.pyw", "."), ("mcp_serve
          ("install-ai-stack.bat", "."), ("install-ai-stack.ps1", ".")]
 binaries, hidden = [], collect_submodules("reminders")
 for pkg in ("faster_whisper", "ctranslate2", "onnxruntime", "av", "pypdfium2", "pypdfium2_raw", "tokenizers", "dateparser",
-            "mcp", "fpdf", "icoextract", "obsws_python", "PIL", "huggingface_hub"):
+            "mcp", "fpdf", "icoextract", "obsws_python", "PIL", "huggingface_hub", "certifi"):
     d, b, h = collect_all(pkg, filter_submodules=lambda n: not n.startswith(("mcp.cli", "onnxruntime.quantization", "onnxruntime.tools", "onnxruntime.transformers")))
     datas += d; binaries += b; hidden += h
 

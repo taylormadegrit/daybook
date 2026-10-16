@@ -5,6 +5,8 @@ Supports one-click pull & restart for git source checkouts, and automated downlo
 import json
 import os
 import re
+import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -15,17 +17,51 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import certifi
+except ImportError:
+    certifi = None
+
 from flask import Blueprint, jsonify, request
 
 from . import paths
 
 bp = Blueprint("updates", __name__)
 
-CURRENT_VERSION = "1.7.4"
+CURRENT_VERSION = "1.7.5"
 GITHUB_REPO = "taylormadegrit/daybook"
 GITHUB_COMMITS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/commits/master"
 GITHUB_COMPARE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/compare/{{base}}...{{head}}"
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+
+
+def _get_ssl_context():
+    """Returns an SSL context with certifi CA bundle if available, falling back to default or unverified."""
+    if certifi:
+        try:
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            pass
+    try:
+        return ssl.create_default_context()
+    except Exception:
+        pass
+    return ssl._create_unverified_context()
+
+
+def _safe_urlopen(req, timeout=10):
+    """Executes urlopen with SSL verification.
+    If Windows certificate verification fails (unable to get local issuer certificate on clean installs or corporate proxy),
+    automatically falls back to an unverified context so update checks and release downloads never fail."""
+    ctx = _get_ssl_context()
+    try:
+        return urllib.request.urlopen(req, timeout=timeout, context=ctx)
+    except (urllib.error.URLError, ssl.SSLError) as e:
+        err_str = str(e)
+        if "CERTIFICATE_VERIFY_FAILED" in err_str or "certificate verify failed" in err_str or "unable to get local issuer certificate" in err_str:
+            fallback_ctx = ssl._create_unverified_context()
+            return urllib.request.urlopen(req, timeout=timeout, context=fallback_ctx)
+        raise
 
 _CACHE = {
     "checked_at": 0.0,
@@ -131,7 +167,7 @@ def get_remote_commit(local_sha: str = "") -> dict:
         }
     )
     try:
-        with urllib.request.urlopen(req, timeout=7) as resp:
+        with _safe_urlopen(req, timeout=7) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             sha = data.get("sha", "")
             commit = data.get("commit", {})
@@ -176,7 +212,7 @@ def get_latest_release() -> dict:
             "Accept": "application/vnd.github.v3+json",
         }
     )
-    with urllib.request.urlopen(req, timeout=7) as resp:
+    with _safe_urlopen(req, timeout=7) as resp:
         data = json.loads(resp.read().decode("utf-8"))
         tag = (data.get("tag_name") or "").strip()
         clean_ver = tag.lstrip("v").strip()
@@ -218,26 +254,45 @@ def _download_and_launch_worker(download_url: str, dest_path: Path, tag: str):
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = dest_path.with_suffix(".tmp")
 
-        with urllib.request.urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as f:
-            total = int(resp.headers.get("Content-Length") or 0)
-            done = 0
-            with _JOB_LOCK:
-                UPDATE_JOB["file_size"] = total
-
-            while True:
-                chunk = resp.read(256 * 1024)
-                if not chunk:
-                    break
-                f.write(chunk)
-                done += len(chunk)
-                pct = round(done * 100 / total) if total > 0 else 0
-                mb_done = done / (1024 * 1024)
-                mb_total = total / (1024 * 1024) if total > 0 else 0
-                msg = f"Downloading Daybook {tag}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)"
+        download_success = False
+        try:
+            with _safe_urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as f:
+                total = int(resp.headers.get("Content-Length") or 0)
+                done = 0
                 with _JOB_LOCK:
-                    UPDATE_JOB["pct"] = pct
-                    UPDATE_JOB["downloaded_bytes"] = done
-                    UPDATE_JOB["msg"] = msg
+                    UPDATE_JOB["file_size"] = total
+
+                while True:
+                    chunk = resp.read(256 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    done += len(chunk)
+                    pct = round(done * 100 / total) if total > 0 else 0
+                    mb_done = done / (1024 * 1024)
+                    mb_total = total / (1024 * 1024) if total > 0 else 0
+                    msg = f"Downloading Daybook {tag}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)"
+                    with _JOB_LOCK:
+                        UPDATE_JOB["pct"] = pct
+                        UPDATE_JOB["downloaded_bytes"] = done
+                        UPDATE_JOB["msg"] = msg
+            download_success = True
+        except Exception as dl_err:
+            curl_exe = shutil.which("curl") or "curl.exe"
+            try:
+                with _JOB_LOCK:
+                    UPDATE_JOB["msg"] = f"Retrying download via curl fallback ({tag})..."
+                c_res = subprocess.run(
+                    [curl_exe, "-L", "-k", "-s", "-S", download_url, "-o", str(tmp_path)],
+                    capture_output=True, timeout=300, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                )
+                if c_res.returncode == 0 and tmp_path.exists() and tmp_path.stat().st_size > 1000000:
+                    download_success = True
+            except Exception:
+                raise dl_err
+
+        if not download_success:
+            raise RuntimeError("Downloaded installer file was empty or incomplete.")
 
         if dest_path.exists():
             try:
@@ -329,7 +384,7 @@ def check_updates():
             try:
                 comp_url = GITHUB_COMPARE_URL.format(base=local_sha, head=remote_commit["sha"])
                 req = urllib.request.Request(comp_url, headers={"User-Agent": "Daybook-Updater/1.7", "Accept": "application/vnd.github.v3+json"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with _safe_urlopen(req, timeout=5) as resp:
                     cdata = json.loads(resp.read().decode("utf-8"))
                     commits_behind = cdata.get("total_commits", 1)
                     for c in (cdata.get("commits", []) or [])[-10:]:
