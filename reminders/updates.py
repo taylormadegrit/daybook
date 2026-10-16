@@ -1,11 +1,13 @@
 """Automatic update checker & 1-click updater for Daybook.
-Queries the GitHub repository (https://github.com/taylormadegrit/daybook) for new commits/releases.
-Supports one-click pull & restart for git source checkouts, and release installer upgrades for packaged installs.
+Queries the GitHub repository (https://github.com/taylormadegrit/daybook) for new commits and releases.
+Supports one-click pull & restart for git source checkouts, and automated download & installer launch for packaged installs.
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -19,6 +21,7 @@ from . import paths
 
 bp = Blueprint("updates", __name__)
 
+CURRENT_VERSION = "1.7.3"
 GITHUB_REPO = "taylormadegrit/daybook"
 GITHUB_COMMITS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/commits/master"
 GITHUB_COMPARE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/compare/{{base}}...{{head}}"
@@ -30,19 +33,52 @@ _CACHE = {
 }
 CACHE_TTL = 300  # 5 minutes
 
+UPDATE_JOB = {
+    "state": "idle",       # idle | downloading | launching | done | error
+    "pct": 0,
+    "msg": "",
+    "error": None,
+    "installer_path": None,
+    "download_url": None,
+    "tag": None,
+    "file_size": 0,
+    "downloaded_bytes": 0,
+}
+_JOB_LOCK = threading.Lock()
+
 
 def is_git_repo() -> bool:
     return (paths.APP / ".git").exists()
+
+
+def parse_version(v: str) -> tuple:
+    if not v:
+        return (0, 0, 0)
+    cleaned = re.sub(r"^[^\d]*", "", str(v).strip())
+    parts = []
+    for piece in cleaned.split("."):
+        m = re.match(r"^(\d+)", piece)
+        if m:
+            parts.append(int(m.group(1)))
+        else:
+            break
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+def is_newer_version(remote_ver: str, local_ver: str) -> bool:
+    return parse_version(remote_ver) > parse_version(local_ver)
 
 
 def get_local_commit() -> dict:
     if not is_git_repo():
         return {
             "sha": "unknown",
-            "short": "pkg",
-            "message": "Packaged release",
+            "short": "v" + CURRENT_VERSION,
+            "message": f"Daybook {CURRENT_VERSION} Packaged Release",
             "date": "",
-            "author": "",
+            "author": "Packaged Release",
             "is_repo": False,
         }
     try:
@@ -132,6 +168,121 @@ def get_remote_commit(local_sha: str = "") -> dict:
         raise e
 
 
+def get_latest_release() -> dict:
+    req = urllib.request.Request(
+        GITHUB_RELEASES_URL,
+        headers={
+            "User-Agent": "Daybook-Updater/1.7",
+            "Accept": "application/vnd.github.v3+json",
+        }
+    )
+    with urllib.request.urlopen(req, timeout=7) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        tag = (data.get("tag_name") or "").strip()
+        clean_ver = tag.lstrip("v").strip()
+        assets = data.get("assets", []) or []
+        exe_asset = next((a for a in assets if str(a.get("name", "")).lower().endswith(".exe")), None)
+        return {
+            "tag_name": tag,
+            "version": clean_ver,
+            "name": data.get("name") or f"Daybook {tag}",
+            "body": data.get("body") or "",
+            "html_url": data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
+            "published_at": data.get("published_at") or "",
+            "download_url": exe_asset.get("browser_download_url") if exe_asset else None,
+            "asset_name": exe_asset.get("name") if exe_asset else None,
+            "asset_size": exe_asset.get("size") if exe_asset else 0,
+        }
+
+
+def _download_and_launch_worker(download_url: str, dest_path: Path, tag: str):
+    """Background worker that streams the installer download, updates progress, and launches it."""
+    with _JOB_LOCK:
+        UPDATE_JOB.update(
+            state="downloading",
+            pct=0,
+            msg=f"Connecting to download Daybook installer ({tag})...",
+            error=None,
+            installer_path=str(dest_path),
+            download_url=download_url,
+            tag=tag,
+            downloaded_bytes=0,
+            file_size=0,
+        )
+
+    try:
+        req = urllib.request.Request(
+            download_url,
+            headers={"User-Agent": "Daybook-Updater/1.7"}
+        )
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = dest_path.with_suffix(".tmp")
+
+        with urllib.request.urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as f:
+            total = int(resp.headers.get("Content-Length") or 0)
+            done = 0
+            with _JOB_LOCK:
+                UPDATE_JOB["file_size"] = total
+
+            while True:
+                chunk = resp.read(256 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+                done += len(chunk)
+                pct = round(done * 100 / total) if total > 0 else 0
+                mb_done = done / (1024 * 1024)
+                mb_total = total / (1024 * 1024) if total > 0 else 0
+                msg = f"Downloading Daybook {tag}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)"
+                with _JOB_LOCK:
+                    UPDATE_JOB["pct"] = pct
+                    UPDATE_JOB["downloaded_bytes"] = done
+                    UPDATE_JOB["msg"] = msg
+
+        if dest_path.exists():
+            try:
+                dest_path.unlink()
+            except Exception:
+                pass
+        tmp_path.rename(dest_path)
+
+        with _JOB_LOCK:
+            UPDATE_JOB.update(
+                state="launching",
+                pct=100,
+                msg="Download complete! Launching installer...",
+            )
+
+        time.sleep(0.5)
+        try:
+            os.startfile(str(dest_path))
+        except Exception:
+            subprocess.Popen([str(dest_path)], close_fds=True)
+
+        with _JOB_LOCK:
+            UPDATE_JOB.update(
+                state="done",
+                pct=100,
+                msg="Installer launched! Follow the prompts to finish updating Daybook.",
+            )
+
+    except Exception as e:
+        with _JOB_LOCK:
+            UPDATE_JOB.update(
+                state="error",
+                error=str(e),
+                msg=f"Download failed: {e}",
+            )
+
+
+@bp.get("/api/updates/progress")
+def update_progress():
+    """Returns the current background download job status."""
+    with _JOB_LOCK:
+        job_copy = dict(UPDATE_JOB)
+    return jsonify(ok=True, job=job_copy)
+
+
 @bp.get("/api/updates/check")
 def check_updates():
     """Checks whether an update is available on GitHub."""
@@ -143,24 +294,40 @@ def check_updates():
 
     local = get_local_commit()
     local_sha = local.get("sha", "")
-    error_msg = None
-    remote = None
+    current_ver = CURRENT_VERSION
+    in_git = is_git_repo()
 
+    remote_rel = None
+    remote_commit = None
+    error_msg = None
+
+    # Step 1: Query GitHub latest release
     try:
-        remote = get_remote_commit(local_sha)
+        remote_rel = get_latest_release()
     except Exception as e:
-        error_msg = str(e)
+        error_msg = f"Release check notice: {e}"
+
+    # Step 2: Query GitHub commits if in git repo
+    if in_git:
+        try:
+            remote_commit = get_remote_commit(local_sha)
+        except Exception as e:
+            if not remote_rel:
+                error_msg = str(e)
 
     update_available = False
+    update_type = "none"  # "git" or "release"
     commits_behind = 0
     commit_list = []
+    remote_info = {}
 
-    if remote and remote.get("sha") and local_sha and local_sha != "unknown":
-        if local_sha[:12] != remote["sha"][:12]:
+    # Check git commits first for source repository checkouts
+    if in_git and remote_commit and remote_commit.get("sha") and local_sha != "unknown":
+        if local_sha[:12] != remote_commit["sha"][:12]:
             update_available = True
-            # Try to get comparison details if in git repo or valid sha
+            update_type = "git"
             try:
-                comp_url = GITHUB_COMPARE_URL.format(base=local_sha, head=remote["sha"])
+                comp_url = GITHUB_COMPARE_URL.format(base=local_sha, head=remote_commit["sha"])
                 req = urllib.request.Request(comp_url, headers={"User-Agent": "Daybook-Updater/1.7", "Accept": "application/vnd.github.v3+json"})
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     cdata = json.loads(resp.read().decode("utf-8"))
@@ -175,22 +342,61 @@ def check_updates():
             except Exception:
                 commits_behind = 1
                 commit_list = [{
-                    "sha": remote.get("short", ""),
-                    "message": remote.get("message", ""),
-                    "author": remote.get("author", ""),
-                    "date": remote.get("date", ""),
+                    "sha": remote_commit.get("short", ""),
+                    "message": remote_commit.get("message", ""),
+                    "author": remote_commit.get("author", ""),
+                    "date": remote_commit.get("date", ""),
                 }]
+            remote_info = remote_commit
+
+    # Check release version: works for BOTH packaged installs and git checkouts
+    if remote_rel and remote_rel.get("version"):
+        rel_ver = remote_rel["version"]
+        if is_newer_version(rel_ver, current_ver):
+            update_available = True
+            if not in_git or update_type == "none":
+                update_type = "release"
+                remote_info = {
+                    "tag_name": remote_rel["tag_name"],
+                    "version": remote_rel["version"],
+                    "message": remote_rel.get("name") or f"Daybook {remote_rel['tag_name']}",
+                    "short": remote_rel["tag_name"],
+                    "date": remote_rel.get("published_at", ""),
+                    "author": "GitHub Release",
+                    "html_url": remote_rel.get("html_url", ""),
+                    "notes": remote_rel.get("body", ""),
+                    "download_url": remote_rel.get("download_url"),
+                    "asset_name": remote_rel.get("asset_name"),
+                    "asset_size": remote_rel.get("asset_size"),
+                }
+
+    if not remote_info:
+        if remote_commit:
+            remote_info = remote_commit
+        elif remote_rel:
+            remote_info = {
+                "tag_name": remote_rel.get("tag_name"),
+                "version": remote_rel.get("version"),
+                "message": remote_rel.get("name"),
+                "short": remote_rel.get("tag_name"),
+                "date": remote_rel.get("published_at", ""),
+                "author": "GitHub Release",
+                "html_url": remote_rel.get("html_url", ""),
+                "download_url": remote_rel.get("download_url"),
+            }
 
     result = {
-        "ok": error_msg is None,
-        "error": error_msg,
+        "ok": (error_msg is None) or update_available or (remote_rel is not None) or (remote_commit is not None),
+        "error": error_msg if not (update_available or remote_rel) else None,
         "update_available": update_available,
+        "update_type": update_type,
         "commits_behind": commits_behind,
         "commit_list": commit_list,
-        "current_version": "1.7.2",
-        "is_repo": is_git_repo(),
+        "current_version": current_ver,
+        "is_repo": in_git,
         "local": local,
-        "remote": remote,
+        "remote": remote_info,
+        "release": remote_rel,
         "checked_at": datetime.now().isoformat(),
         "repo_url": f"https://github.com/{GITHUB_REPO}",
     }
@@ -204,25 +410,45 @@ def check_updates():
 def apply_update():
     """Applies the update from GitHub with one click."""
     if not is_git_repo():
-        try:
-            req = urllib.request.Request(GITHUB_RELEASES_URL, headers={"User-Agent": "Daybook-Updater/1.7"})
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                rel = json.loads(resp.read().decode("utf-8"))
-                assets = rel.get("assets", [])
-                exe_asset = next((a for a in assets if a.get("name", "").endswith(".exe")), None)
-                if exe_asset:
-                    return jsonify(
-                        ok=True,
-                        mode="installer",
-                        download_url=exe_asset.get("browser_download_url"),
-                        name=exe_asset.get("name"),
-                        tag=rel.get("tag_name"),
-                        message=f"New installer {rel.get('tag_name')} is available for download."
-                    )
-        except Exception as e:
-            return jsonify(ok=False, error=f"Failed to check releases: {e}"), 500
-        return jsonify(ok=False, error="Running in packaged mode without git repository."), 400
+        with _JOB_LOCK:
+            if UPDATE_JOB.get("state") == "downloading":
+                return jsonify(
+                    ok=True,
+                    mode="installer_downloading",
+                    job=dict(UPDATE_JOB),
+                    message="Download is already in progress.",
+                )
 
+        rel = None
+        try:
+            rel = get_latest_release()
+        except Exception as e:
+            return jsonify(ok=False, error=f"Could not connect to GitHub Releases: {e}"), 500
+
+        if not rel or not rel.get("download_url"):
+            return jsonify(ok=False, error="No Windows installer asset (.exe) found in latest release."), 404
+
+        tag = rel.get("tag_name") or "latest"
+        temp_dir = Path(tempfile.gettempdir())
+        dest_file = temp_dir / f"Daybook-Setup-{tag}.exe"
+
+        threading.Thread(
+            target=_download_and_launch_worker,
+            args=(rel["download_url"], dest_file, tag),
+            daemon=True
+        ).start()
+
+        return jsonify(
+            ok=True,
+            mode="installer_downloading",
+            download_url=rel["download_url"],
+            name=rel.get("asset_name"),
+            tag=tag,
+            job=dict(UPDATE_JOB),
+            message=f"Downloading Daybook {tag} installer in background...",
+        )
+
+    # Git repository mode: 1-Click pull & restart
     logs = []
 
     def run_cmd(args, cwd=str(paths.APP), timeout=60):

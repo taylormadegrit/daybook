@@ -20,7 +20,8 @@ async function checkUpdates(manual = false) {
     renderUpdatesSettings();
     if (manual) {
       if (data.update_available) {
-        toast(`✨ Update available: ${data.remote?.short || "latest commit"}`);
+        const title = data.remote?.tag_name || data.remote?.short || "latest update";
+        toast(`✨ Update available: ${title}`);
       } else if (data.ok) {
         toast("✓ Daybook is up to date!");
       } else if (data.error) {
@@ -49,15 +50,16 @@ function renderUpdatePill() {
   }
 
   const r = UP_STATE.remote || {};
-  const msg = r.message || "New update available";
-  const short = r.short || "";
+  const isRelease = UP_STATE.update_type === "release" || !UP_STATE.is_repo;
+  const tag = r.tag_name || r.short || (isRelease ? "v" + (r.version || "") : "");
+  const msg = r.message || (isRelease ? `Daybook ${tag} is available` : "New update available");
 
   host.style.display = "block";
   host.innerHTML = `
     <div class="update-pill" onclick="openUpdateModal()" title="Click to view update details">
       <span class="update-pulse"></span>
-      <span class="update-pill-badge">Update available</span>
-      <span class="update-pill-msg" title="${esc(msg)}"><b>${esc(short)}</b>: ${esc(msg)}</span>
+      <span class="update-pill-badge">${isRelease ? "New Release" : "Update available"}</span>
+      <span class="update-pill-msg" title="${esc(msg)}"><b>${esc(tag)}</b>: ${esc(msg)}</span>
       <button class="btn xs pri update-now-btn" onclick="event.stopPropagation(); oneClickUpdate(this)">
         <svg class="i xs" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Update now
       </button>
@@ -85,8 +87,8 @@ function renderUpdatesSettings() {
         <div class="update-box-content">
           <div class="update-box-title">Daybook is up to date</div>
           <div class="update-box-sub">
-            Version <b>${esc(s.current_version)}</b> · Commit <code>${esc(local.short || "HEAD")}</code>
-            ${local.message ? ` — <i>"${esc(local.message)}"</i>` : ""}
+            Version <b>${esc(s.current_version)}</b>
+            ${s.is_repo ? ` · Commit <code>${esc(local.short || "HEAD")}</code>${local.message ? ` — <i>"${esc(local.message)}"</i>` : ""}` : " · Packaged Windows App"}
           </div>
           <div class="update-box-meta">
             <span>Repository: <a href="${esc(s.repo_url)}" target="_blank" class="link">${esc(s.repo_url)}</a></span>
@@ -103,20 +105,24 @@ function renderUpdatesSettings() {
   }
 
   // Update is available!
+  const isRelease = s.update_type === "release" || !s.is_repo;
   const behindCount = s.commits_behind || 1;
   const commits = s.commit_list || [];
+  const versionTitle = remote.tag_name ? `Daybook ${remote.tag_name} is ready` : "New update available on GitHub!";
 
   host.innerHTML = `
     <div class="update-status-box has-update">
       <div class="update-icon-circle alert">🚀</div>
       <div class="update-box-content">
         <div class="update-box-title">
-          <span>New update available on GitHub!</span>
-          <span class="badge warn">${behindCount} new commit${behindCount > 1 ? "s" : ""}</span>
+          <span>${esc(versionTitle)}</span>
+          <span class="badge warn">${isRelease ? "New Release" : `${behindCount} new commit${behindCount > 1 ? "s" : ""}`}</span>
         </div>
         <div class="update-box-sub">
-          Latest commit <code>${esc(remote.short || "")}</code> by <b>${esc(remote.author || "Taylor")}</b>
-          ${remote.date ? `(${new Date(remote.date).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})})` : ""}
+          ${isRelease
+            ? (remote.date ? `Published ${new Date(remote.date).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})}` : "Latest official Windows release")
+            : `Latest commit <code>${esc(remote.short || "")}</code> by <b>${esc(remote.author || "Taylor")}</b> ${remote.date ? `(${new Date(remote.date).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})})` : ""}`
+          }
         </div>
         <div class="update-latest-msg">
           <b>${esc(remote.message || "")}</b>
@@ -132,9 +138,9 @@ function renderUpdatesSettings() {
           </div>
         ` : ""}
         <div class="update-box-meta">
-          <span>Current: <code>${esc(local.short || "HEAD")}</code></span>
+          <span>Current: <b>${esc(s.current_version)}</b> ${s.is_repo ? `(<code>${esc(local.short || "HEAD")}</code>)` : ""}</span>
           <span>·</span>
-          <span>Target: <code>${esc(remote.short || "")}</code></span>
+          <span>Target: <b>${esc(remote.version || remote.tag_name || remote.short || "")}</b></span>
         </div>
       </div>
       <div class="update-box-actions">
@@ -158,11 +164,13 @@ function openUpdateModal() {
   const remote = s.remote || {};
   const local = s.local || {};
   const commits = s.commit_list || [];
+  const isRelease = s.update_type === "release" || !s.is_repo;
+  const title = remote.tag_name ? `Daybook ${remote.tag_name}` : "Daybook Update Available";
 
   modal(`
     <h2>
       <svg class="i" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      Daybook Update Available
+      ${esc(title)}
       <button class="iconbtn" onclick="closeModal()">${ic("x")}</button>
     </h2>
     <div style="margin-bottom:14px">
@@ -170,8 +178,10 @@ function openUpdateModal() {
         ${esc(remote.message || "New update published to GitHub")}
       </div>
       <div class="muted small">
-        Commit <code>${esc(remote.short || "")}</code> by <b>${esc(remote.author || "Taylor")}</b>
-        ${remote.date ? `· ${new Date(remote.date).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})}` : ""}
+        ${isRelease
+          ? `Version <b>${esc(remote.version || remote.tag_name || "")}</b> · Published ${remote.date ? new Date(remote.date).toLocaleDateString([], {month: "short", day: "numeric", year: "numeric"}) : "recently"}`
+          : `Commit <code>${esc(remote.short || "")}</code> by <b>${esc(remote.author || "Taylor")}</b> ${remote.date ? `· ${new Date(remote.date).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})}` : ""}`
+        }
       </div>
     </div>
 
@@ -188,17 +198,21 @@ function openUpdateModal() {
 
     <div class="tip" style="margin-bottom:16px">
       <b>⚡ 1-Click Update</b>
-      This pulls the latest changes from GitHub, updates dependencies, restarts the Daybook background service, and refreshes the desktop app seamlessly.
+      ${isRelease
+        ? "Daybook will automatically download the updated installer in the background and launch it for you. Your data, settings, notes, and reminders are fully preserved."
+        : "This pulls the latest changes from GitHub, updates dependencies, restarts the Daybook background service, and refreshes the desktop app seamlessly."
+      }
     </div>
 
     <div id="update-modal-progress" style="display:none;margin-bottom:14px">
-      <div class="update-progress-bar"><div class="update-progress-fill"></div></div>
-      <div class="update-progress-text" id="update-progress-msg">Updating Daybook…</div>
+      <div class="update-progress-bar"><div class="update-progress-fill" style="width:0%"></div></div>
+      <div class="update-progress-text" id="update-progress-msg">Starting update…</div>
       <pre class="update-log-box" id="update-log-box" style="display:none"></pre>
     </div>
 
     <div class="mfoot" id="update-modal-footer">
       <a href="${esc(remote.html_url || s.repo_url)}" target="_blank" class="btn ghost">View on GitHub</a>
+      ${remote.download_url ? `<a href="${esc(remote.download_url)}" target="_blank" class="btn ghost">Direct Link</a>` : ""}
       <div class="sp"></div>
       <button class="btn ghost" onclick="closeModal()">Later</button>
       <button class="btn pri" id="modal-update-btn" onclick="oneClickUpdate(this)">
@@ -222,9 +236,11 @@ async function oneClickUpdate(btn) {
   const plog = $("#update-log-box");
   const foot = $("#update-modal-footer");
   const pbtn = $("#modal-update-btn");
+  const fill = $(".update-progress-fill");
 
   if (prog) prog.style.display = "block";
-  if (pmsg) pmsg.textContent = "Connecting to GitHub and pulling latest changes…";
+  if (pmsg) pmsg.textContent = "Connecting to GitHub...";
+  if (fill) { fill.style.width = "10%"; }
   if (pbtn) { pbtn.disabled = true; pbtn.innerHTML = `<span class="spin">↻</span> Updating…`; }
 
   try {
@@ -234,14 +250,60 @@ async function oneClickUpdate(btn) {
       throw new Error(res.error || "Update failed");
     }
 
+    if (res.mode === "installer_downloading") {
+      if (pmsg) pmsg.textContent = res.message || "Downloading installer in background...";
+
+      await new Promise((resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const pData = await api("/api/updates/progress");
+            const job = pData.job || {};
+            if (pmsg && job.msg) pmsg.textContent = job.msg;
+            if (fill && typeof job.pct === "number") {
+              fill.style.width = Math.max(10, job.pct) + "%";
+            }
+            if (job.state === "launching" || job.state === "done") {
+              clearInterval(interval);
+              if (fill) fill.style.width = "100%";
+              if (pmsg) {
+                pmsg.innerHTML = `
+                  <div style="color:var(--good);font-weight:600;margin-bottom:6px">✓ ${esc(job.msg || "Installer launched!")}</div>
+                  <div class="small muted">The installer has been launched on your PC. If Windows SmartScreen appears, click "More info" → "Run anyway" to complete the update.</div>
+                `;
+              }
+              if (foot) {
+                foot.innerHTML = `
+                  ${res.download_url ? `<a href="${esc(res.download_url)}" target="_blank" class="btn ghost">Direct .exe Link</a>` : ""}
+                  <div class="sp"></div>
+                  <button class="btn pri" onclick="closeModal()">Close</button>
+                `;
+              }
+              toast("✓ Daybook installer ready and launched!");
+              UP_UPDATING = false;
+              resolve();
+            } else if (job.state === "error") {
+              clearInterval(interval);
+              reject(new Error(job.error || "Download failed"));
+            }
+          } catch (err) {
+            clearInterval(interval);
+            reject(err);
+          }
+        }, 600);
+      });
+      return;
+    }
+
     if (res.mode === "installer") {
-      if (pmsg) pmsg.textContent = "Downloaded installer: " + (res.tag || "");
+      if (pmsg) pmsg.textContent = "Installer ready: " + (res.tag || "");
       toast("Installer ready: " + res.name);
       if (res.download_url) window.open(res.download_url, "_blank");
       UP_UPDATING = false;
       return;
     }
 
+    // Git pull mode
+    if (fill) fill.style.width = "80%";
     if (pmsg) pmsg.textContent = "Changes pulled successfully! Restarting service…";
     if (plog && res.output) {
       plog.style.display = "block";
@@ -254,6 +316,7 @@ async function oneClickUpdate(btn) {
       console.warn("Service restart signaled:", e);
     }
 
+    if (fill) fill.style.width = "100%";
     if (pmsg) pmsg.textContent = "✓ Update complete! Refreshing application…";
     toast("✓ Daybook updated to " + (res.commit?.short || "latest") + "! Refreshing…");
 
@@ -272,8 +335,19 @@ async function oneClickUpdate(btn) {
   } catch (err) {
     console.error("1-Click Update error:", err);
     UP_UPDATING = false;
-    if (pmsg) pmsg.innerHTML = `<span style="color:var(--bad)">⚠ Update failed: ${esc(err.message)}</span>`;
-    if (pbtn) { pbtn.disabled = false; pbtn.textContent = "Retry Update"; }
+    if (fill) fill.style.width = "0%";
+    if (pmsg) pmsg.innerHTML = `
+      <div style="color:var(--bad);font-weight:600;margin-bottom:6px">⚠ Update failed: ${esc(err.message)}</div>
+      <div class="small muted">You can manually download the latest installer from GitHub Releases below.</div>
+    `;
+    if (foot) {
+      foot.innerHTML = `
+        <a href="https://github.com/taylormadegrit/daybook/releases/latest" target="_blank" class="btn ghost">Open GitHub Releases</a>
+        <div class="sp"></div>
+        <button class="btn" onclick="closeModal()">Close</button>
+        <button class="btn pri" id="modal-update-btn" onclick="oneClickUpdate(this)">Retry Update</button>
+      `;
+    }
     toast("⚠ Update error: " + err.message);
   }
 }
