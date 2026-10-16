@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -12,7 +13,11 @@ GET_CLAUDE_URL = "https://claude.ai/download"
 ROOT = Path(__file__).resolve().parent.parent
 SERVER_CMD, *SERVER_ARGS = paths.helper_cmd("mcp", console=True)
 NAME = "reminders"  # MCP server name Claude sees
+GEMINI_MCP_NAME = "daybook"  # MCP server name Gemini CLI sees
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+_MCP_HANDSHAKE_CACHE = {"ts": 0.0, "result": None}
+MCP_CACHE_TTL_S = 600.0  # 10 minutes
 
 
 def _claude_exe():
@@ -34,6 +39,8 @@ def _claude_exe():
 def _node_exe():
     """Locate node.exe across standard PATH and Daybook's portable directories."""
     candidates = [
+        Path(r"D:\Applications\nodejs\node.exe"),
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Daybook-tools" / "nodejs" / "node.exe",
         shutil.which("node"),
         Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs" / "node.exe",
         Path(os.environ.get("ProgramFiles", "")) / "nodejs" / "node.exe",
@@ -47,11 +54,26 @@ def _node_exe():
 def _gemini_exe():
     """Locate gemini CLI executable."""
     candidates = [
+        Path(r"D:\Applications\gemini-cli\gemini.cmd"),
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Daybook-tools" / "gemini-cli" / "gemini.cmd",
         shutil.which("gemini"),
         Path.home() / ".local" / "bin" / "gemini.cmd",
         Path(os.environ.get("APPDATA", "")) / "npm" / "gemini.cmd",
         Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs" / "gemini.cmd",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Daybook-tools" / "gemini-cli" / "gemini.cmd",
+    ]
+    for c in candidates:
+        if c and Path(c).exists():
+            return str(c)
+    return None
+
+
+def _agy_exe():
+    """Locate Antigravity (agy) CLI executable (PATH first, then fixed folders)."""
+    candidates = [
+        shutil.which("agy"),
+        Path(os.environ.get("LOCALAPPDATA", "")) / "agy" / "bin" / "agy.exe",
+        Path.home() / ".gemini" / "antigravity-ide" / "bin" / "agy.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Antigravity IDE" / "bin" / "agy.exe",
     ]
     for c in candidates:
         if c and Path(c).exists():
@@ -66,6 +88,214 @@ def _desktop_config():
 def _desktop_installed():
     local = Path(os.environ.get("LOCALAPPDATA", ""))
     return (local / "AnthropicClaude").exists() or _desktop_config().parent.exists()
+
+
+def _entry_args_ok(entry: dict) -> bool:
+    """True when an MCP server entry passes 'mcp' (for daybook-mcp.exe) or 'mcp_server.py' (for dev python)."""
+    if not isinstance(entry, dict):
+        return False
+    args = entry.get("args") or []
+    if isinstance(args, str):
+        args = [args]
+    return "mcp" in args or any("mcp_server.py" in str(a) for a in args)
+
+
+def _claude_mcp_info():
+    """Inspect ~/.claude.json for the 'reminders' MCP server entry."""
+    registered = False
+    args_ok = False
+    try:
+        cfg_file = Path.home() / ".claude.json"
+        if cfg_file.exists():
+            cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig"))
+            servers = cfg.get("mcpServers") or {}
+            entry = servers.get(NAME)
+            if isinstance(entry, dict):
+                registered = True
+                args_ok = _entry_args_ok(entry)
+    except Exception:
+        pass
+    return {"registered": registered, "args_ok": args_ok, "connected": bool(registered and args_ok)}
+
+
+def _home_key() -> str:
+    return str(Path.home()).replace("\\", "/").lower()
+
+
+def gemini_trust_status() -> bool:
+    """Return True if the user's home folder is trusted in ~/.gemini/trustedFolders.json."""
+    try:
+        tf = Path.home() / ".gemini" / "trustedFolders.json"
+        if not tf.exists():
+            return False
+        data = json.loads(tf.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, dict):
+            return False
+        hk = _home_key()
+        for k, v in data.items():
+            if str(k).replace("\\", "/").lower().rstrip("/") == hk.rstrip("/") and v in ("TRUST_FOLDER", "TRUST_PARENT"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def set_gemini_trust(trust: bool) -> bool:
+    """Merge or remove home-folder trust in ~/.gemini/trustedFolders.json without clobbering other entries."""
+    gem_dir = Path.home() / ".gemini"
+    gem_dir.mkdir(parents=True, exist_ok=True)
+    tf = gem_dir / "trustedFolders.json"
+    data = {}
+    if tf.exists():
+        raw = tf.read_text(encoding="utf-8-sig")
+        if raw.strip():
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise RuntimeError("trustedFolders.json is not a JSON object")
+        (gem_dir / "trustedFolders.json.daybook-backup").write_text(raw, encoding="utf-8")
+    hk = _home_key()
+    if trust:
+        data[hk] = "TRUST_FOLDER"
+    else:
+        for k in list(data.keys()):
+            if str(k).replace("\\", "/").lower().rstrip("/") == hk.rstrip("/"):
+                data.pop(k, None)
+    tf.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return gemini_trust_status()
+
+
+def _gemini_mcp_info():
+    """Inspect ~/.gemini/settings.json for the 'daybook' MCP server entry and sign-in status."""
+    registered = False
+    args_ok = False
+    signed_in = bool(os.environ.get("GEMINI_API_KEY"))
+    try:
+        cfg_file = Path.home() / ".gemini" / "settings.json"
+        if cfg_file.exists():
+            cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig"))
+            servers = cfg.get("mcpServers") or {}
+            entry = servers.get(GEMINI_MCP_NAME)
+            if isinstance(entry, dict):
+                registered = True
+                args_ok = _entry_args_ok(entry)
+            sel = ((cfg.get("security") or {}).get("auth") or {}).get("selectedType")
+            if sel:
+                signed_in = True
+    except Exception:
+        pass
+    return {
+        "registered": registered,
+        "args_ok": args_ok,
+        "connected": bool(registered and args_ok),
+        "signed_in": signed_in,
+        "trusted_home": gemini_trust_status(),
+    }
+
+
+def _agy_mcp_files():
+    return [
+        Path.home() / ".gemini" / "config" / "mcp_config.json",
+        Path.home() / ".gemini" / "antigravity" / "mcp_config.json",
+    ]
+
+
+def _agy_mcp_info():
+    """Inspect ~/.gemini/config/mcp_config.json and ~/.gemini/antigravity/mcp_config.json for 'daybook'."""
+    registered = False
+    args_ok = False
+    for cfg_file in _agy_mcp_files():
+        try:
+            if cfg_file.exists():
+                cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig"))
+                servers = cfg.get("mcpServers") or {}
+                entry = servers.get(GEMINI_MCP_NAME)
+                if isinstance(entry, dict):
+                    registered = True
+                    if _entry_args_ok(entry):
+                        args_ok = True
+        except Exception:
+            pass
+    return {
+        "registered": registered,
+        "args_ok": args_ok,
+        "connected": bool(registered and args_ok),
+    }
+
+
+def test_mcp_handshake(force: bool = False, timeout: float = 90.0) -> dict:
+    """Start daybook-mcp.exe mcp (or dev mcp_server.py), send initialize, and wait up to `timeout` s. Cached 10 min."""
+    now = time.monotonic()
+    if not force and _MCP_HANDSHAKE_CACHE["result"] is not None and (now - _MCP_HANDSHAKE_CACHE["ts"]) < MCP_CACHE_TTL_S:
+        return dict(_MCP_HANDSHAKE_CACHE["result"])
+
+    cmd = [SERVER_CMD, *SERVER_ARGS]
+    if Path(SERVER_CMD).stem.lower() == "daybook-mcp" and "mcp" not in SERVER_ARGS:
+        cmd.append("mcp")
+
+    t0 = time.perf_counter()
+    handshake_ok = False
+    proc = None
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=NO_WINDOW,
+        )
+        req = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "daybook-check", "version": "1.8.1"},
+            },
+        }) + "\n"
+        proc.stdin.write(req)
+        proc.stdin.flush()
+
+        # Read first non-empty stdout line with a timeout thread
+        import threading
+        line_box = []
+
+        def _reader():
+            try:
+                for ln in proc.stdout:
+                    if ln and ln.strip():
+                        line_box.append(ln.strip())
+                        break
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_reader, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+        if line_box:
+            msg = json.loads(line_box[0])
+            handshake_ok = msg.get("jsonrpc") == "2.0" and ("result" in msg)
+    except Exception:
+        handshake_ok = False
+    finally:
+        if proc is not None:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+
+    startup_ms = int(round((time.perf_counter() - t0) * 1000))
+    res = {"handshake_ok": handshake_ok, "startup_ms": startup_ms}
+    _MCP_HANDSHAKE_CACHE["ts"] = time.monotonic()
+    _MCP_HANDSHAKE_CACHE["result"] = res
+    return dict(res)
 
 
 def hardware_info():
@@ -127,12 +357,7 @@ def status():
         except Exception:
             pass
 
-    code_connected = False
-    try:
-        cfg = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
-        code_connected = NAME in (cfg.get("mcpServers") or {})
-    except Exception:
-        pass
+    claude_mcp = _claude_mcp_info()
 
     desk_connected = False
     try:
@@ -155,15 +380,49 @@ def status():
             gem_ver = subprocess.run([gem_e, "--version"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW).stdout.strip()
         except Exception:
             pass
+    gem_mcp = _gemini_mcp_info()
+
+    agy_e = _agy_exe()
+    agy_ver = None
+    if agy_e:
+        try:
+            out = subprocess.run([agy_e, "--version"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW).stdout.strip()
+            agy_ver = out.splitlines()[0].strip() if out else None
+        except Exception:
+            pass
+    agy_mcp = _agy_mcp_info()
 
     hw = hardware_info()
 
     return {
         "get_url": GET_CLAUDE_URL,
-        "code": {"installed": bool(exe), "version": version, "connected": code_connected, "path": exe},
+        "code": {
+            "installed": bool(exe),
+            "version": version,
+            "registered": claude_mcp["registered"],
+            "args_ok": claude_mcp["args_ok"],
+            "connected": claude_mcp["connected"],
+            "path": exe,
+        },
         "desktop": {"installed": _desktop_installed(), "connected": desk_connected},
         "node": {"installed": bool(node_e), "version": node_ver},
-        "gemini": {"installed": bool(gem_e), "version": gem_ver},
+        "gemini": {
+            "installed": bool(gem_e),
+            "version": gem_ver,
+            "registered": gem_mcp["registered"],
+            "args_ok": gem_mcp["args_ok"],
+            "connected": gem_mcp["connected"],
+            "signed_in": gem_mcp["signed_in"],
+            "trusted_home": gem_mcp["trusted_home"],
+        },
+        "agy": {
+            "installed": bool(agy_e),
+            "version": agy_ver,
+            "registered": agy_mcp["registered"],
+            "args_ok": agy_mcp["args_ok"],
+            "connected": agy_mcp["connected"],
+            "path": agy_e,
+        },
         "hardware": hw
     }
 
@@ -172,11 +431,88 @@ def connect_code():
     exe = _claude_exe()
     if not exe:
         raise RuntimeError("Claude Code isn't installed. Run 1-Click Install first.")
-    r = subprocess.run([exe, "mcp", "add", "--scope", "user", NAME, "--", SERVER_CMD, *SERVER_ARGS],
+    args = list(SERVER_ARGS)
+    if Path(SERVER_CMD).stem.lower() == "daybook-mcp" and "mcp" not in args:
+        args.append("mcp")
+    subprocess.run([exe, "mcp", "remove", "--scope", "user", NAME],
+                   capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW)
+    r = subprocess.run([exe, "mcp", "add", "--scope", "user", NAME, "--", SERVER_CMD, *args],
                        capture_output=True, text=True, timeout=60, creationflags=NO_WINDOW)
     if r.returncode != 0 and "already exists" not in (r.stdout + r.stderr):
         raise RuntimeError((r.stderr or r.stdout).strip()[:300])
+    os.environ["MCP_TIMEOUT"] = "90000"
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["powershell.exe", "-NoProfile", "-Command", '[Environment]::SetEnvironmentVariable("MCP_TIMEOUT", "90000", "User")'],
+                capture_output=True, timeout=10, creationflags=NO_WINDOW,
+            )
+        except Exception:
+            pass
     return "Connected to Claude Code — start a new Claude session to use it."
+
+
+def connect_gemini(trust_home: bool = True):
+    """Merge the 'daybook' MCP server entry into ~/.gemini/settings.json (UTF-8 without BOM)."""
+    gem_dir = Path.home() / ".gemini"
+    gem_dir.mkdir(parents=True, exist_ok=True)
+    cfg_file = gem_dir / "settings.json"
+    cfg = {}
+    if cfg_file.exists():
+        raw = cfg_file.read_text(encoding="utf-8-sig")
+        if raw.strip():
+            try:
+                cfg = json.loads(raw)
+            except Exception as e:
+                raise RuntimeError("settings.json isn't plain JSON, so Daybook left it alone. Add the 'daybook' entry by hand.") from e
+        (gem_dir / "settings.json.daybook-backup").write_text(raw, encoding="utf-8")
+    args = list(SERVER_ARGS)
+    if Path(SERVER_CMD).stem.lower() == "daybook-mcp" and "mcp" not in args:
+        args.append("mcp")
+    cfg.setdefault("mcpServers", {})[GEMINI_MCP_NAME] = {
+        "command": SERVER_CMD,
+        "args": args,
+        "timeout": 90000,
+    }
+    cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    if trust_home:
+        set_gemini_trust(True)
+    return "Connected to Gemini CLI — start a new Gemini session to use it."
+
+
+def connect_agy():
+    """Register Daybook's MCP server with Antigravity (agy mcp add + merge into mcp_config.json files)."""
+    args = list(SERVER_ARGS)
+    if Path(SERVER_CMD).stem.lower() == "daybook-mcp" and "mcp" not in args:
+        args.append("mcp")
+    agy_e = _agy_exe()
+    if agy_e:
+        try:
+            subprocess.run([agy_e, "mcp", "add", GEMINI_MCP_NAME, SERVER_CMD, *args],
+                           capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW)
+        except Exception:
+            pass
+    for cfg_file in _agy_mcp_files():
+        cfg_file.parent.mkdir(parents=True, exist_ok=True)
+        cfg = {}
+        if cfg_file.exists():
+            raw = cfg_file.read_text(encoding="utf-8-sig")
+            if raw.strip():
+                try:
+                    cfg = json.loads(raw)
+                except Exception as e:
+                    raise RuntimeError(f"{cfg_file.name} isn't plain JSON, so Daybook left it alone.") from e
+                if not isinstance(cfg, dict):
+                    raise RuntimeError(f"{cfg_file.name} is not a JSON object.")
+            (cfg_file.parent / f"{cfg_file.name}.daybook-backup").write_text(raw, encoding="utf-8")
+        if not isinstance(cfg.get("mcpServers"), dict):
+            cfg["mcpServers"] = {}
+        cfg["mcpServers"][GEMINI_MCP_NAME] = {
+            "command": SERVER_CMD,
+            "args": args,
+        }
+        cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return "Connected to Antigravity (AGY) — start a new Antigravity session to use it."
 
 
 def connect_desktop():
@@ -202,6 +538,20 @@ def disconnect(target):
             subprocess.run([exe, "mcp", "remove", NAME, "--scope", "user"], capture_output=True, timeout=60,
                            creationflags=NO_WINDOW)
         return "Disconnected from Claude Code."
+    if target == "gemini":
+        cfg_file = Path.home() / ".gemini" / "settings.json"
+        if cfg_file.exists():
+            cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig") or "{}")
+            if (cfg.get("mcpServers") or {}).pop(GEMINI_MCP_NAME, None) is not None:
+                cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        return "Disconnected from Gemini CLI."
+    if target == "agy":
+        for cfg_file in _agy_mcp_files():
+            if cfg_file.exists():
+                cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig") or "{}")
+                if (cfg.get("mcpServers") or {}).pop(GEMINI_MCP_NAME, None) is not None:
+                    cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        return "Disconnected from Antigravity (AGY)."
     path = _desktop_config()
     if path.exists():
         cfg = json.loads(path.read_text(encoding="utf-8") or "{}")
@@ -226,12 +576,13 @@ def find_stack_installer():
     return None
 
 
-def stack_status():
+def stack_status(check_handshake: bool = True):
     import urllib.request as _urllib
     s = status()
     node_stat = s["node"]
     claude_stat = s["code"]
     gemini_stat = s["gemini"]
+    agy_stat = s["agy"]
 
     ollama_exe = shutil.which("ollama")
     if not ollama_exe:
@@ -256,11 +607,15 @@ def stack_status():
     except Exception:
         pass
 
+    # 30 s, not 90: this runs while Settings waits for the status card (the connector now answers in ~1 s)
+    mcp_stat = test_mcp_handshake(timeout=30.0) if check_handshake else {"handshake_ok": False, "startup_ms": 0}
     installer = find_stack_installer()
     return {
         "node": node_stat,
         "claude": claude_stat,
         "gemini": gemini_stat,
+        "agy": agy_stat,
+        "mcp": mcp_stat,
         "ollama": {"installed": bool(ollama_exe), "version": ollama_ver, "running": ollama_running, "models": models},
         "hardware": s["hardware"],
         "ready": bool(node_stat["installed"] and claude_stat["installed"] and (ollama_running or gemini_stat["installed"])),

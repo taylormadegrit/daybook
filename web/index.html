@@ -1340,11 +1340,11 @@ async function fetchAIStackStatus() {
   catch (e) { return null; }
 }
 
-async function runAIStackInstaller() {
+async function runAIStackInstaller(only = "all") {
   toast("Launching 1-Click AI Stack Installer in terminal…");
   if (window.desktop && desktop.term) {
     if (typeof termToggle === "function") await termToggle(true);
-    if (typeof termNew === "function") await termNew("ai-stack");
+    if (typeof termNew === "function") await termNew("ai-stack", {only: only || "all"});
   } else {
     try {
       const res = await api("/api/ai/stack-install", {method: "POST"});
@@ -1863,19 +1863,29 @@ async function renderClaude() {
     ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">✓ Node.js LTS: ${esc(c.node.version || 'Ready')}</span>`
     : `<span class="badge" style="color:var(--warn);border-color:rgba(255,180,50,.4)">⚠ Node.js missing (1-Click will auto-install)</span>`;
   const gemChip = c.gemini && c.gemini.installed
-    ? `<span class="badge" style="color:#38bdf8;border-color:rgba(56,189,248,.4)">✓ Gemini CLI: ${esc(c.gemini.version || 'Ready')}</span>`
+    ? `<span class="badge" style="color:#38bdf8;border-color:rgba(56,189,248,.4)">✓ Gemini CLI: ${esc(c.gemini.version || 'Ready')}${c.gemini.signed_in ? ' · Signed in' : ''}</span>`
+    : ``;
+  const agyChip = c.agy && c.agy.installed
+    ? `<span class="badge" style="color:#4285f4;border-color:rgba(66,133,244,.4)">🪐 Antigravity: ${esc(c.agy.version || 'Ready')}</span>`
     : ``;
   const hwChip = c.hardware && c.hardware.laptop_mode
     ? `<span class="badge" style="color:var(--accent);border-color:rgba(180,120,255,.4)">💻 Laptop Profile (${c.hardware.ram_gb || 8} GB RAM · Cloud AI Recommended)</span>`
     : c.hardware ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">⚡ Desktop Profile (${c.hardware.ram_gb || 16} GB RAM)</span>` : ``;
 
-  const box = (title, sub, inst, conn, target, desc) => `<div class="clb"><div class="clmark">${ic("spark", "i")}</div>
-    <div class="d"><b>${title}</b><span>${inst ? (conn ? "Connected — Claude can use your reminders, schedule and notes" : desc) : "Not installed on this PC"}${sub ? " · " + sub : ""}</span></div>
-    ${!inst ? (target === "code" 
-        ? `<div class="row" style="gap:6px"><button class="btn pri sm" onclick="runAIStackInstaller()">${ic("zap")}⚡ 1-Click Install</button><a class="btn ghost sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Manual</a></div>`
+  const box = (title, sub, inst, conn, target, desc, needsRepair, onlyMode) => `<div class="clb"><div class="clmark">${ic("spark", "i")}</div>
+    <div class="d"><b>${title}</b><span>${inst ? (conn ? "Connected — can use your reminders, schedule and notes" : needsRepair ? "Registered without 'mcp' argument — click Repair connection" : desc) : "Not installed on this PC"}${sub ? " · " + sub : ""}</span></div>
+    ${!inst ? (target === "code" || target === "gemini" || target === "agy"
+        ? `<div class="row" style="gap:6px"><button class="btn pri sm" onclick="runAIStackInstaller('${onlyMode || "all"}')">${ic("zap")}⚡ ${target === "agy" ? "Connect / Configure" : "1-Click Install"}</button>${target === "code" ? `<a class="btn ghost sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Manual</a>` : ""}</div>`
         : `<a class="btn pri sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a>`)
+      : needsRepair ? `<button class="btn pri sm" onclick="repairMcpConnection('${target}','${onlyMode || "all"}')">${ic("zap")}Repair connection</button>`
       : conn ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}Connected</span><button class="btn ghost sm" onclick="claudeAct('disconnect','${target}')">Disconnect</button>`
       : `<button class="btn pri sm" onclick="claudeAct('connect','${target}')">${ic("zap")}Connect</button>`}</div>`;
+
+  const gem = c.gemini || {};
+  const agy = c.agy || {};
+  const trustPref = localStorage.getItem("daybook-gemini-trust-home");
+  // Ticked by default, but trust is only written when the user connects Gemini or changes the box — never on view
+  const trustChecked = gem.trusted_home || (trustPref === null ? true : trustPref === "1");
 
   const beginnerGuide = `
     <div class="card" style="background:rgba(255,255,255,.025);border:1px solid var(--line2);padding:14px;margin-top:14px">
@@ -1884,9 +1894,9 @@ async function renderClaude() {
         <b>How to use Claude &amp; Gemini on this PC</b>
       </div>
       <ol class="step-list" style="margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6">
-        <li><b>1-Click Install:</b> Click <b>⚡ 1-Click Install Claude Code</b>. Daybook automatically installs Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama without any command line headache or admin permission errors.</li>
-        <li><b>1-Click Connect:</b> Click <b>Connect</b> above so Claude Code can automatically access your Daybook reminders, calendar, and notes.</li>
-        <li><b>Login &amp; Code:</b> Press <span class="kbd">Ctrl + \`</span> to open the built-in terminal, type <code>claude login</code> once, and hit Enter. Afterwards, just type <code>claude</code> to write and test code autonomously!</li>
+        <li><b>1-Click Install:</b> Click <b>⚡ 1-Click Install</b>. Daybook automatically installs Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama without any command line headache or admin permission errors.</li>
+        <li><b>1-Click Connect:</b> Click <b>Connect</b> above so Claude Code, Gemini CLI, and Antigravity can automatically access your Daybook reminders, calendar, and notes.</li>
+        <li><b>Login &amp; Code:</b> Press <span class="kbd">Ctrl + \`</span> to open the built-in terminal, then run <code>gemini</code> (choose <i>Login with Google</i> for the free tier), <code>claude</code>, or <code>agy</code> to sign in once!</li>
         <li><b>On a Laptop without a GPU?</b> Open <b>Gemini (Cloud)</b> in Chat or In-App Web Apps (<span class="kb">Alt A</span>) for instant cloud AI with zero laptop heat or battery drain.</li>
       </ol>
     </div>
@@ -1896,24 +1906,57 @@ async function renderClaude() {
     <div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
       ${nodeChip}
       ${gemChip}
+      ${agyChip}
       ${hwChip}
-      <button class="btn sm" onclick="runAIStackInstaller()">${ic("zap")}Re-run Installer / Check</button>
+      <button class="btn sm" onclick="runAIStackInstaller('all')">${ic("zap")}Re-run Installer / Check</button>
     </div>
-    <div class="cl">${box("Claude Code CLI", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook")}
-    ${box("Claude app (desktop)", "", c.desktop.installed, c.desktop.connected, "desktop", "Installed — connect it to Daybook")}</div>
-    <div class="muted small" style="margin-top:10px">Once connected, just ask Claude: “remind me Friday at 3pm to send the invoice”, “what's on my schedule tomorrow?”, “find my notes about the SDVCC meeting”.</div>
+    <div class="cl">${box("Claude Code CLI", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook", c.code.registered && !c.code.args_ok, "claude")}
+    ${box("Gemini CLI", gem.version ? "v" + gem.version + (gem.signed_in ? " · Signed in" : " · Sign in in terminal") : "", gem.installed, gem.connected, "gemini", "Installed — connect it to Daybook", gem.registered && !gem.args_ok, "gemini")}
+    ${box("Antigravity (AGY)", agy.version ? esc(agy.version) : "", agy.installed || agy.registered, agy.connected, "agy", "Installed — connect it to Daybook", agy.registered && !agy.args_ok, "agy")}
+    ${box("Claude app (desktop)", "", c.desktop.installed, c.desktop.connected, "desktop", "Installed — connect it to Daybook", false, "claude")}</div>
+    <label class="row small" style="gap:8px;margin-top:10px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="gem-trust-home" ${trustChecked ? "checked" : ""} onchange="toggleGeminiTrust(this.checked)">
+      <span>Let Gemini use Daybook tools when started from Daybook (trusts your home folder)</span>
+    </label>
+    <div class="muted small" style="margin-top:10px">Once connected, just ask Claude, Gemini, or Antigravity: “remind me Friday at 3pm to send the invoice”, “what's on my schedule tomorrow?”, “find my notes about the SDVCC meeting”.</div>
     ${beginnerGuide}
   `;
   setClaudeStatus(c);
 }
 function setClaudeStatus(c) {
-  const on = c.code.connected || c.desktop.connected, any = c.code.installed || c.desktop.installed;
+  const on = c.code.connected || c.desktop.connected || (c.gemini && c.gemini.connected) || (c.agy && c.agy.connected), any = c.code.installed || c.desktop.installed || (c.gemini && c.gemini.installed) || (c.agy && c.agy.installed);
   $("#st-claude").className = "st " + (on ? "ok" : any ? "" : "bad");
   $("#st-claude span").textContent = on ? "Claude connected" : any ? "Claude — not connected" : "Get Claude";
 }
+async function toggleGeminiTrust(checked) {
+  localStorage.setItem("daybook-gemini-trust-home", checked ? "1" : "0");
+  try {
+    await api("/api/gemini/trust", {method: "POST", body: JSON.stringify({trust: !!checked})});
+    toast(checked ? "Home folder trusted for Gemini CLI" : "Home folder trust removed for Gemini CLI");
+  } catch (e) {
+    toast("⚠ " + e.message);
+  }
+}
+async function repairMcpConnection(target, onlyMode) {
+  try {
+    const trustEl = $("#gem-trust-home");
+    const trustHome = trustEl ? trustEl.checked : true;
+    const r = await api(`/api/claude/connect/${target}`, {method: "POST", body: JSON.stringify({trust_home: trustHome})});
+    toast(r.message || "Connection repaired");
+    renderClaude();
+  } catch (e) {
+    runAIStackInstaller(onlyMode || "all");
+  }
+}
 async function claudeAct(action, target) {
   toast(action === "connect" ? "Connecting…" : "Disconnecting…");
-  try { const r = await api(`/api/claude/${action}/${target}`, {method: "POST"}); toast(r.message); renderClaude(); }
+  try {
+    const trustEl = $("#gem-trust-home");
+    const trustHome = trustEl ? trustEl.checked : true;
+    const r = await api(`/api/claude/${action}/${target}`, {method: "POST", body: JSON.stringify({trust_home: trustHome})});
+    toast(r.message);
+    renderClaude();
+  }
   catch (e) { toast("⚠ " + e.message); }
 }
 async function testPopup() { await api("/api/test-popup", {method: "POST"}); toast("A test pop-up will appear in a few seconds"); }

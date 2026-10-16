@@ -820,14 +820,25 @@ setInterval(async () => {
 
 // ---------------- Terminal (Chat → Terminal): real shells, Claude / Gemini / local AI CLIs, Emacs, Orca ----------------
 // Runs here in the app (not on a web address), so only Daybook's own window can use it.
-const TOOLS_DIR = fs.existsSync("D:\\") ? "D:\\Applications" : path.join(process.env.LOCALAPPDATA || app.getPath("userData"), "Daybook-tools");
+function pickToolsDir() {
+  const local = path.join(process.env.LOCALAPPDATA || app.getPath("userData"), "Daybook-tools");
+  try { fs.mkdirSync("D:\\Applications", {recursive: true}); fs.accessSync("D:\\Applications", fs.constants.W_OK); return "D:\\Applications"; }
+  catch { return local; }
+}
+const TOOLS_DIR = pickToolsDir();
+const GEMINI_CLI_VERSION = "0.62.0";   // pinned: a release at least two weeks old
 const terms = new Map();                               // id → session {pty, owner, name, profile, cwd, log…}
 const TERM_LOG = 400000;                               // characters of recent output kept per session (for reattach)
 let termSeq = 1;
 function whichExe(name) {
   const homedir = require("os").homedir();
-  const dirs = (process.env.PATH || "").split(";").filter(Boolean).concat([
+  const dirs = [
+    path.join(TOOLS_DIR, "nodejs"),
     path.join(TOOLS_DIR, "gemini-cli"),
+  ].concat((process.env.PATH || "").split(";").filter(Boolean)).concat([
+    path.join(process.env.LOCALAPPDATA || "", "agy", "bin"),
+    path.join(homedir, ".gemini", "antigravity-ide", "bin"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "Antigravity IDE", "bin"),
     path.join(homedir, ".local", "bin"),
     path.join(homedir, ".claude", "bin"),
     path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs"),
@@ -836,7 +847,7 @@ function whichExe(name) {
     "C:\\Program Files (x86)\\nodejs",
     path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama")
   ]);
-  for (const d of dirs) for (const ext of ["", ".exe", ".cmd", ".bat"]) { const f = path.join(d, name + ext); try { if (fs.statSync(f).isFile()) return f; } catch {} }
+  for (const d of dirs) for (const ext of [".exe", ".cmd", ".bat", ""]) { const f = path.join(d, name + ext); try { if (fs.statSync(f).isFile()) return f; } catch {} }
   return null;
 }
 function termProfiles() {
@@ -846,7 +857,10 @@ function termProfiles() {
   const emacsHome = first("D:\\Applications\\EmacsHome");      // isolated HOME with the Doom config (Launch-Emacs.bat sets the same)
   const gitBash = first("C:\\Program Files\\Git\\bin\\bash.exe", "D:\\Applications\\Git\\bin\\bash.exe");
   const orca = whichExe("orca") || first("D:\\Applications\\Orca\\resources\\bin\\orca.exe", "D:\\Applications\\Orca\\resources\\bin\\orca");
-  const claude = whichExe("claude"), gemini = whichExe("gemini"), ollama = whichExe("ollama") || first("D:\\Applications\\Ollama\\ollama.exe");
+  const claude = whichExe("claude"), gemini = whichExe("gemini"), agy = whichExe("agy"), ollama = whichExe("ollama") || first("D:\\Applications\\Ollama\\ollama.exe");
+  const packedBackend = path.join(process.resourcesPath || "", "backend", "daybook-backend.exe");
+  const devPy = path.join(DEV_ROOT, "venv", "Scripts", "python.exe");
+  const arcadeExe = (app.isPackaged && fs.existsSync(packedBackend)) ? packedBackend : (fs.existsSync(devPy) ? devPy : whichExe("python"));
   return [
     {id: "pwsh", name: "PowerShell", group: "Shells", ok: true},
     {id: "cmd", name: "Command Prompt", group: "Shells", ok: true},
@@ -855,53 +869,68 @@ function termProfiles() {
     {id: "ai-stack", name: "⚡ 1-Click AI Stack (Claude + Ollama + Node)", group: "AI", ok: true, hint: "1-Click automated installer for Node.js, Claude Code CLI and Ollama."},
     {id: "claude", name: "Claude Code", group: "AI", ok: !!claude, hint: "Install Claude Code from claude.ai/download, then sign in once in this terminal."},
     {id: "gemini", name: "Gemini CLI", group: "AI", ok: !!gemini, hint: "Not installed yet — Daybook can install it (Node.js needed), then sign in with Google in this terminal."},
+    {id: "agy", name: "Antigravity (AGY)", group: "AI", ok: !!agy, hint: "Google Antigravity autonomous agent CLI."},
     {id: "ollama", name: "Local AI (Ollama)", group: "AI", ok: !!ollama, hint: "Install Ollama from ollama.com, then pull a model."},
     {id: "emacs", name: emacsHome ? "Emacs (your Doom setup)" : "Emacs", group: "Tools", ok: !!emacs, hint: "Install Emacs (winget install GNU.Emacs)."},
     {id: "orca", name: "Orca", group: "Tools", ok: !!orca},
-    {id: "arcade", name: "8-Bit Arcade (Snake, Pong, Galactica)", group: "Tools", ok: true},
-  ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _ollama: ollama}));
+    {id: "arcade", name: "8-Bit Arcade (Snake, Pong, Galactica)", group: "Tools", ok: !!arcadeExe},
+  ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _agy: agy, _ollama: ollama, _arcadeExe: arcadeExe}));
 }
 function termCommand(prof, opts) {
   const ps = prof._ps, q = s => "'" + String(s).replace(/'/g, "''") + "'";
-  const inPs = cmd => [ps, ["-NoLogo", "-NoExit", "-Command", cmd]];          // tool runs, you stay in a shell after it ends
+  const inPs = cmd => [ps, ["-NoLogo", "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", cmd]];          // tool runs, you stay in a shell after it ends
   let AI_STACK_SCRIPT = path.join(DEV_ROOT, "install-ai-stack.ps1");
   if (app.isPackaged) {
     const p1 = path.join(process.resourcesPath || "", "backend", "install-ai-stack.ps1");
     const p2 = path.join(process.resourcesPath || "", "backend", "_internal", "install-ai-stack.ps1");
     AI_STACK_SCRIPT = fs.existsSync(p1) ? p1 : (fs.existsSync(p2) ? p2 : p1);
   }
+  const packedMcp = path.join(process.resourcesPath || "", "backend", "daybook-mcp.exe");
+  const devDistMcp = path.join(DEV_ROOT, "backend-dist", "daybook-backend", "daybook-mcp.exe");
+  const installedMcp = path.join(process.env.LOCALAPPDATA || "", "Programs", "Daybook", "resources", "backend", "daybook-mcp.exe");
+  const mcpExe = app.isPackaged ? packedMcp : (fs.existsSync(devDistMcp) ? devDistMcp : installedMcp);
+  const stack = only => inPs(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)} ` +
+    `-Only ${only} -McpExe ${q(mcpExe)} -ToolsDir ${q(TOOLS_DIR)} -GeminiVersion ${GEMINI_CLI_VERSION}`);
   switch (prof.id) {
     case "cmd": return ["cmd.exe", []];
     case "bash": return [prof._bash, ["--login", "-i"]];
     case "wsl": return ["wsl.exe", []];
-    case "ai-stack": return inPs(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
-    case "claude": return prof._claude ? ["cmd.exe", ["/k", `"${prof._claude}"`]]
-      : inPs(`Write-Host 'Claude Code CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Claude Code...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
-    case "gemini": return prof._gemini ? ["cmd.exe", ["/k", `"${prof._gemini}"`]]
-      : inPs(`Write-Host 'Gemini CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Gemini CLI...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
-    case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`)
-      : inPs(`Write-Host 'Ollama is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Ollama and models...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
+    case "ai-stack": return stack(["all", "gemini", "claude", "agy", "ollama"].includes(opts && opts.only) ? opts.only : "all");
+    case "claude": return prof._claude ? ["cmd.exe", ["/k", `"${prof._claude}"`]] : stack("claude");
+    case "gemini": return prof._gemini ? ["cmd.exe", ["/k", `"${prof._gemini}"`]] : stack("gemini");
+    case "agy": return prof._agy ? ["cmd.exe", ["/k", `"${prof._agy}"`]] : stack("agy");
+    case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`) : stack("ollama");
     case "emacs": return [prof._emacs, ["-nw"]];
     case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
     case "arcade": {
+      const packedBackend = path.join(process.resourcesPath || "", "backend", "daybook-backend.exe");
+      if (app.isPackaged && fs.existsSync(packedBackend)) {
+        // daybook-backend.exe is a windowed (console=False) build: PowerShell's & wouldn't wait for it, so the prompt
+        // and the game would fight over the terminal. Start-Process -Wait keeps it in this console until it exits.
+        return inPs(`Start-Process -FilePath ${q(packedBackend)} -ArgumentList 'arcade' -NoNewWindow -Wait`);
+      }
       const script = path.join(app.isPackaged ? path.join(process.resourcesPath, "backend") : DEV_ROOT, "arcade.py");
-      return inPs(`python -u ${q(script)}`);
+      const py = prof._arcadeExe || "python";
+      return inPs(`& ${q(py)} -u ${q(script)}`);
     }
-    default: return opts.run ? inPs(opts.run) : [ps, ["-NoLogo"]];
+    default: return opts.run ? inPs(opts.run) : [ps, ["-NoLogo", "-ExecutionPolicy", "Bypass"]];
   }
 }
-const GEMINI_CLI_VERSION = "0.62.0";   // pinned: a release at least two weeks old
-ipcMain.handle("term:profiles", () => termProfiles().map(({id, name, group, ok, hint}) => ({id, name, group, ok, hint})));
+ipcMain.handle("term:profiles", () => termProfiles().map(({id, name, group, ok, hint}) => ({id, name, group, ok, hint})).filter(p => p.id !== "arcade" || p.ok));
 ipcMain.handle("term:create", (e, opts = {}) => {
   let pty;
   try { pty = require("@lydell/node-pty"); }
   catch (err) { console.error("terminal", err); return {error: "The terminal component is missing from this install — reinstall Daybook. (" + err.message + ")"}; }
   const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
-  if (!prof.ok && !["gemini", "claude", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
+  if (!prof.ok && !["gemini", "claude", "agy", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
   const [cmd, args] = termCommand(prof, opts);
   const homedir = require("os").homedir();
   const extraPaths = [
+    path.join(TOOLS_DIR, "nodejs"),
     path.join(TOOLS_DIR, "gemini-cli"),
+    path.join(process.env.LOCALAPPDATA || "", "agy", "bin"),
+    path.join(homedir, ".gemini", "antigravity-ide", "bin"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "Antigravity IDE", "bin"),
     path.join(homedir, ".local", "bin"),
     path.join(homedir, ".claude", "bin"),
     path.join(process.env.APPDATA || "", "npm"),

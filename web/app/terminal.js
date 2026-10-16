@@ -5,7 +5,7 @@
 const TM = {tabs: [], groups: [], active: 0, open: store.get("daybook-term-open", "0") === "1", h: +store.get("daybook-term-h", "320"),
   work: store.get("daybook-term-work", "0") === "1", bound: false, projects: [], filter: "", restored: false};
 const termOk = () => !!(window.desktop && desktop.term);
-const T_ICON = {claude: ["✳", "#d97757"], gemini: ["✦", "#6aa8ff"], ollama: ["◆", "#3ee0a0"], "ai-stack": ["⚡", "#f7b731"], pwsh: [">_", "#9aa4b2"], cmd: ["C:", "#9aa4b2"],
+const T_ICON = {claude: ["✳", "#d97757"], gemini: ["✦", "#6aa8ff"], agy: ["🪐", "#4285f4"], ollama: ["◆", "#3ee0a0"], "ai-stack": ["⚡", "#f7b731"], pwsh: [">_", "#9aa4b2"], cmd: ["C:", "#9aa4b2"],
   bash: ["$", "#98c379"], wsl: ["λ", "#e5c07b"], emacs: ["e", "#c678dd"], orca: ["◒", "#56b6c2"], arcade: ["🎮", "#ffbe5c"]};
 const termIcon = p => { const [g, c] = T_ICON[p] || T_ICON.pwsh; return `<span class="t-ico" style="color:${c}">${g}</span>`; };
 function termTheme() {  // Orca's terminal colors (One Dark)
@@ -110,9 +110,9 @@ async function termNew(profile, opts = {}) {
   const cwd = opts.cwd || (opts.split && termActiveTab() ? termActiveTab().cwd : undefined);
   const v = termMakeView({});
   if (profile === "emacs") v.term.write("\x1b[90mStarting Emacs with your Doom config — this can take 20–30 seconds…\x1b[0m\r\n");
-  const r = await desktop.term.create({profile, cwd, model: opts.model, run: opts.run, cols: v.term.cols, rows: v.term.rows});
+  const r = await desktop.term.create({profile, cwd, model: opts.model, run: opts.run, only: opts.only, cols: v.term.cols, rows: v.term.rows});
   if (!r || r.error) { v.el.remove(); v.term.dispose(); toast((r && r.error) || "Couldn't start the terminal"); return; }
-  const tab = {id: r.id, name: r.name, profile, ...v, cwd: r.cwd, opts: {model: opts.model, run: opts.run}, started: Date.now()};
+  const tab = {id: r.id, name: r.name, profile, ...v, cwd: r.cwd, opts: {model: opts.model, run: opts.run, only: opts.only}, started: Date.now()};
   v.el.dataset.id = r.id; termWire(tab);
   const g = opts.split && termGroupOf((termActiveTab() || {}).id);
   if (g && g.ids.length < 4) { g.ids.splice(g.ids.indexOf(termActiveTab().id) + 1, 0, tab.id); g.dir = g.ids.length > 2 ? "grid" : opts.split; }
@@ -217,7 +217,7 @@ function termProjectOf(cwd) {
 }
 function termStatus() {
   const s = $("#t-status"); if (!s) return;
-  const live = TM.tabs.filter(t => !t.exited), ai = live.filter(t => ["claude", "gemini", "ollama"].includes(t.profile)).length, cur = termActiveTab();
+  const live = TM.tabs.filter(t => !t.exited), ai = live.filter(t => ["claude", "gemini", "agy", "ollama"].includes(t.profile)).length, cur = termActiveTab();
   const proj = cur && termProjectOf(cur.cwd);
   s.innerHTML = `<span><i class="t-dot ${live.length ? "on" : ""}"></i>${live.length} running</span>${ai ? `<span>${termIcon("claude")} ${ai} AI</span>` : ""}
     ${cur ? `<span class="t-cwd" title="${esc(cur.cwd || "")}">${esc(cur.cwd || "")}</span>` : ""}${proj && proj.branch ? `<span>⎇ ${esc(proj.branch)}</span>` : ""}
@@ -270,10 +270,11 @@ async function termAddMenu(e) {
     }
     if (p.id === "claude" && !p.ok) return {t: "Claude Code (1-Click Install)", i: "plus", run: () => termNew("claude", {cwd})};
     if (p.id === "gemini" && !p.ok) return {t: "Gemini CLI — install & sign in", i: "plus", run: () => termNew("gemini", {cwd})};
-    return {t: p.name, i: {claude: "spark", gemini: "spark", emacs: "pen", orca: "zap", arcade: "gamepad"}[p.id] || "chip", off: !p.ok, run: () => termNew(p.id, {cwd})};
+    if (p.id === "agy" && !p.ok) return {t: "Antigravity (AGY) — connect", i: "plus", run: () => termNew("agy", {cwd})};
+    return {t: p.name, i: {claude: "spark", gemini: "spark", agy: "spark", emacs: "pen", orca: "zap", arcade: "gamepad"}[p.id] || "chip", off: !p.ok, run: () => termNew(p.id, {cwd})};
   };
   const groups = ["Shells", "AI", "Tools"].map(g => [{h: g}, ...profs.filter(p => p.group === g).map(item)]).flat();
-  const missing = profs.filter(p => !p.ok && !["gemini", "claude", "ollama", "ai-stack"].includes(p.id));
+  const missing = profs.filter(p => !p.ok && !["gemini", "claude", "agy", "ollama", "ai-stack"].includes(p.id));
   const r = e && e.currentTarget ? e.currentTarget.getBoundingClientRect() : {left: innerWidth / 2, bottom: innerHeight / 2};
   ctxShow(r.left, r.bottom + 4, [...groups, "-", {t: "Run a command…", i: "play", run: termCommandBox},
     ...(missing.length ? ["-", {h: "Not installed: " + missing.map(p => p.name).join(", ")}] : [])]);

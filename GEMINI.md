@@ -62,6 +62,36 @@ terminal, in-app web apps (Gemini, Discord, LocalSend…), screen annotation, ga
 - When you stop, update **Current state** below so the next agent knows what's done and what's next.
 
 ## Current state
+- **v1.8.1** released 2026-10-16: Connect Gemini CLI, Claude Code, and Antigravity (`agy`) to Daybook (`docs/PATCH-1.8.0-AI-CONNECT.md`).
+  - [x] Root cause 1 Fix A (`backend_main.py`, test `TEST_SUITE/test_mcp_entry.py`), Fix B (installer passes `mcp`,
+    removes the old entry first), Fix C (`daemon.pyw` writes to stderr before its silent exit)
+  - [x] Root cause 2 Fix A for Claude (`MCP_TIMEOUT=90000` in the installer); Node minimum raised to 20;
+    developer path removed from the installer's connector candidates
+  - [x] Root cause 2 Fix B–D (`backend_main.py` lazy imports, `mcp_server.py` lightweight startup + HTTP forwarding to
+    `/api/mcp/tool` on `:8503` + auto-start / friendly error when Daybook isn't running)
+  - [x] Installer params (`-Only`, `-McpExe`, `-ToolsDir`, `-GeminiVersion`), pinned Gemini install into
+    `$ToolsDir\gemini-cli`, `Register-GeminiMcp`, SHA-256 + ARM64 portable Node check, `Test-McpHandshake`, honest
+    `$results` summary (`install-ai-stack.ps1`, tested in `TEST_SUITE/test_ai_connect.py`)
+  - [x] `pickToolsDir()`, `termCommand()` stack flags, and packaged `daybook-backend.exe arcade` mode (`desktop/main.js`,
+    `backend_main.py`, `web/app/terminal.js`)
+  - [x] `/api/ai/stack-status` fields (`registered`, `args_ok`, `signed_in`, `trusted_home`, 10-min cached `mcp`
+    handshake), Repair connection buttons, and Gemini home-folder trust checkbox (`reminders/claude_link.py`,
+    `reminders/web.py`, `web/index.html`)
+  - [x] Antigravity (`agy`) terminal & MCP support: `whichExe` in `desktop/main.js` checks `.exe`/`.cmd`/`.bat` before `""`
+    and includes Antigravity bin dirs (`PATH` first, then `%LOCALAPPDATA%\agy\bin` etc.; no machine-specific paths); `agy` terminal profile + UI menu item
+    (`desktop/main.js`, `web/app/terminal.js`); Daybook's PowerShell terminals pass `-ExecutionPolicy Bypass`;
+    `Register-AgyMcp` (`agy mcp add daybook <McpExe> mcp` + merge into `~/.gemini/config/mcp_config.json` and
+    `~/.gemini/antigravity/mcp_config.json` without BOM, `-Only agy`, `$results` summary in `install-ai-stack.ps1`);
+    `agy` status / Connect / Repair / Disconnect in `reminders/claude_link.py`, `reminders/web.py`, and `web/index.html`
+    (70 tests green in `TEST_SUITE`).
+  - [ ] Clean-machine testing checklist (`docs/PATCH-1.8.0-AI-CONNECT.md`) on a fresh Windows PC / VM
+  - This PC: Gemini's `daybook` entry is in `~/.gemini/settings.json` and Connected. Claude Code's `reminders`
+    entry runs the dev `venv\Scripts\python.exe mcp_server.py` and is Connected — leave it alone.
+  - Review (2026-10-16, Claude): 69 tests green; all 14 MCP tools verified end-to-end through `/api/mcp/tool` on a
+    throwaway backend (initialize ~1 s). Fixed: installer handshake sent a stdin BOM (never answered); Settings
+    trusted the home folder on first view (now only on Connect/Repair/checkbox); `opts.only` whitelisted in
+    `termCommand`; packaged Arcade launched with `Start-Process -Wait` (daybook-backend.exe is windowed);
+    stack-status handshake timeout 30 s. Untested until a build: the packaged Arcade console attach.
 - **v1.8.0** released 2026-10-16: Claude→Gemini automatic fallback in Chat (+ `TEST_SUITE/test_gemini_fallback.py`), this file.
 - v1.7.9 (2026-10-16) fixed regressions from v1.7.4–1.7.8 (sticky delete, AI-stack badge, window list, "at 9" times,
   plain-browser boot).

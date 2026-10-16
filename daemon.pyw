@@ -23,6 +23,8 @@ _lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
     _lock.bind(("127.0.0.1", 47321))
 except OSError:
+    if sys.stderr:  # None under pythonw; AI clients show stderr in their logs
+        print("Daybook backend already running (lock port 47321); exiting.", file=sys.stderr)
     sys.exit(0)
 
 root = tk.Tk()

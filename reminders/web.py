@@ -90,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.8.0"
+VERSION = "1.8.1"
 
 
 @app.get("/chat")
@@ -397,9 +397,17 @@ def claude_status():
 @app.post("/api/claude/<action>/<target>")
 def claude_action(action, target):
     from . import claude_link
+    d = request.get_json(force=True, silent=True) or {}
     try:
         if action == "connect":
-            msg = claude_link.connect_code() if target == "code" else claude_link.connect_desktop()
+            if target == "code":
+                msg = claude_link.connect_code()
+            elif target == "gemini":
+                msg = claude_link.connect_gemini(trust_home=bool(d.get("trust_home", True)))
+            elif target == "agy":
+                msg = claude_link.connect_agy()
+            else:
+                msg = claude_link.connect_desktop()
         elif action == "disconnect":
             msg = claude_link.disconnect(target)
         else:
@@ -407,6 +415,17 @@ def claude_action(action, target):
     except Exception as e:
         return jsonify(error=str(e)), 400
     return jsonify(message=msg, status=claude_link.status())
+
+
+@app.post("/api/gemini/trust")
+def gemini_trust():
+    from . import claude_link
+    d = request.get_json(force=True, silent=True) or {}
+    try:
+        trusted = claude_link.set_gemini_trust(bool(d.get("trust", True)))
+        return jsonify(ok=True, trusted_home=trusted)
+    except Exception as e:
+        return jsonify(error=str(e)), 400
 
 
 @app.get("/api/ai/stack-status")
@@ -421,6 +440,19 @@ def ai_stack_install():
     try:
         msg = claude_link.launch_stack_installer()
         return jsonify(ok=True, message=msg)
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+
+
+@app.post("/api/mcp/tool")
+def mcp_tool_call():
+    import mcp_server
+    d = request.get_json(force=True, silent=True) or {}
+    tool_name = d.get("tool") or ""
+    args = d.get("args") or {}
+    try:
+        res = mcp_server._exec_local(tool_name, args)
+        return jsonify(ok=True, result=res)
     except Exception as e:
         return jsonify(error=str(e)), 400
 
