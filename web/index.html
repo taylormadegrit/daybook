@@ -608,6 +608,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <button class="set-pill" data-sec="set-sec-privacy" onclick="setJump('set-sec-privacy')"><svg class="i sm" data-i="globe"></svg>Browser</button>
           <button class="set-pill" data-sec="set-sec-discord" onclick="setJump('set-sec-discord')"><svg class="i sm" data-i="send"></svg>Discord</button>
           <button class="set-pill" data-sec="set-sec-voice" onclick="setJump('set-sec-voice')"><svg class="i sm" data-i="mic"></svg>Voice</button>
+          <button class="set-pill" data-sec="set-sec-ai-stack" onclick="setJump('set-sec-ai-stack')"><svg class="i sm" data-i="zap"></svg>AI Stack</button>
           <button class="set-pill" data-sec="claudecard" onclick="setJump('claudecard')"><svg class="i sm" data-i="spark"></svg>Claude</button>
           <button class="set-pill" data-sec="set-sec-ai" onclick="setJump('set-sec-ai')"><svg class="i sm" data-i="spark"></svg>AI Exporter</button>
           <button class="set-pill" data-sec="set-sec-apps" onclick="setJump('set-sec-apps')"><svg class="i sm" data-i="send"></svg>LocalSend &amp; Apps</button>
@@ -661,6 +662,16 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div class="card" id="claudecard" style="margin-bottom:18px">
         <h3><svg class="i sm" data-i="spark"></svg>Claude</h3>
         <div id="claude"></div>
+      </div>
+
+      <!-- 1-Click AI Stack Installer Card -->
+      <div class="card" id="set-sec-ai-stack" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="zap"></svg>1-Click AI Stack (Claude Code + Ollama + Node)<button class="btn sm pri" onclick="runAIStackInstaller()">Install / Verify Now</button></h3>
+        <p class="muted small">Effortlessly install Node.js LTS, Claude Code CLI, and Ollama with default local models for Windows with zero command line struggle.</p>
+        <div class="row" style="gap:8px;margin-top:10px">
+          <button class="btn sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>Launch 1-Click Installer</button>
+          <button class="btn sm ghost" onclick="go('chat');termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal</button>
+        </div>
       </div>
 
       <!-- Claude-to-Gemini 1-Click Exporter -->
@@ -1194,11 +1205,96 @@ function renderChatList() {
     `<div class="ci ${S.chat && S.chat.id === c.id ? "on" : ""}" onclick="openChat(${c.id})"><span>${esc(c.title)}</span><button class="iconbtn" title="Delete" onclick="event.stopPropagation();delChat(${c.id},this)">${ic("trash")}</button></div>`).join("")).join("")
     || `<div class="empty small">No chats yet</div>`;
 }
-function chatHero() {
+let _aiStackCache = null;
+async function fetchAIStackStatus() {
+  try { _aiStackCache = await api("/api/ai/stack-status"); return _aiStackCache; }
+  catch (e) { return null; }
+}
+
+async function runAIStackInstaller() {
+  toast("Launching 1-Click AI Stack Installer in terminal…");
+  if (window.desktop && desktop.term) {
+    if (typeof termToggle === "function") await termToggle(true);
+    if (typeof termNew === "function") await termNew("ai-stack");
+  } else {
+    try {
+      const res = await api("/api/ai/stack-install", {method: "POST"});
+      toast(res.message || "Installer launched");
+    } catch (e) {
+      toast("⚠ " + e.message);
+    }
+  }
+}
+
+async function chatHero() {
   S.chat = null; history.replaceState(null, "", "#chat"); $("#ctitle").value = "New chat"; setToggles("daybook,orca");
   const sugs = [["My day", "What's on my schedule tomorrow?"], ["My notes", "What did I write about Unleash U?"], ["Ori script", "Write a 30-second Ori script about discipline as a spiritual practice"], ["New project", "Start a new project: a simple habit tracker web app"]];
-  $("#thread").innerHTML = `<div class="chero"><img class="bigmark" src="/brand/icon-192.png" alt=""><h2>What's on your mind, ${esc(S.settings.user_name || "")}?</h2><p>Private chat with your local models. It can see your schedule & notes and start projects in Orca (it always asks first).</p>
+
+  const stack = _aiStackCache || await fetchAIStackStatus();
+  const nodeOk = stack && stack.node && stack.node.installed;
+  const claudeOk = stack && stack.claude && stack.claude.installed;
+  const ollamaOk = stack && stack.ollama && stack.ollama.installed && stack.ollama.running;
+  const stackReady = nodeOk && claudeOk && ollamaOk;
+
+  const setupHTML = stackReady ? `
+    <div class="row" style="gap:8px;margin:12px 0 16px;justify-content:center">
+      <span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)"><svg class="i sm" data-i="check"></svg>Claude &amp; Ollama Ready</span>
+      <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Terminal (Ctrl+\`)</button>
+      <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code</button>
+      <button class="btn sm" onclick="termNew('ollama')"><span class="t-ico" style="color:#3ee0a0">◆</span>Ollama</button>
+      <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Tour</button>
+    </div>
+  ` : `
+    <div class="chat-setup-card">
+      <div class="csc-head">
+        <span class="csc-badge">1-Click AI Setup</span>
+        <b>Get Claude Code &amp; Local Ollama Running</b>
+        <div class="sp"></div>
+        <span class="csc-chip ${nodeOk ? 'ok' : 'missing'}">Node.js: ${nodeOk ? '✓ ' + (stack.node.version || 'installed') : 'Missing'}</span>
+        <span class="csc-chip ${claudeOk ? 'ok' : 'missing'}">Claude Code: ${claudeOk ? '✓ Ready' : 'Missing'}</span>
+        <span class="csc-chip ${ollamaOk ? 'ok' : 'missing'}">Ollama: ${ollamaOk ? '✓ Active' : 'Missing'}</span>
+      </div>
+      <p>Instantly download and configure Node.js LTS, Claude Code CLI, and Ollama with starter models for Windows. Zero command line struggle.</p>
+      <div class="csc-actions">
+        <button class="btn pri sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>⚡ 1-Click Install (Claude + Ollama + Node)</button>
+        <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal <span class="kbd" style="font-size:10px">Ctrl + \`</span></button>
+        <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Terminal &amp; App Tour</button>
+      </div>
+    </div>
+  `;
+
+  const termGuideHTML = `
+    <div class="chat-term-guide">
+      <div class="ctg-bar">
+        <button class="btn sm" onclick="termToggle(true)"><span class="t-ico">&gt;_</span>Open Terminal <span class="kbd">Ctrl + \`</span></button>
+        <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code CLI</button>
+        <button class="btn sm" onclick="termNew('ollama')"><span class="t-ico" style="color:#3ee0a0">◆</span>Local Ollama Shell</button>
+        <button class="btn sm" onclick="termWork(true)"><span class="t-ico">◒</span>Workspace View</button>
+        <div class="sp"></div>
+        <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Full App Tour</button>
+      </div>
+      <div class="ctg-tips">
+        <div class="ctg-tip">
+          <div class="ctg-num">1</div>
+          <div class="ctg-text"><b>Toggle Terminal Anytime</b>Press <span class="kbd">Ctrl + \`</span> to slide the terminal open without losing your chat. Run real PowerShell, Git Bash, Claude or Ollama.</div>
+        </div>
+        <div class="ctg-tip">
+          <div class="ctg-num">2</div>
+          <div class="ctg-text"><b>Paste Code with 1 Click</b>Whenever AI writes code or scripts, click <b>Paste into terminal</b> above the code block to send it right into your active shell.</div>
+        </div>
+        <div class="ctg-tip">
+          <div class="ctg-num">3</div>
+          <div class="ctg-text"><b>Split Panes &amp; IDE</b>Press <span class="kbd">Ctrl+Shift+D</span> to split terminals side-by-side (run tests on the left, Claude on the right) or click <b>Workspace View</b>.</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("#thread").innerHTML = `<div class="chero"><img class="bigmark" src="/brand/icon-192.png" alt=""><h2>What's on your mind, ${esc(S.settings.user_name || "")}?</h2><p>Private chat with your local models &amp; Claude. Access your schedule, notes, projects, and the built-in terminal.</p>
+    ${setupHTML}
+    ${termGuideHTML}
     <div class="sugs">${sugs.map(([b, s]) => `<div class="sug" data-s="${esc(s)}" onclick="cinput.value=this.dataset.s;sendOrStop()"><b>${b}</b><span>${esc(s)}</span></div>`).join("")}</div></div>`;
+  paintIcons($("#thread"));
   renderChatList();
 }
 function newChat() { if (S.view !== "chat") go("chat"); chatHero(); cinput.focus(); }
@@ -1348,7 +1444,7 @@ async function refreshRecs() { toast("Refreshing from Hugging Face…"); try { R
 async function renderInstalled() {
   const j = await api("/api/models/installed");
   installedNames.clear(); j.models.forEach(m => installedNames.add(m.name.toLowerCase()));
-  $("#installed").innerHTML = !j.ollama ? `<div class="empty"><b>Ollama isn't running</b>Start Ollama from the Start menu — it runs your local models. Don't have it? <a href="https://ollama.com/download" target="_blank" rel="noopener">Get Ollama</a></div>`
+  $("#installed").innerHTML = !j.ollama ? `<div class="empty"><b>Ollama isn't running</b>Start Ollama from the Start menu — it runs your local models.<div class="row" style="margin-top:10px;justify-content:center;gap:8px"><button class="btn pri sm" onclick="runAIStackInstaller()">${ic("zap")}⚡ 1-Click Install Ollama &amp; Claude</button><a class="btn sm ghost" href="https://ollama.com/download" target="_blank" rel="noopener">${ic("ext")}Get Ollama</a></div></div>`
     : j.models.length ? j.models.map(m => `<div class="rem" style="grid-template-columns:1fr auto auto"><span><b>${esc(m.name)}</b> <span class="badge">${esc(m.params || "")}</span> <span class="badge">${esc(m.quant || "")}</span></span>
         <span class="muted small">${m.size_gb} GB</span><span class="acts"><button class="btn sm" onclick="useModel('${esc(m.name)}')">${ic("chat")}Chat</button><button class="btn sm ghost danger" onclick="removeModel(this,'${esc(m.name)}')">${ic("trash")}Remove</button></span></div>`).join("")
     : `<div class="empty">No models installed yet — pick one above.</div>`;

@@ -806,6 +806,7 @@ function termProfiles() {
     {id: "cmd", name: "Command Prompt", group: "Shells", ok: true},
     {id: "bash", name: "Git Bash", group: "Shells", ok: !!gitBash},
     {id: "wsl", name: "WSL (Linux)", group: "Shells", ok: !!whichExe("wsl")},
+    {id: "ai-stack", name: "⚡ 1-Click AI Stack (Claude + Ollama + Node)", group: "AI", ok: true, hint: "1-Click automated installer for Node.js, Claude Code CLI and Ollama."},
     {id: "claude", name: "Claude Code", group: "AI", ok: !!claude, hint: "Install Claude Code from claude.ai/download, then sign in once in this terminal."},
     {id: "gemini", name: "Gemini CLI", group: "AI", ok: !!gemini, hint: "Not installed yet — Daybook can install it (Node.js needed), then sign in with Google in this terminal."},
     {id: "ollama", name: "Local AI (Ollama)", group: "AI", ok: !!ollama, hint: "Install Ollama from ollama.com, then pull a model."},
@@ -817,14 +818,20 @@ function termProfiles() {
 function termCommand(prof, opts) {
   const ps = prof._ps, q = s => "'" + String(s).replace(/'/g, "''") + "'";
   const inPs = cmd => [ps, ["-NoLogo", "-NoExit", "-Command", cmd]];          // tool runs, you stay in a shell after it ends
+  const AI_STACK_SCRIPT = app.isPackaged
+    ? path.join(process.resourcesPath || "", "backend", "install-ai-stack.ps1")
+    : path.join(DEV_ROOT, "install-ai-stack.ps1");
   switch (prof.id) {
     case "cmd": return ["cmd.exe", []];
     case "bash": return [prof._bash, ["--login", "-i"]];
     case "wsl": return ["wsl.exe", []];
-    case "claude": return inPs(`& ${q(prof._claude)}`);
+    case "ai-stack": return inPs(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
+    case "claude": return prof._claude ? inPs(`& ${q(prof._claude)}`)
+      : inPs(`Write-Host 'Claude Code CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Claude Code...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "gemini": return prof._gemini ? inPs(`& ${q(prof._gemini)}`)
       : inPs(`Write-Host 'Installing Gemini CLI into ${TOOLS_DIR}\\gemini-cli (one time)...' -ForegroundColor Cyan; npm install -g --prefix ${q(path.join(TOOLS_DIR, "gemini-cli"))} @google/gemini-cli@${GEMINI_CLI_VERSION}; if ($?) { & ${q(path.join(TOOLS_DIR, "gemini-cli", "gemini.cmd"))} }`);
-    case "ollama": return inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`);
+    case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`)
+      : inPs(`Write-Host 'Ollama is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Ollama and models...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "emacs": return [prof._emacs, ["-nw"]];
     case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
     case "arcade": {
@@ -841,7 +848,7 @@ ipcMain.handle("term:create", (e, opts = {}) => {
   try { pty = require("@lydell/node-pty"); }
   catch (err) { console.error("terminal", err); return {error: "The terminal component is missing from this install — reinstall Daybook. (" + err.message + ")"}; }
   const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
-  if (!prof.ok && prof.id !== "gemini") return {error: prof.hint || `${prof.name} isn't installed`};
+  if (!prof.ok && !["gemini", "claude", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
   const [cmd, args] = termCommand(prof, opts);
   const env = {...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", DAYBOOK_TERMINAL: "1",
     PATH: [path.join(TOOLS_DIR, "gemini-cli"), process.env.PATH].join(";")};

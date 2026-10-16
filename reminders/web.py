@@ -80,7 +80,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.7.1"
+VERSION = "1.7.2"
 
 
 @app.get("/chat")
@@ -387,6 +387,23 @@ def claude_action(action, target):
     except Exception as e:
         return jsonify(error=str(e)), 400
     return jsonify(message=msg, status=claude_link.status())
+
+
+@app.get("/api/ai/stack-status")
+def ai_stack_status():
+    from . import claude_link
+    return jsonify(claude_link.stack_status())
+
+
+@app.post("/api/ai/stack-install")
+def ai_stack_install():
+    from . import claude_link
+    try:
+        msg = claude_link.launch_stack_installer()
+        return jsonify(ok=True, message=msg)
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+
 
 
 @app.post("/api/notes/reorganize-all")

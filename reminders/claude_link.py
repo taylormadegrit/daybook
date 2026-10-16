@@ -96,3 +96,60 @@ def disconnect(target):
         if (cfg.get("mcpServers") or {}).pop(NAME, None) is not None:
             path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     return "Disconnected from the Claude app."
+
+
+def stack_status():
+    import urllib.request as _urllib
+    node_exe = shutil.which("node")
+    node_ver = None
+    if node_exe:
+        try:
+            node_ver = subprocess.run([node_exe, "-v"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW).stdout.strip()
+        except Exception:
+            pass
+
+    c_stat = status()
+
+    ollama_exe = shutil.which("ollama")
+    if not ollama_exe:
+        cand = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"
+        if cand.exists():
+            ollama_exe = str(cand)
+    ollama_ver = None
+    if ollama_exe:
+        try:
+            ollama_ver = subprocess.run([ollama_exe, "--version"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW).stdout.strip().replace("ollama version is ", "")
+        except Exception:
+            pass
+
+    ollama_running = False
+    models = []
+    try:
+        req = _urllib.Request("http://127.0.0.1:11434/api/tags", headers={"User-Agent": "Daybook/1.7"})
+        with _urllib.urlopen(req, timeout=1.5) as r:
+            data = json.loads(r.read().decode("utf-8"))
+            models = [m.get("name") for m in data.get("models", [])]
+            ollama_running = True
+    except Exception:
+        pass
+
+    installer = paths.APP / "install-ai-stack.bat"
+    return {
+        "node": {"installed": bool(node_exe), "version": node_ver},
+        "claude": c_stat["code"],
+        "ollama": {"installed": bool(ollama_exe), "version": ollama_ver, "running": ollama_running, "models": models},
+        "ready": bool(node_exe and c_stat["code"]["installed"] and ollama_running and len(models) > 0),
+        "installer_exists": installer.exists()
+    }
+
+
+def launch_stack_installer():
+    installer = paths.APP / "install-ai-stack.bat"
+    if not installer.exists():
+        raise RuntimeError("install-ai-stack.bat not found in app directory")
+    if os.name == "nt":
+        os.startfile(str(installer))
+    else:
+        subprocess.Popen(["cmd.exe", "/c", str(installer)])
+    return "Installer launched in a new window."
+
