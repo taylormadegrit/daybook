@@ -2,10 +2,35 @@
 let UP_STATE = null;
 let UP_CHECKING = false;
 let UP_UPDATING = false;
+let UP_DISMISSED = false;
+try {
+  if (sessionStorage.getItem("daybook_up_dismissed")) UP_DISMISSED = true;
+} catch (_) {}
+
+function dismissUpdatePill(e) {
+  if (e) {
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+    if (typeof e.preventDefault === "function") e.preventDefault();
+  }
+  UP_DISMISSED = true;
+  try {
+    sessionStorage.setItem("daybook_up_dismissed", String(Date.now()));
+  } catch (_) {}
+  const host = $("#updatepill");
+  if (host) {
+    host.style.display = "none";
+    host.innerHTML = "";
+  }
+}
+window.dismissUpdatePill = dismissUpdatePill;
 
 async function checkUpdates(manual = false) {
   if (UP_CHECKING || UP_UPDATING) return;
   UP_CHECKING = true;
+  if (manual) {
+    UP_DISMISSED = false;
+    try { sessionStorage.removeItem("daybook_up_dismissed"); } catch (_) {}
+  }
   const btn = $("#btn-check-updates");
   if (btn) {
     btn.disabled = true;
@@ -43,7 +68,7 @@ async function checkUpdates(manual = false) {
 function renderUpdatePill() {
   const host = $("#updatepill");
   if (!host) return;
-  if (!UP_STATE || !UP_STATE.update_available) {
+  if (!UP_STATE || !UP_STATE.update_available || UP_DISMISSED) {
     host.style.display = "none";
     host.innerHTML = "";
     return;
@@ -63,6 +88,7 @@ function renderUpdatePill() {
       <button class="btn xs pri update-now-btn" onclick="event.stopPropagation(); oneClickUpdate(this)">
         <svg class="i xs" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Update now
       </button>
+      <button class="update-pill-close" onclick="dismissUpdatePill(event)" title="Dismiss update notification" aria-label="Dismiss">✕</button>
     </div>
   `;
 }

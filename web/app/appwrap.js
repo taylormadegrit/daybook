@@ -66,8 +66,8 @@ function awSync(force) {
   if (!window.desktop || !desktop.browser) return;
   const host = $("#aw-frame-host");
   const overlay = $("#scrim")?.classList.contains("on") || $$(".menu.on").length > 0 || !!$(".dict.on");
-  const isLocalSendOffline = (AW.currentApp === "localsend" && !AW.localSendRunning);
-  const visible = S.view === "apps" && !!host && !overlay && !isLocalSendOffline && document.visibilityState === "visible";
+  const isLocalSend = (AW.currentApp === "localsend");
+  const visible = S.view === "apps" && !!host && !overlay && !isLocalSend && document.visibilityState === "visible";
   
   if (!AW.paneId) return;
   
@@ -217,7 +217,7 @@ async function renderAppWrapper(appKey) {
         </div>
       ` : ''}
       <div class="aw-frame-host" id="aw-frame-host">
-        ${isOfflineLocalSend ? awRenderLocalSendHubHtml() : (
+        ${curKey === "localsend" ? awRenderLocalSendHubHtml() : (
           (window.desktop && desktop.browser) ? '' : `
             <div class="aw-localsend-hub">
               <div class="aw-ls-card" style="text-align:center;align-items:center;">
@@ -249,9 +249,13 @@ async function renderAppWrapper(appKey) {
   paintIcons(host);
 
   if (window.desktop && desktop.browser) {
-    await awEnsurePane(url);
-    if (AW.paneId && !isOfflineLocalSend) {
-      desktop.browser.nav(AW.paneId, "go", url);
+    if (curKey !== "localsend") {
+      await awEnsurePane(url);
+      if (AW.paneId) {
+        desktop.browser.nav(AW.paneId, "go", url);
+      }
+    } else {
+      awSync(true);
     }
     if (!AW.ro) {
       AW.ro = new ResizeObserver(() => awSync());
@@ -293,7 +297,7 @@ function awPromptCustom() {
 }
 
 function awLoadUrl(val) {
-  if (!val) return;
+  if (!val || AW.currentApp === "localsend") return;
   let clean = val.trim();
   if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
   if (window.desktop && desktop.browser && AW.paneId) {
@@ -307,6 +311,10 @@ function awLoadUrl(val) {
 }
 
 function awNav(action) {
+  if (AW.currentApp === "localsend") {
+    if (action === "reload") awRefreshLocalSend();
+    return;
+  }
   if (window.desktop && desktop.browser && AW.paneId) {
     desktop.browser.nav(AW.paneId, action);
     return;

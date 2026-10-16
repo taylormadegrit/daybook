@@ -59,7 +59,7 @@ function termLayout() {
   $("#v-chat .cmain").classList.toggle("t-full", TM.open && TM.work); $("#v-chat").classList.toggle("t-work", TM.open && TM.work);
   if (!TM.work) p.style.height = TM.h + "px"; else p.style.height = "";
   const t = $("#t-term"); if (t) t.classList.toggle("on", TM.open);
-  const ro = $("#t-reopen"); if (ro) ro.style.display = TM.open || !termOk() ? "none" : "";
+  const ro = $("#t-reopen"); if (ro) ro.style.display = TM.open ? "none" : "";
   const live = TM.tabs.filter(t => !t.exited).length, n = $("#t-reopen-n"); if (n) n.textContent = live ? ` · ${live} running` : "";
   if (TM.work) termSide();
   termFit();
@@ -329,6 +329,18 @@ if (typeof CMDS !== "undefined" && termOk()) CMDS.push(["Open terminal", "chip",
   ["New Claude Code session", "spark", () => { go("chat"); termNew("claude"); }], ["Run a command in a terminal", "play", () => { termToggle(true).then(termCommandBox); }],
   ["Play 8-Bit Retro Arcade in Terminal", "gamepad", () => { go("chat"); termNew("arcade"); }]);
 // reopen it where you left it, and pick up sessions that kept running through a reload
+setTimeout(() => { termEnsureUI(); }, 120);
 setTimeout(async () => { if (!termOk()) return; await termRestore(); if (TM.open && S.view === "chat") { TM.open = false; termToggle(true); } }, 1500);
 const _enterChat = enterChat;
-enterChat = async function (sub) { const r = await _enterChat(sub); if (termOk()) { termEnsureUI(); await termRestore(); termLayout(); if (TM.open && !TM.tabs.length) termNew("pwsh"); } return r; };
+enterChat = async function (sub) {
+  const r = await _enterChat(sub);
+  termEnsureUI();
+  if (termOk()) {
+    await termRestore();
+    termLayout();
+    if (TM.open && !TM.tabs.length) termNew("pwsh");
+  } else {
+    termLayout();
+  }
+  return r;
+};

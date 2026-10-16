@@ -36,6 +36,110 @@ TOOLS = [("pen", "✎", "Pen (P)"), ("hl", "▬", "Highlighter (H)"), ("arrow", 
 BG, PANEL, FG, MUTED, ACCENT = "#14161f", "#1d2030", "#eceef4", "#8a90a3", "#8b7bff"
 
 
+def get_window_box(hwnd):
+    if not hwnd or sys.platform != "win32":
+        return None
+    try:
+        dwmapi = ctypes.windll.dwmapi
+        DWMWA_EXTENDED_FRAME_BOUNDS = 9
+        r = wintypes.RECT()
+        res = dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, ctypes.byref(r), ctypes.sizeof(r))
+        if res == 0:
+            return (r.left, r.top, r.right, r.bottom)
+        u32.GetWindowRect(hwnd, ctypes.byref(r))
+        return (r.left, r.top, r.right, r.bottom)
+    except Exception:
+        return None
+
+
+def get_window_title(hwnd):
+    if not hwnd or sys.platform != "win32":
+        return ""
+    try:
+        l = u32.GetWindowTextLengthW(hwnd)
+        if l == 0:
+            return ""
+        buf = ctypes.create_unicode_buffer(l + 1)
+        u32.GetWindowTextW(hwnd, buf, l + 1)
+        return buf.value.strip()
+    except Exception:
+        return ""
+
+
+def get_open_windows():
+    if sys.platform != "win32":
+        return []
+    try:
+        hWinSta0 = u32.OpenWindowStationW("WinSta0", False, 0x0000037F)
+        if hWinSta0:
+            u32.SetProcessWindowStation(hWinSta0)
+        hDesk = u32.OpenDesktopW("default", 0, False, 0x000001FF)
+        if hDesk:
+            u32.SetThreadDesktop(hDesk)
+
+        all_h = []
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HWND, wintypes.LPARAM)
+        def cb(h, lp):
+            all_h.append(h)
+            return 1
+
+        cb_inst = WNDENUMPROC(cb)
+        if hDesk:
+            u32.EnumDesktopWindows(hDesk, cb_inst, 0)
+        else:
+            u32.EnumWindows(cb_inst, 0)
+
+        apps = []
+        ignored_classes = {
+            "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd",
+            "Windows.UI.Core.CoreWindow", "TopLevelWindowForOverflowXamlIsland",
+            "IME", "MSCTFIME UI", "TaskListThumbnailWnd"
+        }
+
+        for h in all_h:
+            if not u32.IsWindowVisible(h):
+                continue
+            ex = u32.GetWindowLongW(h, -20)
+            if ex & 0x00000080:  # WS_EX_TOOLWINDOW
+                continue
+            len_ = u32.GetWindowTextLengthW(h)
+            if len_ == 0:
+                continue
+            buf = ctypes.create_unicode_buffer(len_ + 1)
+            u32.GetWindowTextW(hwnd := h, buf, len_ + 1)
+            title = buf.value.strip()
+            if not title:
+                continue
+
+            cbuf = ctypes.create_unicode_buffer(256)
+            u32.GetClassNameW(h, cbuf, 256)
+            cls = cbuf.value
+            if cls in ignored_classes:
+                continue
+
+            r = wintypes.RECT()
+            u32.GetWindowRect(h, ctypes.byref(r))
+            w = r.right - r.left
+            ht = r.bottom - r.top
+            if w < 160 or ht < 100:
+                continue
+
+            if u32.GetWindow(h, 4):  # GW_OWNER
+                continue
+
+            apps.append({
+                "hwnd": int(h),
+                "title": title,
+                "class": cls,
+                "width": w,
+                "height": ht,
+                "rect": [r.left, r.top, r.right, r.bottom]
+            })
+        return apps
+    except Exception:
+        return []
+
+
 def monitors():
     out = []
     cb_t = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HMONITOR, wintypes.HDC, ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
@@ -129,14 +233,28 @@ def copy_to_clipboard(img):
 
 
 class Annotator:
-    def __init__(self, hide_hwnd=None):
+    def __init__(self, hide_hwnd=None, target_hwnd=None):
         self.hidden = hide_hwnd
-        if hide_hwnd:
+        self.target_hwnd = target_hwnd
+        self.target_title = get_window_title(target_hwnd) if target_hwnd else ""
+        self.target_box = None
+        if target_hwnd:
+            try:
+                u32.ShowWindow(target_hwnd, 9)  # SW_RESTORE
+                u32.SetForegroundWindow(target_hwnd)
+                time.sleep(0.3)
+            except Exception:
+                pass
+        if hide_hwnd and hide_hwnd != target_hwnd:
             u32.ShowWindow(hide_hwnd, 6)  # minimize Daybook so it isn't in the shot
-            time.sleep(0.45)
+            time.sleep(0.35)
         self.L, self.T, self.W, self.H = virtual_screen()
         self.shot = grab_virtual_screen(self.L, self.T, self.W, self.H)
         self.mons = monitors()
+        if target_hwnd:
+            wb = get_window_box(target_hwnd)
+            if wb:
+                self.target_box = (wb[0] - self.L, wb[1] - self.T, wb[2] - self.L, wb[3] - self.T)
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.geometry(f"{self.W}x{self.H}+{self.L}+{self.T}")
@@ -147,6 +265,12 @@ class Annotator:
         self.cv.create_image(0, 0, image=self.photo, anchor="nw")
         for (l, t, r, b) in self.mons:  # thin glowing frame = "you're in annotation mode"
             self.cv.create_rectangle(l - self.L + 1, t - self.T + 1, r - self.L - 2, b - self.T - 2, outline=ACCENT, width=3)
+        if self.target_box:
+            tb = self.target_box
+            self.cv.create_rectangle(tb[0], tb[1], tb[2], tb[3], outline="#00e5ff", width=4)
+            badge_w = min(280, max(120, len(self.target_title) * 8 + 24))
+            self.cv.create_rectangle(tb[0], max(0, tb[1] - 24), tb[0] + badge_w, tb[1], fill="#00e5ff", outline="")
+            self.cv.create_text(tb[0] + 8, max(12, tb[1] - 12), text=f"Target: {self.target_title[:30]}", anchor="w", fill="#000000", font=("Segoe UI", 9, "bold"))
         self.tool, self.color, self.size = "pen", COLORS[0], SIZES[1]
         self.shapes, self.cur, self.saved = [], None, True
         self.cv.bind("<ButtonPress-1>", self.down)
@@ -183,6 +307,9 @@ class Annotator:
         grip.pack(side="left", padx=(0, 6))
         grip.bind("<ButtonPress-1>", lambda e: setattr(self, "_g", (e.x_root - tb.winfo_x(), e.y_root - tb.winfo_y())))
         grip.bind("<B1-Motion>", lambda e: tb.geometry(f"+{e.x_root - self._g[0]}+{e.y_root - self._g[1]}"))
+        if self.target_title:
+            b_target = tk.Label(f, text=f"🗔 {self.target_title[:18]}", bg=PANEL, fg="#3aa0ff", font=("Segoe UI", 9, "bold"), padx=6, pady=2)
+            b_target.pack(side="left", padx=(0, 6))
         self.tbtns = {}
         for tool, sym, tip in TOOLS:
             b = tk.Label(f, text=sym, width=2, bg=PANEL, fg=FG, font=("Segoe UI Symbol", 13), cursor="hand2", padx=4, pady=2)
@@ -359,6 +486,16 @@ class Annotator:
                     font = ImageFont.load_default()
                 dt.text((p[0], p[1]), s["text"], fill=c, font=font)
         img = Image.alpha_composite(Image.alpha_composite(base, hl), top)
+        if self.target_box:
+            tb = self.target_box
+            boxes = [tb]
+            for s in self.shapes:
+                pts = s.get("pts", [])
+                if pts:
+                    boxes.append((pts[0], pts[1], pts[-2] if len(pts) > 2 else pts[0], pts[-1] if len(pts) > 2 else pts[1]))
+            crop = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+            crop = (max(0, crop[0]), max(0, crop[1]), min(self.W, crop[2]), min(self.H, crop[3]))
+            return img.crop(crop).convert("RGB")
         # crop to the monitors that have drawings (or the one under the mouse)
         used = []
         for (l, t, r, b) in self.mons:
@@ -401,9 +538,9 @@ class Annotator:
         self.root.mainloop()
 
 
-def main(hide_daybook=False):
+def main(hide_daybook=False, target_hwnd=None):
     hwnd = None
     if hide_daybook:
         from reminders import appwin
         hwnd = appwin.find_window()
-    Annotator(hwnd).run()
+    Annotator(hwnd, target_hwnd=target_hwnd).run()

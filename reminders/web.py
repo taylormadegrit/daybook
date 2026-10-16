@@ -90,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.7.7"
+VERSION = "1.7.8"
 
 
 @app.get("/chat")
@@ -295,12 +295,22 @@ def annotation_file(name):
     return send_from_directory(annotate_store.folder(), name)
 
 
+@app.get("/api/windows/list")
+def windows_list():
+    from . import annotate
+    return jsonify(windows=annotate.get_open_windows())
+
+
 @app.post("/api/annotate")
 def annotate_start():
     """Launch the screen annotation overlay (separate process so the screen grab is clean)."""
     import subprocess
-    subprocess.Popen(paths.helper_cmd("annotate", "--delay"),
-                     cwd=str(paths.APP))
+    data = request.get_json(silent=True) or {}
+    hwnd = data.get("hwnd")
+    cmd = paths.helper_cmd("annotate", "--delay")
+    if hwnd:
+        cmd.append(f"--target={hwnd}")
+    subprocess.Popen(cmd, cwd=str(paths.APP))
     return jsonify(ok=True)
 
 

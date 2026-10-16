@@ -832,6 +832,8 @@ function whichExe(name) {
     path.join(homedir, ".claude", "bin"),
     path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs"),
     path.join(process.env.APPDATA || "", "npm"),
+    "C:\\Program Files\\nodejs",
+    "C:\\Program Files (x86)\\nodejs",
     path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama")
   ]);
   for (const d of dirs) for (const ext of ["", ".exe", ".cmd", ".bat"]) { const f = path.join(d, name + ext); try { if (fs.statSync(f).isFile()) return f; } catch {} }
@@ -873,9 +875,9 @@ function termCommand(prof, opts) {
     case "bash": return [prof._bash, ["--login", "-i"]];
     case "wsl": return ["wsl.exe", []];
     case "ai-stack": return inPs(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
-    case "claude": return prof._claude ? inPs(`& ${q(prof._claude)}`)
+    case "claude": return prof._claude ? ["cmd.exe", ["/k", `"${prof._claude}"`]]
       : inPs(`Write-Host 'Claude Code CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Claude Code...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
-    case "gemini": return prof._gemini ? inPs(`& ${q(prof._gemini)}`)
+    case "gemini": return prof._gemini ? ["cmd.exe", ["/k", `"${prof._gemini}"`]]
       : inPs(`Write-Host 'Gemini CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Gemini CLI...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`)
       : inPs(`Write-Host 'Ollama is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Ollama and models...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
@@ -897,8 +899,19 @@ ipcMain.handle("term:create", (e, opts = {}) => {
   const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
   if (!prof.ok && !["gemini", "claude", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
   const [cmd, args] = termCommand(prof, opts);
+  const homedir = require("os").homedir();
+  const extraPaths = [
+    path.join(TOOLS_DIR, "gemini-cli"),
+    path.join(homedir, ".local", "bin"),
+    path.join(homedir, ".claude", "bin"),
+    path.join(process.env.APPDATA || "", "npm"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs"),
+    "C:\\Program Files\\nodejs",
+    "C:\\Program Files (x86)\\nodejs",
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama")
+  ].filter(p => p && fs.existsSync(p));
   const env = {...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", DAYBOOK_TERMINAL: "1",
-    PATH: [path.join(TOOLS_DIR, "gemini-cli"), process.env.PATH].join(";")};
+    PATH: [...extraPaths, process.env.PATH || ""].join(";")};
   if (prof.id === "emacs" && prof._emacsHome) { env.HOME = prof._emacsHome; env.PATH = path.dirname(prof._emacs) + ";" + env.PATH; }
   let cwd = opts.cwd && fs.existsSync(opts.cwd) ? opts.cwd : require("os").homedir();
   let p;

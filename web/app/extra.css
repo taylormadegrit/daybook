@@ -878,8 +878,9 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .update-pulse{width:7px;height:7px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:updateGlow 2s infinite}
 @keyframes updateGlow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.85)}}
 .update-pill-badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#38bdf8}
-.update-pill-msg{font-size:12px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
 .update-now-btn{padding:2px 9px!important;font-size:11.5px!important;display:inline-flex;align-items:center;gap:4px;border-radius:6px!important;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.update-pill-close{display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);font-size:12px;line-height:1;width:20px;height:20px;border-radius:50%;cursor:pointer;margin-left:2px;padding:0;transition:background .15s,color .15s,transform .15s}
+.update-pill-close:hover{background:rgba(255,255,255,.18);color:#fff;transform:scale(1.1)}
 
 .update-status-box{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
 .update-status-box.up-to-date{border-color:color-mix(in srgb,var(--ok) 35%,transparent);background:color-mix(in srgb,var(--ok) 5%,transparent)}

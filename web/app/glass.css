@@ -44,6 +44,10 @@
 [data-style=glass] body.scene-sakura .nav,
 [data-style=glass] body.scene-sakura .fp,
 [data-style=glass] body.scene-sakura .topbar{color:#201117!important}
+[data-style=glass][data-theme=sakura] .btn.ok,
+[data-style=glass][data-theme=paper] .btn.ok,
+[data-style=glass] body.scene-sakura .btn.ok,
+[data-style=glass] body.scene-light .btn.ok{color:#047857!important;background:rgba(16,185,129,.16)!important;border-color:rgba(16,185,129,.35)!important}
 [data-style=glass] body{font-family:-apple-system,"SF Pro Text","Segoe UI Variable Text","Segoe UI Variable",Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:-.005em}
 /* a vivid wallpaper behind everything, so the glass has something to frost */
 [data-style=glass] body::before{inset:-25%;filter:blur(60px);opacity:1;

@@ -21,8 +21,13 @@ LOCALSEND_PATHS = [
     r"C:\Program Files\LocalSend\localsend_app.exe",
     r"C:\Program Files\LocalSend\localsend.exe",
     r"C:\Program Files (x86)\LocalSend\localsend_app.exe",
+    r"C:\Program Files (x86)\LocalSend\localsend.exe",
     os.path.expandvars(r"%LOCALAPPDATA%\LocalSend\localsend_app.exe"),
     os.path.expandvars(r"%LOCALAPPDATA%\Programs\LocalSend\localsend_app.exe"),
+    os.path.expandvars(r"%LOCALAPPDATA%\Programs\LocalSend\localsend.exe"),
+    os.path.expandvars(r"%ProgramFiles%\LocalSend\localsend_app.exe"),
+    os.path.expandvars(r"%ProgramFiles%\LocalSend\localsend.exe"),
+    os.path.expandvars(r"%USERPROFILE%\scoop\apps\localsend\current\localsend_app.exe"),
 ]
 
 

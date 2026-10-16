@@ -198,12 +198,18 @@ def resolve_when(phrase, now):
             days_ahead = 7
         return (now + timedelta(days=days_ahead)).replace(hour=h, minute=mi, second=0, microsecond=0)
 
-    bare = re.fullmatch(r"\s*(?:at|by|@)\s+(\d{1,2})(?::(\d\d))?\s*", p)
-    if bare and 1 <= int(bare.group(1)) <= 12:  # "at 5" → the next 5:00 (5 pm if it's past 5 am)
+    bare = re.fullmatch(r"\s*(?:at|by|@)?\s*(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*", p)
+    if bare and 1 <= int(bare.group(1)) <= 24:
         h, mi = int(bare.group(1)), int(bare.group(2) or 0)
-        cands = [now.replace(hour=h % 12 + add, minute=mi) for add in (0, 12)]
-        cands += [c + timedelta(days=1) for c in cands]
-        return min(c for c in cands if c > now)
+        ap = bare.group(3)
+        if ap == "pm" and h < 12:
+            h += 12
+        elif ap == "am" and h == 12:
+            h = 0
+        elif not ap and h <= 7:
+            h += 12
+        cand = now.replace(hour=h % 24, minute=mi, second=0, microsecond=0)
+        return cand if cand > now else cand + timedelta(days=1)
     p = _daypart_with_time(p)
     for pat, rep in ALIASES:
         p = re.sub(pat, rep, p)

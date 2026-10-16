@@ -170,6 +170,14 @@ class TestAPIIntegration(unittest.TestCase):
         self.assertIn("installed", data["claude"])
         self.assertIn("installed", data["ollama"])
 
+    def test_windows_list_endpoint(self):
+        """Verify /api/windows/list returns windows array."""
+        res = self.client.get("/api/windows/list")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("windows", data)
+        self.assertIsInstance(data["windows"], list)
+
 
 if __name__ == "__main__":
     unittest.main()

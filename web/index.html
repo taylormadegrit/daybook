@@ -62,7 +62,7 @@ svg.i.sm{width:15px;height:15px}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:11px;border:1px solid var(--line2);background:var(--card2);font-weight:600;font-size:13.5px;white-space:nowrap}
 .btn:hover{border-color:color-mix(in srgb,var(--a1) 55%,transparent)}
 .btn.pri{background:var(--grad);border:none;color:var(--on)}
-.btn.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:#bff5df}
+.btn.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
 .btn.ghost{background:none;border-color:transparent;color:var(--muted);font-weight:500}.btn.ghost:hover{color:var(--fg);background:var(--card)}
 .btn.danger{color:var(--bad)}.btn.sm{padding:5px 10px;font-size:12.5px;border-radius:9px}
 .iconbtn{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid transparent;background:none;color:var(--muted)}
@@ -209,7 +209,7 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 .typing{display:flex;gap:5px;padding:8px 0}.typing i{width:7px;height:7px;border-radius:50%;background:var(--a1);animation:bob 1.2s infinite}
 .typing i:nth-child(2){animation-delay:.15s;background:#6fa8ff}.typing i:nth-child(3){animation-delay:.3s;background:var(--a2)}
 @keyframes bob{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-6px);opacity:1}}
-.chero{max-width:720px;margin:10vh auto 0;padding:0 22px;text-align:center}
+.chero{max-width:760px;margin:clamp(10px, 3vh, 38px) auto 0;padding:0 20px;text-align:center}
 .bigmark{width:84px;height:84px;display:block;margin:0 auto 14px;border-radius:20px;filter:drop-shadow(0 0 30px color-mix(in srgb,var(--a1) 45%,transparent));animation:pulse2 4s ease-in-out infinite}
 @keyframes pulse2{50%{filter:drop-shadow(0 0 46px color-mix(in srgb,var(--a2) 50%,transparent));transform:scale(1.03)}}
 .chero .big{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;background:var(--grad);box-shadow:0 0 50px color-mix(in srgb,var(--a1) 50%,transparent);animation:pulse 4s ease-in-out infinite}
@@ -303,11 +303,64 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 [data-theme=paper] input.f,[data-theme=paper] select.f,[data-theme=paper] textarea.f,[data-theme=paper] .seg{background:rgba(0,0,0,.03)}
 [data-theme=paper] .scrim{background:rgba(240,236,228,.55)}
 [data-theme=sakura]{--bg:#fcedf2;--glass:rgba(255,240,245,.82);--glass2:rgba(255,230,238,.72);--card:rgba(255,255,255,.75);--card2:rgba(255,255,255,.9);--line:rgba(180,80,120,.16);--line2:rgba(180,80,120,.24);
-  --fg:#201117;--fg2:#482333;--muted:#78485e;--a1:#d94676;--a2:#8b5cf6;--a3:#ec4899;--ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--panel:#fff5f8;--code:#fae8ee;--on:#ffffff}
+  --fg:#201117;--fg2:#482333;--muted:#78485e;--a1:#d94676;--a2:#8b5cf6;--a3:#ec4899;--ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--panel:#fff5f8;--code:#23202e;--on:#ffffff}
 [data-theme=sakura] body::before{opacity:.5}
 [data-theme=sakura] ::-webkit-scrollbar-thumb{background-color:rgba(180,80,120,.2)}
 [data-theme=sakura] input.f,[data-theme=sakura] select.f,[data-theme=sakura] textarea.f,[data-theme=sakura] .seg{background:rgba(255,255,255,.85);color:#201117}
 [data-theme=sakura] .scrim{background:rgba(250,235,240,.55)}
+/* High contrast and legibility for Light Themes & Ambient Scenes */
+[data-theme=sakura] .btn.ok, [data-theme=paper] .btn.ok, body.scene-sakura .btn.ok, body.scene-light .btn.ok {
+  color: #047857 !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+[data-theme=sakura] .md pre, [data-theme=paper] .md pre, body.scene-sakura .md pre, body.scene-light .md pre {
+  background: #1f2328 !important;
+  color: #e6edf3 !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+[data-theme=sakura] .md pre code, [data-theme=paper] .md pre code, body.scene-sakura .md pre code, body.scene-light .md pre code {
+  color: #e6edf3 !important;
+}
+[data-theme=sakura] .md code, body.scene-sakura .md code {
+  background: rgba(217, 70, 118, 0.12) !important;
+  color: #9d174d !important;
+}
+[data-theme=paper] .md code, body.scene-light .md code {
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: #1e293b !important;
+}
+body.scene-sakura, body.scene-light {
+  color: #1d1f27 !important;
+  --fg: #1d1f27 !important;
+  --fg2: #374151 !important;
+  --muted: #6b7280 !important;
+  --card: rgba(255, 255, 255, 0.88) !important;
+  --card2: rgba(255, 255, 255, 0.96) !important;
+  --glass: rgba(255, 255, 255, 0.85) !important;
+  --glass2: rgba(255, 255, 255, 0.92) !important;
+  --line: rgba(0, 0, 0, 0.12) !important;
+  --line2: rgba(0, 0, 0, 0.2) !important;
+}
+body.scene-sakura .card, body.scene-light .card,
+body.scene-sakura .topbar, body.scene-light .topbar,
+body.scene-sakura .nav, body.scene-light .nav,
+body.scene-sakura .hero-wrap, body.scene-light .hero-wrap,
+body.scene-sakura .t-panel, body.scene-light .t-panel,
+body.scene-sakura .t-tab, body.scene-light .t-tab,
+body.scene-sakura .nowc, body.scene-light .nowc,
+body.scene-sakura .blk, body.scene-light .blk,
+body.scene-sakura .stk, body.scene-light .stk {
+  color: #1d1f27 !important;
+}
+body.scene-sakura .f, body.scene-light .f,
+body.scene-sakura input.f, body.scene-light input.f,
+body.scene-sakura select.f, body.scene-light select.f,
+body.scene-sakura textarea.f, body.scene-light textarea.f {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #1d1f27 !important;
+  border-color: rgba(0, 0, 0, 0.18) !important;
+}
 body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(--a1) 22%,transparent),transparent 70%),
   radial-gradient(34% 30% at 92% 18%,color-mix(in srgb,var(--a2) 15%,transparent),transparent 70%),
   radial-gradient(40% 40% at 60% 105%,color-mix(in srgb,var(--a3) 12%,transparent),transparent 70%)!important}
@@ -1241,19 +1294,41 @@ const TOOL_LABEL = {day_schedule: "Checked your schedule", add_reminder: "Create
   get_note: "Read a note", add_note: "Saved a note", log_to_today: "Logged to today", orca_list_projects: "Listed Orca projects", orca_new_project: "New Orca project", orca_start_task: "Orca task"};
 const cinput = $("#cinput");
 async function enterChat(sub) {
-  if (!S.models.length) { const m = await api("/api/chat/models"); S.models = m.models; S.personas = m.personas;
-    const opt = x => `<option value="${x.name}">${x.label || x.name + (x.params ? " · " + x.params : "")}</option>`, loc = S.models.filter(x => !x.cloud), cl = S.models.filter(x => x.cloud);
-    $("#model").innerHTML = (loc.length ? `<optgroup label="On this PC (private)">${loc.map(opt).join("")}</optgroup>` : "") + (cl.filter(x => x.name.startsWith("claude:")).length ? `<optgroup label="Claude — via Claude Code">${cl.filter(x => x.name.startsWith("claude:")).map(opt).join("")}</optgroup>` : "") + (cl.filter(x => x.name.startsWith("gemini:")).length ? `<optgroup label="Gemini — via Gemini CLI">${cl.filter(x => x.name.startsWith("gemini:")).map(opt).join("")}</optgroup>` : "") || `<option>No models — start Ollama</option>`;
-    $("#persona").innerHTML = S.personas.map(p => `<option>${p}</option>`).join("");
-    if (S.settings.chat_model) $("#model").value = S.settings.chat_model; }
-  await loadChats();
+  try {
+    if (!S.models || !S.models.length) {
+      const m = await api("/api/chat/models").catch(() => null);
+      if (m && m.models) {
+        S.models = m.models;
+        S.personas = m.personas || ["Assistant", "Writing", "Coder"];
+      } else {
+        S.models = [{name: "gemini:default", label: "Gemini — Cloud AI (Zero GPU Needed)", params: "Gemini", tools: false, cloud: true}];
+        S.personas = ["Assistant", "Writing", "Coder"];
+      }
+      const opt = x => `<option value="${x.name}">${x.label || x.name + (x.params ? " · " + x.params : "")}</option>`,
+            loc = S.models.filter(x => !x.cloud),
+            cl = S.models.filter(x => x.cloud);
+      $("#model").innerHTML = (loc.length ? `<optgroup label="On this PC (private)">${loc.map(opt).join("")}</optgroup>` : "") +
+        (cl.filter(x => x.name.startsWith("claude:")).length ? `<optgroup label="Claude — via Claude Code">${cl.filter(x => x.name.startsWith("claude:")).map(opt).join("")}</optgroup>` : "") +
+        (cl.filter(x => x.name.startsWith("gemini:")).length ? `<optgroup label="Gemini — via Gemini CLI">${cl.filter(x => x.name.startsWith("gemini:")).map(opt).join("")}</optgroup>` : "") ||
+        `<option value="gemini:default">Gemini — Cloud AI (Zero GPU Needed)</option>`;
+      $("#persona").innerHTML = S.personas.map(p => `<option>${p}</option>`).join("");
+      if (S.settings.chat_model) $("#model").value = S.settings.chat_model;
+    }
+  } catch (err) {
+    console.warn("enterChat models load error:", err);
+  }
+  try {
+    await loadChats();
+  } catch (err) {
+    console.warn("enterChat loadChats error:", err);
+  }
   const id = +sub || (S.chat && S.chat.id);
-  if (id && S.chats.find(c => c.id === id)) openChat(id); else chatHero();
+  if (id && S.chats && S.chats.find(c => c.id === id)) openChat(id); else chatHero();
 }
-async function loadChats() { S.chats = await api("/api/chats"); renderChatList(); }
+async function loadChats() { S.chats = await api("/api/chats").catch(() => []); renderChatList(); }
 function renderChatList() {
   const q = $("#csearch").value.toLowerCase(), now = new Date(), groups = {Today: [], Yesterday: [], "Previous 7 days": [], Older: []};
-  S.chats.filter(c => c.title.toLowerCase().includes(q)).forEach(c => { const a = (now - new Date(c.updated)) / 864e5;
+  (S.chats || []).filter(c => c.title.toLowerCase().includes(q)).forEach(c => { const a = (now - new Date(c.updated)) / 864e5;
     groups[new Date(c.updated).toDateString() === now.toDateString() ? "Today" : a < 2 ? "Yesterday" : a < 7 ? "Previous 7 days" : "Older"].push(c); });
   $("#chats").innerHTML = Object.entries(groups).filter(([, v]) => v.length).map(([g, v]) => `<div class="cgrp">${g}</div>` + v.map(c =>
     `<div class="ci ${S.chat && S.chat.id === c.id ? "on" : ""}" onclick="openChat(${c.id})"><span>${esc(c.title)}</span><button class="iconbtn" title="Delete" onclick="event.stopPropagation();delChat(${c.id},this)">${ic("trash")}</button></div>`).join("")).join("")
@@ -1280,45 +1355,18 @@ async function runAIStackInstaller() {
   }
 }
 
-async function chatHero() {
+function chatHero() {
   S.chat = null; history.replaceState(null, "", "#chat"); $("#ctitle").value = "New chat"; setToggles("daybook,orca");
   const sugs = [["My day", "What's on my schedule tomorrow?"], ["My notes", "What did I write about Unleash U?"], ["Ori script", "Write a 30-second Ori script about discipline as a spiritual practice"], ["New project", "Start a new project: a simple habit tracker web app"]];
 
-  const stack = _aiStackCache || await fetchAIStackStatus();
-  const nodeOk = stack && stack.node && stack.node.installed;
-  const claudeOk = stack && stack.claude && stack.claude.installed;
-  const ollamaOk = stack && stack.ollama && stack.ollama.installed && stack.ollama.running;
-  const geminiOk = stack && stack.gemini && stack.gemini.installed;
-  const stackReady = nodeOk && claudeOk && ollamaOk;
-
-  const setupHTML = stackReady ? `
+  const setupHTML = `
     <div class="row" style="gap:8px;margin:12px 0 16px;justify-content:center;flex-wrap:wrap">
-      <span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)"><svg class="i sm" data-i="check"></svg>Claude &amp; Ollama Ready</span>
+      <span class="badge" id="chat-stack-badge" style="color:var(--ok);border-color:rgba(62,224,160,.4);cursor:pointer" onclick="runAIStackInstaller()" title="Claude &amp; Ollama Ready (Click to launch 1-Click AI Stack Installer)"><svg class="i sm" data-i="check"></svg>Claude &amp; Ollama Ready</span>
       <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Terminal (Ctrl+\`)</button>
       <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code</button>
       <button class="btn sm" onclick="termNew('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Gemini CLI</button>
       <button class="btn sm" onclick="termNew('ollama')"><span class="t-ico" style="color:#3ee0a0">◆</span>Ollama</button>
       <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Tour</button>
-    </div>
-  ` : `
-    <div class="chat-setup-card">
-      <div class="csc-head">
-        <span class="csc-badge">1-Click AI Setup</span>
-        <b>Get Claude Code &amp; Local Ollama Running</b>
-        <div class="sp"></div>
-        <span class="csc-chip ${nodeOk ? 'ok' : 'missing'}">Node.js: ${nodeOk ? '✓ ' + (stack.node.version || 'installed') : 'Missing'}</span>
-        <span class="csc-chip ${claudeOk ? 'ok' : 'missing'}">Claude Code: ${claudeOk ? '✓ Ready' : 'Missing'}</span>
-        <span class="csc-chip ${geminiOk ? 'ok' : 'missing'}">Gemini CLI: ${geminiOk ? '✓ Ready' : 'Missing'}</span>
-        <span class="csc-chip ${ollamaOk ? 'ok' : 'missing'}">Ollama: ${ollamaOk ? '✓ Active' : 'Missing'}</span>
-      </div>
-      <p>Instantly download and configure Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama with hardware-optimized models for Windows. Zero command line struggle.</p>
-      <div class="csc-actions" style="flex-wrap:wrap">
-        <button class="btn pri sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>⚡ 1-Click Install AI Stack</button>
-        <button class="btn sm" onclick="go('apps');awSwitch('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Open Gemini (Cloud AI)</button>
-        <button class="btn sm" onclick="pullQuickModel('qwen2.5:1.5b')"><span class="t-ico" style="color:var(--ok)">◆</span>1.5B Laptop Model</button>
-        <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal <span class="kbd" style="font-size:10px">Ctrl + \`</span></button>
-        <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Tour</button>
-      </div>
     </div>
   `;
 
@@ -1356,6 +1404,18 @@ async function chatHero() {
     <div class="sugs">${sugs.map(([b, s]) => `<div class="sug" data-s="${esc(s)}" onclick="cinput.value=this.dataset.s;sendOrStop()"><b>${b}</b><span>${esc(s)}</span></div>`).join("")}</div></div>`;
   paintIcons($("#thread"));
   renderChatList();
+  if (typeof termEnsureUI === "function") { termEnsureUI(); termLayout(); }
+
+  // Background non-blocking check
+  if (!_aiStackCache) {
+    fetchAIStackStatus().then(stack => {
+      if (!stack) return;
+      const badge = $("#chat-stack-badge");
+      if (badge && (!stack.node?.installed || !stack.claude?.installed || !stack.ollama?.running)) {
+        badge.title = "Click to run 1-Click AI Stack Installer (Node.js, Claude Code, Ollama)";
+      }
+    }).catch(() => {});
+  }
 }
 function newChat() { if (S.view !== "chat") go("chat"); chatHero(); cinput.focus(); }
 async function openChat(id) {
@@ -1606,8 +1666,62 @@ async function renderDesktop() {
 async function newSticky() { await api("/api/stickies", {method: "POST", body: {color: newColor}}); toast("Sticky note added to your desktop — type, or paste a picture with Ctrl V"); setTimeout(deskRefresh, 300); }
 async function stickyAct(id, a) { await api(`/api/stickies/${id}/${a}`, {method: "POST"}); setTimeout(deskRefresh, 400); }
 async function stickyMode(id, mode) { await api(`/api/stickies/${id}/update`, {method: "POST", body: {mode}}); toast(mode === "top" ? "Pinned on top" : "Moved to the desktop layer"); setTimeout(deskRefresh, 300); }
-function stickyDel(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Delete?"; return; } stickyAct(id, "delete"); }
-async function annotateNow() { await api("/api/annotate", {method: "POST"}); toast("Annotation mode — draw, then Save or Copy"); }
+async function annotateNow(hwnd) {
+  if (hwnd !== undefined) {
+    closeModal();
+    await api("/api/annotate", {method: "POST", body: hwnd ? {hwnd} : {}});
+    toast(hwnd ? "Focusing window & launching annotation..." : "Annotation mode — draw, then Save or Copy");
+    return;
+  }
+  let wins = [];
+  try {
+    const res = await api("/api/windows/list");
+    wins = res.windows || [];
+  } catch (e) {
+    wins = [];
+  }
+  modal(`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--a1),var(--a2));display:grid;place-items:center;color:#fff;font-size:18px">
+        ${ic("brush")}
+      </div>
+      <div>
+        <h3 style="margin:0;font-size:16px;text-transform:none;letter-spacing:0">Annotate Screen or Window</h3>
+        <p class="muted" style="margin:2px 0 0;font-size:12px">Choose to capture your entire desktop or focus on a specific open application.</p>
+      </div>
+      <button class="iconbtn" style="margin-left:auto" onclick="closeModal()">${ic("x")}</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;padding-right:4px">
+      <div class="card" style="cursor:pointer;padding:12px 14px;border:1px solid var(--line);transition:transform .12s,border-color .12s" onclick="annotateNow(null)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:22px">🖥️</div>
+          <div>
+            <b style="font-size:14px">Entire Desktop</b>
+            <div class="muted" style="font-size:12px">Capture all monitors simultaneously (Full Screen)</div>
+          </div>
+          <button class="btn pri sm" style="margin-left:auto">Select</button>
+        </div>
+      </div>
+      ${wins.length > 0 ? `
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:8px 0 2px">Open Windows on Laptop / Desktop</div>
+        ${wins.map(w => `
+          <div class="card" style="cursor:pointer;padding:10px 14px;border:1px solid var(--line);transition:transform .12s,border-color .12s" onclick="annotateNow(${w.hwnd})">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="font-size:18px">🗔</div>
+              <div style="flex:1;min-width:0">
+                <b style="font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(w.title)}</b>
+                <span class="muted" style="font-size:11.5px">${w.width} × ${w.height} px</span>
+              </div>
+              <button class="btn ghost sm" style="margin-left:auto">Annotate Window</button>
+            </div>
+          </div>
+        `).join("")}
+      ` : `
+        <div class="muted" style="font-size:12px;padding:8px">No separate application windows detected.</div>
+      `}
+    </div>
+  `);
+}
 async function annoDel(btn, name) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.style.color = "var(--bad)"; toast("Click again to delete"); return; }
   await api("/api/annotations/" + encodeURIComponent(name), {method: "DELETE"}); deskRefresh(); }
 

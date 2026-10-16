@@ -8,7 +8,14 @@ mode = sys.argv[1] if len(sys.argv) > 1 else ""
 
 if mode == "annotate":  # Ctrl+Alt+P — must set its own DPI mode before anything else loads Tk
     from reminders import annotate
-    annotate.main(hide_daybook="--delay" in sys.argv)
+    target_hwnd = None
+    for arg in sys.argv[2:]:
+        if arg.startswith("--target="):
+            try:
+                target_hwnd = int(arg.split("=")[1])
+            except Exception:
+                pass
+    annotate.main(hide_daybook="--delay" in sys.argv, target_hwnd=target_hwnd)
     sys.exit(0)
 
 if mode in ("sticky", "peek"):  # Ctrl+Alt+S new note / Ctrl+Alt+W show-hide all — the service owns the windows
