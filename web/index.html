@@ -1506,6 +1506,7 @@ async function stream(url, body) {
         else if (ev === "tool_result") { const p = b.parts.querySelector('.chip[data-p="1"]'); if (p) p.outerHTML = chipHTML(d.name, {}, d.result); b.parts.insertAdjacentHTML("beforeend", `<div class="typing"><i></i><i></i><i></i></div>`); }
         else if (ev === "confirm") { clr(); if (cur) { cur.innerHTML = md(raw); cur = null; } b.parts.insertAdjacentHTML("beforeend", cardHTML(d.id, d.name, d.args)); }
         else if (ev === "error") { clr(); b.parts.insertAdjacentHTML("beforeend", `<div class="md" style="color:var(--bad)">⚠ ${esc(d.message)}</div>`); }
+        else if (ev === "notice") { b.parts.insertAdjacentHTML("beforeend", `<div class="md" style="color:var(--warn);font-size:12.5px">✦ ${esc(d.message)}</div>`); cur = null; }
         else if (ev === "done") b.stats = d.stats;
         scrollDown();
       }

@@ -28,7 +28,7 @@ from . import paths
 
 bp = Blueprint("updates", __name__)
 
-CURRENT_VERSION = "1.7.9"
+CURRENT_VERSION = "1.8.0"
 GITHUB_REPO = "taylormadegrit/daybook"
 GITHUB_COMMITS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/commits/master"
 GITHUB_COMPARE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/compare/{{base}}...{{head}}"

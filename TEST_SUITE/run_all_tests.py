@@ -42,6 +42,7 @@ def run_full_suite(run_number=1):
         "test_state_concurrency",
         "test_security",
         "test_performance",
+        "test_gemini_fallback",
     ]
 
     master_suite = unittest.TestSuite()

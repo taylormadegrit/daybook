@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import os
 import threading
+import time
 import urllib.request
 import uuid
 from datetime import date, datetime
@@ -232,7 +233,7 @@ def gemini_cli():
     return claude_link._gemini_exe()
 
 
-def generate_gemini(cid):
+def generate_gemini(cid, model_label=None):
     """Non-interactive Gemini CLI: the conversation goes in on stdin, the answer streams back as plain text."""
     chat = get_chat(cid)
     msgs = [m for m in history(cid) if m["role"] in ("user", "assistant")][-20:]
@@ -285,7 +286,7 @@ def generate_gemini(cid):
         yield sse("error", {"message": "Gemini didn't answer — " + (err.strip() or "sign in once: Chat → Terminal → Gemini CLI.")})
         return
     if text.strip():
-        add_msg(cid, "assistant", text.strip(), {"model": chat["model"]})
+        add_msg(cid, "assistant", text.strip(), {"model": model_label or chat["model"]})
     yield sse("done", {"stats": {}})
 
 
@@ -302,7 +303,35 @@ def claude_cli():
     return claude_link._claude_exe()
 
 
+# Claude Pro/Max usage limits, API credit errors, overload — when one hits, the chat carries on in Gemini
+CLAUDE_LIMIT_RE = re.compile(r"usage limit|limit reached|hit your limit|out of (?:extra )?usage|rate.?limit|credit balance|"
+                             r"insufficient.?credit|quota|overloaded|429|529|resets? (?:at )?\d", re.I)
+CLAUDE_COOLDOWN_S = 15 * 60  # after a limit, skip straight to Gemini for a while instead of failing every turn
+_claude_limited_until = 0.0
+
+
+def claude_limited():
+    return time.time() < _claude_limited_until
+
+
+def _mark_claude_limited():
+    global _claude_limited_until
+    _claude_limited_until = time.time() + CLAUDE_COOLDOWN_S
+
+
+def _gemini_fallback(cid, why):
+    """Claude can't answer right now: hand this turn (with the whole conversation) to the Gemini CLI."""
+    if not gemini_cli():
+        yield sse("error", {"message": f"Claude is out of usage ({why[:160]}) — install Gemini CLI (Chat → Terminal → + → Gemini CLI) to keep going when this happens."})
+        return
+    yield sse("notice", {"message": f"Claude is out of usage right now — continuing with Gemini. ({why[:120]})"})
+    yield from generate_gemini(cid, model_label="gemini:default")
+
+
 def generate_claude(cid):
+    if claude_limited():
+        yield from _gemini_fallback(cid, "limit reached a few minutes ago")
+        return
     chat = get_chat(cid)
     alias = chat["model"].split(":", 1)[1] or "sonnet"
     msgs = [m for m in history(cid) if m["role"] in ("user", "assistant")]
@@ -320,7 +349,7 @@ def generate_claude(cid):
     if session:
         cmd += ["--resume", session]
     STOP[cid] = False
-    text, sid, usage = "", session, {}
+    text, sid, usage, limit_hit = "", session, {}, None
     try:
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
                                 errors="replace", cwd=str(db.DB_PATH.parent), creationflags=0x08000000)
@@ -355,6 +384,8 @@ def generate_claude(cid):
                 yield sse("token", {"t": "\n\n"})
         elif t == "assistant":
             for c in j.get("message", {}).get("content", []):
+                if c.get("type") == "text" and not text and CLAUDE_LIMIT_RE.search(c.get("text", "")):
+                    limit_hit = c["text"]
                 if c.get("type") == "tool_use":
                     name = c.get("name", "").replace("mcp__reminders__", "")
                     yield sse("tool", {"name": name, "args": c.get("input", {})})
@@ -368,11 +399,19 @@ def generate_claude(cid):
             sid = j.get("session_id") or sid
             usage = {"cost_usd": j.get("total_cost_usd"), "turns": j.get("num_turns"), "duration_ms": j.get("duration_ms")}
             if j.get("is_error") and not text:
-                yield sse("error", {"message": "Claude: " + str(j.get("result") or j.get("subtype"))[:300]})
+                why = str(j.get("result") or j.get("subtype"))
+                if CLAUDE_LIMIT_RE.search(why):
+                    limit_hit = why
+                else:
+                    yield sse("error", {"message": "Claude: " + why[:300]})
     proc.wait(timeout=10)
     PROCS.pop(cid, None)
+    err = (proc.stderr.read() or "")[-400:] if proc.returncode not in (0, None) and not text else ""
+    if not text.strip() and not STOP.get(cid) and (limit_hit or CLAUDE_LIMIT_RE.search(err)):
+        _mark_claude_limited()
+        yield from _gemini_fallback(cid, (limit_hit or err).strip())
+        return
     if proc.returncode not in (0, None) and not text:
-        err = (proc.stderr.read() or "")[-400:]
         yield sse("error", {"message": "Claude didn't answer — " + (err.strip() or "is Claude Code signed in? Run `claude` once in a terminal.")})
         return
     if text.strip():

@@ -90,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.7.9"
+VERSION = "1.8.0"
 
 
 @app.get("/chat")
