@@ -246,6 +246,14 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "games_dir": str(paths.GAMES_DIR),  # where free games are downloaded
     "web_profiles": "",         # JSON in-app browser profiles [{id, name, color}]
     "pdf_folders": "",          # JSON folders the PDF library scans ('' = sensible defaults)
+    "startup_view": "today",    # default startup window/view (e.g. today, apps:gemini)
+    "ui_style": "glass",        # glass / classic UI style
+    "tour_seen": "0",           # tour completion flag
+    "clock_mode": "12h",        # clock mode (12h / 24h)
+    "snooze_default": "10",     # default snooze in minutes
+    "chat_persona": "",         # custom AI persona instructions
+    "categories": "[]",         # custom user-defined categories
+    "drives_cache": "[]",       # cached drive listing
 }
 
 
@@ -254,13 +262,22 @@ def setting(key):
 
 
 def settings():
-    return {k: setting(k) for k in SETTINGS}
+    res = dict(SETTINGS)
+    with connect() as con:
+        rows = con.execute("SELECT key, value FROM meta WHERE key LIKE 'set:%'").fetchall()
+        for r in rows:
+            res[r["key"][4:]] = r["value"]
+    return res
 
 
 def set_settings(values):
     for k, v in values.items():
-        if k in SETTINGS:
+        if k and isinstance(k, str) and len(k) < 80:
             meta_set("set:" + k, str(v))
+
+
+def save_setting(key, value):
+    set_settings({key: value})
 
 
 def meta_get(key, default=None):

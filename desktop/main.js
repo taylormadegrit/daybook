@@ -19,7 +19,7 @@ const isGoogleAuth = u => /^https:\/\/(accounts|myaccount|gds|admin)\.google\.[a
 function isAppWrapInternalUrl(u) {
   try {
     const host = new URL(u).hostname.toLowerCase();
-    return /^(.*\.)?(google\.com|googleusercontent\.com|gstatic\.com|claude\.ai|anthropic\.com|chatgpt\.com|openai\.com|discord\.com|discordapp\.com|discord\.gg|spotify\.com|spotifycdn\.com|youtube\.com|ytimg\.com|localhost|127\.0\.0\.1)$/.test(host);
+    return /^(.*\.)?(google\.com|googleusercontent\.com|gstatic\.com|claude\.ai|anthropic\.com|chatgpt\.com|openai\.com|discord\.com|discordapp\.com|discord\.gg|spotify\.com|spotifycdn\.com|youtube\.com|ytimg\.com|appleid\.apple\.com|github\.com|live\.com|microsoftonline\.com|cloudflare\.com|localhost|127\.0\.0\.1)$/.test(host);
   } catch (e) {
     return false;
   }
@@ -418,6 +418,7 @@ function prepareSession(part) {
     if (["fullscreen", "clipboard-sanitized-write", "clipboard-read", "notifications", "pointerLock", "idle-detection", "window-management"].includes(perm)) return cb(true);
     if (["media", "geolocation", "midiSysex", "display-capture"].includes(perm)) {
       let site = ""; try { site = new URL(details.requestingUrl || wc.getURL()).host; } catch (e) {}
+      if (site.includes("discord.com") && (perm === "media" || perm === "notifications")) return cb(true);
       const what = perm === "media" ? ((details.mediaTypes || []).join(" & ") || "camera/microphone") : perm === "geolocation" ? "location" : perm;
       const key = permKey(part, site, perm, details.mediaTypes);
       const saved = loadPerms()[key];

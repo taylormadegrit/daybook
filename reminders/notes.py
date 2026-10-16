@@ -116,10 +116,15 @@ def search(query="", category="", tag="", date_from="", date_to="", limit=200):
     where = []
     if query.strip():
         # each word must match (prefix search), so "jocko disc" finds "Jocko ... discipline"
-        terms = " ".join(f'"{w}"*' for w in re.findall(r"\w+", query))
-        sql += " JOIN notes_fts f ON f.rowid = n.id"
-        where.append("notes_fts MATCH ?")
-        args.append(terms)
+        words = re.findall(r"\w+", query)
+        if words:
+            terms = " ".join(f'"{w}"*' for w in words)
+            sql += " JOIN notes_fts f ON f.rowid = n.id"
+            where.append("notes_fts MATCH ?")
+            args.append(terms)
+        else:
+            where.append("(n.title LIKE ? OR n.body LIKE ?)")
+            args.extend([f"%{query.strip()}%", f"%{query.strip()}%"])
     if category:
         where.append("n.category = ?")
         args.append(category)

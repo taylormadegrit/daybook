@@ -194,30 +194,51 @@ async function renderAppWrapper(appKey) {
       </div>
       ${curKey === "discord" ? `
         <div class="aw-subbar">
-          <button class="aw-subtab ${AW.discordView === 'app' ? 'on' : ''}" onclick="awDiscordNav('https://discord.com/app', 'app')">
+          <button class="aw-subtab ${AW.discordView === 'app' ? 'on' : ''}" onclick="awDiscordNav('https://discord.com/app', 'app')" title="Open Discord DMs, friends, and servers you belong to">
             ${ic("chat", "i sm")} Personal Account &amp; DMs
           </button>
-          <button class="aw-subtab ${AW.discordView === 'discovery' ? 'on' : ''}" onclick="awDiscordNav('https://discord.com/guild-discovery', 'discovery')">
+          <button class="aw-subtab ${AW.discordView === 'login' ? 'on' : ''}" onclick="awDiscordNav('https://discord.com/login', 'login')" title="Log in with your personal Discord credentials">
+            ${ic("spark", "i sm")} Sign In / Switch Account
+          </button>
+          <button class="aw-subtab ${AW.discordView === 'discovery' ? 'on' : ''}" onclick="awDiscordNav('https://discord.com/guild-discovery', 'discovery')" title="Browse public Discord servers and communities">
             ${ic("search", "i sm")} Public Server Discovery
           </button>
-          <button class="aw-subtab" onclick="awPromptDiscordInvite()">
+          <button class="aw-subtab" onclick="awPromptDiscordInvite()" title="Join any Discord server using an invite code or URL">
             ${ic("plus", "i sm")} Join Server by Invite
           </button>
           <div class="sp"></div>
-          <span class="aw-sub-label">Popular Communities:</span>
+          <span class="aw-sub-label">Public Communities:</span>
           <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/openai', 'openai')">OpenAI</button>
+          <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/anthropic', 'anthropic')">Anthropic</button>
           <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/midjourney', 'midjourney')">Midjourney</button>
           <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/huggingface', 'huggingface')">Hugging Face</button>
+          <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/cursor', 'cursor')">Cursor</button>
           <button class="aw-chip" onclick="awDiscordNav('https://discord.gg/localllama', 'localllama')">LocalLLaMA</button>
         </div>
       ` : ''}
       <div class="aw-frame-host" id="aw-frame-host">
         ${isOfflineLocalSend ? awRenderLocalSendHubHtml() : (
-          window.desktop ? '' : `
-            <iframe id="aw-frame" src="${esc(url)}" class="aw-iframe" allow="microphone; camera; clipboard-read; clipboard-write; display-capture; autoplay; encrypted-media; fullscreen"></iframe>
-            <div class="aw-external-bar" id="aw-ext-bar">
-              <span>Displaying <b>${esc(curApp.name)}</b> inside Daybook wrapper.</span>
-              <a href="${esc(url)}" target="_blank" class="btn sm pri">Open Externally</a>
+          (window.desktop && desktop.browser) ? '' : `
+            <div class="aw-localsend-hub">
+              <div class="aw-ls-card" style="text-align:center;align-items:center;">
+                <h2>${esc(curApp.name)} Web App</h2>
+                <p class="muted">Major web applications (Gemini, Discord, Claude) restrict framing in generic web browsers for security. In the <b>Daybook Desktop App</b>, they render in native isolated Chromium panes with full account sync.</p>
+                <div class="aw-ls-actions" style="justify-content:center;margin-top:14px;">
+                  <a href="${esc(url)}" target="_blank" class="btn pri lg">
+                    ${ic("ext")} Open ${esc(curApp.name)} in New Window
+                  </a>
+                  ${curKey === "gemini" ? `
+                    <button class="btn ghost" onclick="window.open('https://accounts.google.com/InteractiveLogin?continue=https%3A%2F%2Fgemini.google.com%2Fapp','_blank')">
+                      ${ic("spark")} Sign In with Google
+                    </button>
+                  ` : ''}
+                  ${curKey === "discord" ? `
+                    <button class="btn ghost" onclick="window.open('https://discord.com/login','_blank')">
+                      ${ic("chat")} Sign In to Discord
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
             </div>
           `
         )}

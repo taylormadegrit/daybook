@@ -917,9 +917,10 @@ function go(v, sub) {
   $("#ptitle").textContent = VIEWS[v][0]; $("#psub").textContent = VIEWS[v][1];
   const h = "#" + v + (sub ? "/" + sub : "");
   if (location.hash !== h) history.replaceState(null, "", h);
-  if (!VIEWS[v]) v = "today";
   ({today: renderToday, calendar: renderCalendar, reminders: renderReminders, notes: () => { loadNotes(); notesPanels(); }, memos: () => { renderMemos(); memoDropSetup(); }, launchpad: () => { if (sub) LP.view = sub; renderLaunchpad(); }, studio: () => renderStudio(sub), browser: () => renderBrowser(), apps: () => renderAppWrapper(sub), research: () => renderResearch(), games: () => renderGames(), workflows: () => renderWorkflows(), clock: () => renderClock(sub), chat: () => enterChat(sub), desktop: renderDesktop, models: renderModels, settings: renderSettings, help: renderHelp})[v]();
   applyScene(); dockSync(); setTimeout(splPages, 400);
+  if (typeof bdSync === "function") bdSync();
+  if (typeof awSync === "function") awSync();
 }
 $$(".navi").forEach(n => n.onclick = () => go(n.dataset.v));
 function updateTopClock() {

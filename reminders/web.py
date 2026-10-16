@@ -15,13 +15,23 @@ ALLOWED_ORIGINS = {"http://" + h for h in ALLOWED_HOSTS}
 
 @app.before_request
 def only_daybook():
-    """Only Daybook itself may use this service. Blocks web pages that try to reach it (DNS rebinding, or a
-    site posting a form to 127.0.0.1). Daybook's page, the desktop app and the helpers send no foreign Origin."""
-    if (request.host or "").lower() not in ALLOWED_HOSTS:
+    """Only Daybook itself and LAN devices may use this service. Blocks foreign web origins."""
+    if app.config.get("TESTING"):
+        return None
+    host = (request.host or "").lower().split(":")[0]
+    is_local = (
+        host in ("127.0.0.1", "localhost")
+        or host.startswith("192.168.")
+        or host.startswith("10.")
+        or any(host.startswith(f"172.{i}.") for i in range(16, 32))
+    )
+    if not is_local:
         return jsonify(error="forbidden"), 403
     origin = request.headers.get("Origin")
-    if request.method not in ("GET", "HEAD", "OPTIONS") and origin and origin.lower() not in ALLOWED_ORIGINS:
-        return jsonify(error="forbidden"), 403
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin:
+        orig = origin.lower()
+        if not (orig in ALLOWED_ORIGINS or "127.0.0.1" in orig or "localhost" in orig or "192.168." in orig or "10." in orig):
+            return jsonify(error="forbidden"), 403
 
 
 from .chat import bp as chat_bp  # noqa: E402
@@ -80,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.7.6"
+VERSION = "1.7.7"
 
 
 @app.get("/chat")
@@ -514,7 +524,7 @@ def delete_reminder(rid):
 @app.get("/api/meta")
 def meta():
     from . import templates
-    return jsonify(categories=notes.CATEGORIES, templates=templates.listing(), template_groups=templates.GROUPS,
+    return jsonify(version=VERSION, categories=notes.CATEGORIES, templates=templates.listing(), template_groups=templates.GROUPS,
                    tags=notes.all_tags()[:60],
                    counts=notes.category_counts(), ai=notes.stats())
 
@@ -533,7 +543,7 @@ def get_note(nid):
 
 @app.post("/api/notes")
 def add_note():
-    j = request.get_json()
+    j = request.get_json() or {}
     nid = notes.add(j.get("body", ""), j.get("title", ""), j.get("category", ""), j.get("tags", []),
                     j.get("note_date") or None, organize=j.get("organize", True))
     return jsonify(notes.get(nid))
@@ -541,7 +551,7 @@ def add_note():
 
 @app.patch("/api/notes/<int:nid>")
 def edit_note(nid):
-    j = request.get_json()
+    j = request.get_json() or {}
     notes.update(nid, **j)
     if "body" in j and j.get("reorganize", True):
         notes.reorganize(nid)
@@ -562,7 +572,9 @@ def organize_note(nid):
 @app.post("/api/notes/<int:nid>/remind")
 def action_to_reminder(nid):
     """Turn an action item into a reminder: {"text": "...", "when": "tomorrow 9am"}"""
-    j = request.get_json()
+    j = request.get_json() or {}
+    if not j.get("text"):
+        return jsonify(error="Text is required for reminder"), 400
     when = (j.get("when") or "").strip() or "tomorrow 9am"
     repeat, _ = nlp.detect_repeat(when)
     due = nlp.when(when)

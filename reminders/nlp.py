@@ -137,7 +137,67 @@ def resolve_when(phrase, now):
     phrase = (phrase or "").strip()
     if not phrase:
         return None
-    p = phrase.lower()
+    p = phrase.lower().strip()
+
+    # Fast-path 1: "in <N> <unit>"
+    m_in = re.fullmatch(r"in\s+(\d+)\s+(minutes?|mins?|hours?|hrs?|days?|weeks?)", p)
+    if m_in:
+        amt, unit = int(m_in.group(1)), m_in.group(2)
+        if "min" in unit:
+            return now + timedelta(minutes=amt)
+        if "hr" in unit or "hour" in unit:
+            return now + timedelta(hours=amt)
+        if "day" in unit:
+            return now + timedelta(days=amt)
+        if "week" in unit:
+            return now + timedelta(weeks=amt)
+
+    # Fast-path 2: "tomorrow [at] H[:M] [am|pm]"
+    m_tom = re.fullmatch(r"tomorrow(?:\s+(?:at|by|@))?\s+(\d{1,2})(?::(\d\d))?\s*(am|pm)?", p)
+    if m_tom:
+        h = int(m_tom.group(1))
+        mi = int(m_tom.group(2) or 0)
+        ap = m_tom.group(3)
+        if ap == "pm" and h < 12:
+            h += 12
+        elif ap == "am" and h == 12:
+            h = 0
+        elif not ap and h < 8:
+            h += 12
+        return (now + timedelta(days=1)).replace(hour=h, minute=mi, second=0, microsecond=0)
+
+    # Fast-path 3: "tonight [at] H[:M] [am|pm]"
+    m_ton = re.fullmatch(r"tonight(?:\s+(?:at|by|@))?\s+(\d{1,2})(?::(\d\d))?\s*(am|pm)?", p)
+    if m_ton:
+        h = int(m_ton.group(1))
+        mi = int(m_ton.group(2) or 0)
+        ap = m_ton.group(3)
+        if ap == "pm" and h < 12:
+            h += 12
+        elif not ap and h < 12:
+            h += 12
+        cand = now.replace(hour=h, minute=mi, second=0, microsecond=0)
+        return cand if cand > now else cand + timedelta(days=1)
+
+    # Fast-path 4: "[next|this] <weekday> [at] H[:M] [am|pm]"
+    m_wk = re.fullmatch(r"(?:next\s+|this\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(?:at|by|@))?\s+(\d{1,2})(?::(\d\d))?\s*(am|pm)?", p)
+    if m_wk:
+        w_map = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6}
+        target_wd = w_map[m_wk.group(1)]
+        h = int(m_wk.group(2))
+        mi = int(m_wk.group(3) or 0)
+        ap = m_wk.group(4)
+        if ap == "pm" and h < 12:
+            h += 12
+        elif ap == "am" and h == 12:
+            h = 0
+        elif not ap and h < 8:
+            h += 12
+        days_ahead = (target_wd - now.weekday()) % 7
+        if days_ahead == 0 and (h < now.hour or (h == now.hour and mi <= now.minute)):
+            days_ahead = 7
+        return (now + timedelta(days=days_ahead)).replace(hour=h, minute=mi, second=0, microsecond=0)
+
     bare = re.fullmatch(r"\s*(?:at|by|@)\s+(\d{1,2})(?::(\d\d))?\s*", p)
     if bare and 1 <= int(bare.group(1)) <= 12:  # "at 5" → the next 5:00 (5 pm if it's past 5 am)
         h, mi = int(bare.group(1)), int(bare.group(2) or 0)
@@ -209,7 +269,13 @@ def when(phrase, now=None):
     """A bare time phrase ('tomorrow 10am', 'in 3 hours', 'friday 2pm') → future datetime.
     Exact date math first; the AI parser only if that fails."""
     now = now or datetime.now().replace(second=0, microsecond=0)
-    dt = resolve_when(phrase, now)
+    rule, rep_phrase = detect_repeat(phrase)
+    clean_phrase = phrase
+    if rep_phrase:
+        clean_phrase = re.sub(re.escape(rep_phrase), " ", clean_phrase, flags=re.I).strip()
+    dt = resolve_when(clean_phrase, now) if clean_phrase else None
+    if dt is None:
+        dt = resolve_when(phrase, now)
     if dt is None:
         dt = parse("x " + phrase, now)["due"]
     while dt <= now:
@@ -219,6 +285,8 @@ def when(phrase, now=None):
 
 def parse(text, now=None):
     """Returns dict(text, due: datetime, repeat, priority, engine). Never returns a due in the past."""
+    if not text or not str(text).strip():
+        return {}
     now = now or datetime.now().replace(second=0, microsecond=0)
     result = None
     for engine in (_parse_with_ollama, _parse_with_dateparser):
