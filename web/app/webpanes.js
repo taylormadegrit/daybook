@@ -2,7 +2,7 @@
 // Only used inside the Daybook desktop app (window.desktop exists). In a plain browser, browser.js docks Chrome windows instead.
 const BD = {panes: [], focus: null, layout: store.get("daybook-bd-layout", "auto"), ro: null, restored: false, bound: false, last: "", ratios: (() => { try { return JSON.parse(localStorage.getItem("daybook-bd-ratios") || "{}"); } catch (e) { return {}; } })()};
 BD.chrome = [];
-const bdAll = () => BD.panes.concat(BD.chrome.map(c => ({id: -c.hwnd, chrome: c, profile: "chrome:" + c.profile, title: c.title.replace(/ - Google Chrome$/, "") || c.label, url: "", loading: false})));
+const bdAll = () => BD.panes.filter(p => p.profile !== "appwrap").concat(BD.chrome.map(c => ({id: -c.hwnd, chrome: c, profile: "chrome:" + c.profile, title: c.title.replace(/ - Google Chrome$/, "") || c.label, url: "", loading: false})));
 async function bdWin() { if (!BD.win) BD.win = await desktop.info(); return BD.win; }
 async function bdChromeRefresh() { try { const w = await bdWin(); BD.chrome = await api("/api/dock/embedded?parent=" + w.hwnd); } catch (e) { BD.chrome = []; } }
 function bdClose(id) { return id < 0 ? api("/api/dock/embed/release", {method: "POST", body: {hwnd: -id, close: true}}).then(() => setTimeout(async () => { await bdChromeRefresh(); bdPaint(); }, 400)) : desktop.browser.close(id); }
@@ -34,13 +34,13 @@ async function renderBrowserDesktop() {
     desktop.browser.onUpdate(d => {
       BD.panes = d.panes; if (d.focus) BD.focus = d.focus; if (d.toast) toast(d.toast);
       if (!bdAll().find(p => p.id === BD.focus)) BD.focus = (BD.panes[BD.panes.length - 1] || {}).id;  // Chrome tabs count too (they have negative ids)
-      if (BD.win && BD.win.main) try { localStorage.setItem("daybook-bd-session", JSON.stringify(BD.panes.map(p => ({profile: p.profile, url: p.url})).filter(p => /^https?:/.test(p.url)))); } catch (e) {}
+      if (BD.win && BD.win.main) try { localStorage.setItem("daybook-bd-session", JSON.stringify(BD.panes.map(p => ({profile: p.profile, url: p.url})).filter(p => p.profile !== "appwrap" && /^https?:/.test(p.url)))); } catch (e) {}
       if (S.view === "browser") bdPaint();
     });
-    if (desktop.browser.onRelayout) desktop.browser.onRelayout(() => { if (S.view === "browser") bdSync(true); });
-    document.addEventListener("visibilitychange", () => bdSync(true));
+    if (desktop.browser.onRelayout) desktop.browser.onRelayout(() => { if (S.view === "browser") bdSync(true); else if (S.view === "apps" && typeof awSync === "function") awSync(true); });
+    document.addEventListener("visibilitychange", () => { if (S.view === "browser") bdSync(true); else if (S.view === "apps" && typeof awSync === "function") awSync(true); });
     // the page slides in when you switch to it: measure again once it has settled (no-op if nothing moved)
-    const settle = () => { if (S.view === "browser") bdSync(); };
+    const settle = () => { if (S.view === "browser") bdSync(); else if (S.view === "apps" && typeof awSync === "function") awSync(); };
     document.addEventListener("animationend", settle); document.addEventListener("transitionend", settle);
     desktop.browser.onShortcut(d => {
       if (d.action === "new") bdNew(d.profile);

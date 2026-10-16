@@ -961,6 +961,36 @@ body.desktop .app.nav-right .topbar{padding-right:96px}
 .aw-external-bar{display:flex;align-items:center;gap:12px;padding:6px 16px;background:rgba(15,18,28,.95);border-top:1px solid var(--line);font-size:12px;color:var(--muted);flex:none}
 .aw-external-bar b{color:var(--fg)}
 
+/* LocalSend In-App Hub */
+.aw-localsend-hub{flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:32px 20px;background:var(--bg)}
+.aw-ls-card{max-width:680px;width:100%;border-radius:18px;border:1px solid var(--line2);background:var(--panel);padding:32px 36px;box-shadow:0 12px 36px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:20px}
+.aw-ls-header{display:flex;flex-direction:column;gap:8px}
+.aw-ls-header h2{margin:0;font-size:22px;font-weight:700;color:var(--fg)}
+.aw-ls-badge{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;width:fit-content}
+.aw-ls-badge.online{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#22c55e}
+.aw-ls-badge.standby{background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.3);color:#eab308}
+.aw-ls-badge.offline{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.aw-ls-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.aw-ls-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.aw-ls-details{display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--card);border-radius:12px;border:1px solid var(--line)}
+.aw-ls-detail-item{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:13px}
+.aw-ls-detail-item .lbl{color:var(--muted);font-weight:500}
+.aw-ls-detail-item .val{color:var(--fg);font-weight:600;word-break:break-all}
+.aw-ls-tips{display:flex;flex-direction:column;gap:8px}
+.aw-ls-tip{padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--a1) 8%,transparent);border:1px solid color-mix(in srgb,var(--a1) 20%,transparent);font-size:12.5px;color:var(--fg2);line-height:1.45}
+.aw-ls-tip b{color:var(--fg)}
+
+/* Discord & Subbar Navigation */
+.aw-subbar{display:flex;align-items:center;gap:8px;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex:none;overflow-x:auto}
+.aw-subtab{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg2);font-size:12px;font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap}
+.aw-subtab:hover{border-color:var(--line2);color:var(--fg)}
+.aw-subtab.on{border-color:var(--a1);background:color-mix(in srgb,var(--a1) 14%,transparent);color:var(--fg);font-weight:600}
+.aw-sub-label{font-size:11.5px;color:var(--muted);font-weight:500;white-space:nowrap}
+.aw-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;border:1px solid var(--line);background:var(--card2,var(--panel));color:var(--fg2);font-size:11.5px;cursor:pointer;transition:.15s;white-space:nowrap}
+.aw-chip:hover{border-color:var(--a1);color:var(--fg);background:color-mix(in srgb,var(--a1) 12%,transparent)}
+
+
+
 /* ---- Workflows Destination Modal ---- */
 .wf-dest-grid{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0}
 .wf-dest-card{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer;transition:.15s;text-align:left}

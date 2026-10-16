@@ -15,7 +15,15 @@ const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 // Google refuses to sign in inside embedded browsers; it accepts Firefox. So *only* Google's sign-in pages see a
 // Firefox identity (and none of Chromium's client-hint headers). Everything else stays normal Chrome.
 const FIREFOX_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
-const isGoogleAuth = u => /^https:\/\/accounts\.google\.[a-z.]+\//i.test(u || "") || /^https:\/\/(myaccount|gds)\.google\.com\//i.test(u || "");
+const isGoogleAuth = u => /^https:\/\/(accounts|myaccount|gds|admin)\.google\.[a-z.]+(\/|$)/i.test(u || "") || /^https:\/\/accounts\.youtube\.com(\/|$)/i.test(u || "");
+function isAppWrapInternalUrl(u) {
+  try {
+    const host = new URL(u).hostname.toLowerCase();
+    return /^(.*\.)?(google\.com|googleusercontent\.com|gstatic\.com|claude\.ai|anthropic\.com|chatgpt\.com|openai\.com|discord\.com|discordapp\.com|discord\.gg|spotify\.com|spotifycdn\.com|youtube\.com|ytimg\.com|localhost|127\.0\.0\.1)$/.test(host);
+  } catch (e) {
+    return false;
+  }
+}
 let win = null, tray = null, quitting = false, backend = null;   // win = the main window
 const wins = new Set();                                          // every Daybook window
 const panes = new Map();                                         // pane id → {view, profile, owner}
@@ -395,6 +403,17 @@ function prepareSession(part) {
     }
     cb({requestHeaders: h});
   });
+  s.webRequest.onHeadersReceived((d, cb) => {
+    const rh = d.responseHeaders || {};
+    for (const k of Object.keys(rh)) {
+      const lk = k.toLowerCase();
+      if (lk === "x-frame-options") delete rh[k];
+      else if (lk === "content-security-policy") {
+        rh[k] = rh[k].map(c => c.replace(/frame-ancestors\s+[^;]+;?/gi, ""));
+      }
+    }
+    cb({responseHeaders: rh});
+  });
   s.setPermissionRequestHandler(async (wc, perm, cb, details) => {
     if (["fullscreen", "clipboard-sanitized-write", "clipboard-read", "notifications", "pointerLock", "idle-detection", "window-management"].includes(perm)) return cb(true);
     if (["media", "geolocation", "midiSysex", "display-capture"].includes(perm)) {
@@ -444,8 +463,18 @@ function openPane(profile, url, owner) {
   owner.contentView.addChildView(view);
   const wc = view.webContents;
   wc.setWindowOpenHandler(({url: u, disposition, features}) => {
-    if (disposition === "new-window" && /width|height|popup/.test(features || "")) {      // sign-in popups (Google, Discord…) keep the same profile
-      return {action: "allow", overrideBrowserWindowOptions: {parent: owner, width: 520, height: 700, autoHideMenuBar: true, webPreferences: {partition: part}}};
+    const isAuth = isGoogleAuth(u) || /^https:\/\/(accounts\.google\.[a-z.]+|discord\.com\/(login|oauth)|appleid\.apple\.com|github\.com\/login|auth0\.openai\.com)/i.test(u);
+    const isPopup = (disposition === "new-window" && /width|height|popup/.test(features || "")) || (isAuth && disposition === "new-window");
+    if (isPopup) {
+      return {action: "allow", overrideBrowserWindowOptions: {parent: owner, width: 550, height: 720, autoHideMenuBar: true, webPreferences: {partition: part}}};
+    }
+    if (profile === "appwrap") {
+      if (isAppWrapInternalUrl(u)) {
+        wc.loadURL(u);
+      } else {
+        shell.openExternal(u);
+      }
+      return {action: "deny"};
     }
     openPane(profile, u, owner); return {action: "deny"};                               // links that open a new tab → a new pane
   });
@@ -491,8 +520,8 @@ function openPane(profile, url, owner) {
   wc.on("before-input-event", (e, i) => { // browser shortcuts inside a pane (matching full Chrome behavior)
     if (i.type !== "keyDown") return;
     const k = i.key.toLowerCase();
-    if (i.control && k === "w") { e.preventDefault(); closePane(id); }
-    else if (i.control && k === "t") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "new", profile}); }
+    if (i.control && k === "w") { e.preventDefault(); if (profile !== "appwrap") closePane(id); }
+    else if (i.control && k === "t") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "new", profile: profile === "appwrap" ? "personal" : profile}); }
     else if (i.control && k === "d") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "save", id}); }
     else if (i.control && k === "l") { e.preventDefault(); owner.webContents.focus(); owner.webContents.send("browser:shortcut", {action: "address", id}); }
     else if (i.control && k === "j") { e.preventDefault(); owner.webContents.send("browser:shortcut", {action: "downloads"}); }
@@ -764,7 +793,13 @@ app.on("web-contents-created", (_e, wc) => {
   wc.on("did-start-navigation", d => { if (!d.isMainFrame) return; const ua = isGoogleAuth(d.url) ? FIREFOX_UA : CHROME_UA; if (wc.getUserAgent() !== ua) wc.setUserAgent(ua); });
   wc.on("did-create-window", w => {
     if (w.webContents && w.webContents.session) setupDownloads(w.webContents.session);
-    w.webContents.setUserAgent(isGoogleAuth(w.webContents.getURL()) ? FIREFOX_UA : CHROME_UA);
+    const setUA = targetUrl => {
+      const u = targetUrl || (w.webContents ? w.webContents.getURL() : "");
+      const ua = isGoogleAuth(u) ? FIREFOX_UA : CHROME_UA;
+      if (w.webContents && w.webContents.getUserAgent() !== ua) w.webContents.setUserAgent(ua);
+    };
+    setUA();
+    if (w.webContents) w.webContents.on("did-start-navigation", d => { if (d.isMainFrame) setUA(d.url); });
   });
 });
 // Watchdog: if Daybook's background service stops answering (crash, killed), start it again and
@@ -971,8 +1006,18 @@ app.whenReady().then(async () => {
     }
   ]);
   Menu.setApplicationMenu(appMenu);
-  // mic + screen capture + clipboard read/write for voice/video notes and editing
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(["media", "display-capture", "clipboard-sanitized-write", "clipboard-read", "notifications", "fullscreen"].includes(perm)));
+  session.defaultSession.webRequest.onHeadersReceived((d, cb) => {
+    const rh = d.responseHeaders || {};
+    for (const k of Object.keys(rh)) {
+      const lk = k.toLowerCase();
+      if (lk === "x-frame-options") delete rh[k];
+      else if (lk === "content-security-policy") {
+        rh[k] = rh[k].map(c => c.replace(/frame-ancestors\s+[^;]+;?/gi, ""));
+      }
+    }
+    cb({responseHeaders: rh});
+  });
   setupDownloads(session.defaultSession);
   session.defaultSession.setDisplayMediaRequestHandler(async (req, cb) => {
     const sources = await desktopCapturer.getSources({types: ["screen", "window"], thumbnailSize: {width: 0, height: 0}});

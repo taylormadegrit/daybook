@@ -53,7 +53,10 @@ async function bwFocus(h) { await api("/api/dock/focus", {method: "POST", body: 
 // Tell the dock where the stage is. Docked windows are real windows on top of Daybook, so they hide
 // whenever a menu, dialog or search is open, or you're on another page.
 function dockSync(force) {
-  if (window.desktop) return bdSync(force);
+  if (window.desktop) {
+    if (S.view === "apps" && typeof awSync === "function") return awSync(force);
+    return bdSync(force);
+  }
   const st = $("#bw-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || (H && H.editing);
   const visible = S.view === "browser" && st && !overlay && document.visibilityState === "visible";

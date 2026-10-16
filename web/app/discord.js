@@ -13,8 +13,19 @@ async function discordSend(kind, ref, fmt) {
       <div class="muted small" style="margin-top:6px">${mb > 9.5 ? info.media ? "Bigger than the free 10 MB webhook limit — Daybook will compress it to fit if your server needs it." : "Over 10 MB: only servers with boosts accept this by webhook. If it fails, use the Discord app option." : "Sends straight into the channel."}</div>
       <div class="row" style="margin-top:14px"><button class="btn pri" id="dc-go" onclick="dcGo(${JSON.stringify(kind).replace(/"/g, "&quot;")},${JSON.stringify(ref).replace(/"/g, "&quot;")},'${fmt || "txt"}')">${ic("send")}Send</button>`
     : `<div class="obs-card" style="margin-top:12px"><b>Connect a Discord channel (one time)</b><p class="muted small">In Discord: channel ⚙ Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL. Then paste it in Settings → Discord.</p><button class="btn" onclick="closeModal();go('settings');setTimeout(()=>$('#discordset').scrollIntoView({behavior:'smooth'}),300)">Open Discord settings</button></div><div class="row" style="margin-top:14px">`}
-      <button class="btn" ${info.nitro_ok ? "" : "disabled"} title="Copies the file and opens Discord — paste it (Ctrl+V) into any chat or DM. Uses your account's limit: 10 MB free, 500 MB with Nitro." onclick="dcGo(${JSON.stringify(kind).replace(/"/g, "&quot;")},${JSON.stringify(ref).replace(/"/g, "&quot;")},'${fmt || "txt"}','app')">${ic("copy")}Copy & open Discord app</button></div>
-    <div class="muted small" style="margin-top:8px">“Copy & open Discord app” works for anything up to 500 MB with Nitro — paste with Ctrl+V into any chat or DM.</div>`);
+      <button class="btn pri" onclick="dcSendToAppWrapper(${JSON.stringify(kind).replace(/"/g, "&quot;")},${JSON.stringify(ref).replace(/"/g, "&quot;")},'${fmt || "txt"}')">${ic("send")}Open in Daybook Discord &amp; Paste</button>
+      <button class="btn" ${info.nitro_ok ? "" : "disabled"} title="Copies the file and opens Discord desktop app — paste with Ctrl+V into any chat or DM." onclick="dcGo(${JSON.stringify(kind).replace(/"/g, "&quot;")},${JSON.stringify(ref).replace(/"/g, "&quot;")},'${fmt || "txt"}','app')">${ic("copy")}Copy &amp; Open Desktop App</button></div>
+    <div class="muted small" style="margin-top:8px">Use your personal Discord account or any public server. Paste directly with Ctrl+V into any DM or channel.</div>`);
+}
+async function dcSendToAppWrapper(kind, ref, fmt) {
+  try {
+    await api("/api/discord/send", {method: "POST", body: {kind, ref, fmt, mode: "app"}});
+    closeModal();
+    go("apps", "discord");
+    toast("✓ Copied to clipboard! Switched to Discord — press Ctrl+V to paste");
+  } catch (e) {
+    toast(e.message);
+  }
 }
 async function dcGo(kind, ref, fmt, mode) {
   const b = $("#dc-go"); const hook = $("#dc-h") ? +$("#dc-h").value : 0; store.set("daybook-dc-hook", String(hook));
