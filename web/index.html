@@ -608,8 +608,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <button class="set-pill" data-sec="set-sec-privacy" onclick="setJump('set-sec-privacy')"><svg class="i sm" data-i="globe"></svg>Browser</button>
           <button class="set-pill" data-sec="set-sec-discord" onclick="setJump('set-sec-discord')"><svg class="i sm" data-i="send"></svg>Discord</button>
           <button class="set-pill" data-sec="set-sec-voice" onclick="setJump('set-sec-voice')"><svg class="i sm" data-i="mic"></svg>Voice</button>
-          <button class="set-pill" data-sec="set-sec-ai-stack" onclick="setJump('set-sec-ai-stack')"><svg class="i sm" data-i="zap"></svg>AI Stack</button>
           <button class="set-pill" data-sec="claudecard" onclick="setJump('claudecard')"><svg class="i sm" data-i="spark"></svg>Claude</button>
+          <button class="set-pill" data-sec="set-sec-ai-guide" onclick="setJump('set-sec-ai-guide')"><svg class="i sm" data-i="spark"></svg>AI &amp; Laptops</button>
+          <button class="set-pill" data-sec="set-sec-ai-stack" onclick="setJump('set-sec-ai-stack')"><svg class="i sm" data-i="zap"></svg>AI Stack</button>
           <button class="set-pill" data-sec="set-sec-ai" onclick="setJump('set-sec-ai')"><svg class="i sm" data-i="spark"></svg>AI Exporter</button>
           <button class="set-pill" data-sec="set-sec-apps" onclick="setJump('set-sec-apps')"><svg class="i sm" data-i="send"></svg>LocalSend &amp; Apps</button>
           <button class="set-pill" data-sec="set-sec-general" onclick="setJump('set-sec-general')"><svg class="i sm" data-i="home"></svg>General</button>
@@ -658,19 +659,64 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
         <div id="voiceset"></div>
       </div>
 
+      <!-- AI Hardware & Laptop Guide Card -->
+      <div class="card" id="set-sec-ai-guide" style="margin-bottom:18px">
+        <h3><svg class="i sm" data-i="spark"></svg>AI Setup &amp; Beginner Hardware Guide</h3>
+        <div class="ai-guide-banner">
+          <div class="ag-icon">💻</div>
+          <div class="ag-text">
+            <div class="ag-title">Running Daybook on a Laptop or Clean Windows Install?</div>
+            <div class="ag-desc">
+              Heavy local models can strain laptop CPUs, heat up your machine, and drain battery. <b>Daybook gives you the best of both worlds:</b>
+              use <b>Google Gemini (Free) &amp; Claude</b> for instant cloud responses with <b>zero hardware requirements</b>,
+              or lightweight <b>1.5B local models</b> for offline privacy.
+            </div>
+          </div>
+        </div>
+        <div class="ag-grid">
+          <div class="ag-col">
+            <div class="ag-badge free">Recommended for Laptops</div>
+            <h4><span class="t-ico" style="color:#38bdf8">✦</span>Google Gemini (Cloud)</h4>
+            <p>Runs in the cloud with zero GPU required. Fast, free, and works out of the box in Chat and in-app web apps without downloading gigabytes of models.</p>
+            <div class="row" style="gap:6px;margin-top:auto">
+              <button class="btn sm pri" onclick="go('apps');awSwitch('gemini')"><svg class="i sm" data-i="ext"></svg>Open Gemini in Daybook</button>
+              <button class="btn sm ghost" onclick="go('chat')">Chat Section</button>
+            </div>
+          </div>
+          <div class="ag-col">
+            <div class="ag-badge pri">Autonomous AI Coding</div>
+            <h4><span class="t-ico" style="color:#d97757">✳</span>Claude Code CLI</h4>
+            <p>Anthropic's autonomous coding tool. Daybook installs Node.js LTS and Claude Code CLI in 1 click with zero configuration.</p>
+            <div class="row" style="gap:6px;margin-top:auto">
+              <button class="btn sm pri" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>1-Click Install</button>
+              <button class="btn sm ghost" onclick="go('apps');awSwitch('claude')">Web Claude</button>
+            </div>
+          </div>
+          <div class="ag-col">
+            <div class="ag-badge neutral">100% Offline &amp; Private</div>
+            <h4><span class="t-ico" style="color:#3ee0a0">◆</span>Local AI (Ollama)</h4>
+            <p>Runs locally on this PC. For laptops, Daybook selects lightweight <b>1.5B models</b> (~1 GB) so your laptop stays cool.</p>
+            <div class="row" style="gap:6px;margin-top:auto">
+              <button class="btn sm" onclick="go('models')"><svg class="i sm" data-i="spark"></svg>Browse Models</button>
+              <button class="btn sm ghost" onclick="pullQuickModel('qwen2.5:1.5b')">Pull 1.5B Model</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Claude Card -->
       <div class="card" id="claudecard" style="margin-bottom:18px">
-        <h3><svg class="i sm" data-i="spark"></svg>Claude</h3>
+        <h3><svg class="i sm" data-i="spark"></svg>Claude Code &amp; Desktop Integration<button class="btn sm pri" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>1-Click Install Claude + Node</button></h3>
         <div id="claude"></div>
       </div>
 
       <!-- 1-Click AI Stack Installer Card -->
       <div class="card" id="set-sec-ai-stack" style="margin-bottom:18px">
         <h3><svg class="i sm" data-i="zap"></svg>1-Click AI Stack (Claude Code + Ollama + Node)<button class="btn sm pri" onclick="runAIStackInstaller()">Install / Verify Now</button></h3>
-        <p class="muted small">Effortlessly install Node.js LTS, Claude Code CLI, and Ollama with default local models for Windows with zero command line struggle.</p>
+        <p class="muted small">Effortlessly install Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama with hardware-optimized models for Windows with zero command line struggle.</p>
         <div class="row" style="gap:8px;margin-top:10px">
           <button class="btn sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>Launch 1-Click Installer</button>
-          <button class="btn sm ghost" onclick="go('chat');termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal</button>
+          <button class="btn sm ghost" onclick="go('chat');termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal (Ctrl+\`)</button>
         </div>
       </div>
 
@@ -727,9 +773,16 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <div class="srow"><div class="d"><b>Wake PC at 2:58 AM</b><span>Windows task <code>LocalRemindersWakeUp</code> — so the 3 AM alarm fires from sleep</span></div><span class="badge">On</span></div>
         </div>
 
-        <div class="card" id="set-sec-ai-models"><h3><svg class="i sm" data-i="spark"></svg>Local AI</h3>
+        <div class="card" id="set-sec-ai-models"><h3><svg class="i sm" data-i="spark"></svg>Local AI &amp; Models</h3>
           <div class="srow"><div class="d"><b>Model for reminders &amp; notes</b><span>Reads plain English and organizes notes</span></div><select class="f" data-s="ai_model" id="s-aimodel"></select></div>
           <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
+          <div class="srow"><div class="d"><b>1-Click Model Download</b><span>Pre-tested models matched to your machine</span></div>
+            <div class="row" style="gap:6px;flex-wrap:wrap">
+              <button class="btn sm" onclick="pullQuickModel('qwen2.5:1.5b')" title="Ultra-fast on laptop CPUs (~1 GB)"><span class="badge" style="color:var(--ok)">Laptop</span> qwen2.5:1.5b</button>
+              <button class="btn sm" onclick="pullQuickModel('llama3.2:1b')" title="Lightweight Llama model (~0.8 GB)"><span class="badge">CPU</span> llama3.2:1b</button>
+              <button class="btn sm" onclick="pullQuickModel('qwen2.5:7b')" title="Standard 7B model for GPUs (~4.7 GB)"><span class="badge">GPU</span> qwen2.5:7b</button>
+            </div>
+          </div>
           <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>
         </div>
 
@@ -1234,13 +1287,15 @@ async function chatHero() {
   const nodeOk = stack && stack.node && stack.node.installed;
   const claudeOk = stack && stack.claude && stack.claude.installed;
   const ollamaOk = stack && stack.ollama && stack.ollama.installed && stack.ollama.running;
+  const geminiOk = stack && stack.gemini && stack.gemini.installed;
   const stackReady = nodeOk && claudeOk && ollamaOk;
 
   const setupHTML = stackReady ? `
-    <div class="row" style="gap:8px;margin:12px 0 16px;justify-content:center">
+    <div class="row" style="gap:8px;margin:12px 0 16px;justify-content:center;flex-wrap:wrap">
       <span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)"><svg class="i sm" data-i="check"></svg>Claude &amp; Ollama Ready</span>
       <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Terminal (Ctrl+\`)</button>
       <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code</button>
+      <button class="btn sm" onclick="termNew('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Gemini CLI</button>
       <button class="btn sm" onclick="termNew('ollama')"><span class="t-ico" style="color:#3ee0a0">◆</span>Ollama</button>
       <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Tour</button>
     </div>
@@ -1252,13 +1307,16 @@ async function chatHero() {
         <div class="sp"></div>
         <span class="csc-chip ${nodeOk ? 'ok' : 'missing'}">Node.js: ${nodeOk ? '✓ ' + (stack.node.version || 'installed') : 'Missing'}</span>
         <span class="csc-chip ${claudeOk ? 'ok' : 'missing'}">Claude Code: ${claudeOk ? '✓ Ready' : 'Missing'}</span>
+        <span class="csc-chip ${geminiOk ? 'ok' : 'missing'}">Gemini CLI: ${geminiOk ? '✓ Ready' : 'Missing'}</span>
         <span class="csc-chip ${ollamaOk ? 'ok' : 'missing'}">Ollama: ${ollamaOk ? '✓ Active' : 'Missing'}</span>
       </div>
-      <p>Instantly download and configure Node.js LTS, Claude Code CLI, and Ollama with starter models for Windows. Zero command line struggle.</p>
-      <div class="csc-actions">
-        <button class="btn pri sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>⚡ 1-Click Install (Claude + Ollama + Node)</button>
+      <p>Instantly download and configure Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama with hardware-optimized models for Windows. Zero command line struggle.</p>
+      <div class="csc-actions" style="flex-wrap:wrap">
+        <button class="btn pri sm" onclick="runAIStackInstaller()"><svg class="i sm" data-i="zap"></svg>⚡ 1-Click Install AI Stack</button>
+        <button class="btn sm" onclick="go('apps');awSwitch('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Open Gemini (Cloud AI)</button>
+        <button class="btn sm" onclick="pullQuickModel('qwen2.5:1.5b')"><span class="t-ico" style="color:var(--ok)">◆</span>1.5B Laptop Model</button>
         <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Open Terminal <span class="kbd" style="font-size:10px">Ctrl + \`</span></button>
-        <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Terminal &amp; App Tour</button>
+        <button class="btn sm ghost" onclick="tourStart(6)"><svg class="i sm" data-i="help"></svg>Tour</button>
       </div>
     </div>
   `;
@@ -1268,6 +1326,7 @@ async function chatHero() {
       <div class="ctg-bar">
         <button class="btn sm" onclick="termToggle(true)"><span class="t-ico">&gt;_</span>Open Terminal <span class="kbd">Ctrl + \`</span></button>
         <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code CLI</button>
+        <button class="btn sm" onclick="termNew('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Gemini CLI</button>
         <button class="btn sm" onclick="termNew('ollama')"><span class="t-ico" style="color:#3ee0a0">◆</span>Local Ollama Shell</button>
         <button class="btn sm" onclick="termWork(true)"><span class="t-ico">◒</span>Workspace View</button>
         <div class="sp"></div>
@@ -1280,11 +1339,11 @@ async function chatHero() {
         </div>
         <div class="ctg-tip">
           <div class="ctg-num">2</div>
-          <div class="ctg-text"><b>Paste Code with 1 Click</b>Whenever AI writes code or scripts, click <b>Paste into terminal</b> above the code block to send it right into your active shell.</div>
+          <div class="ctg-text"><b>Clean Laptop or No GPU?</b>Use <b>Google Gemini</b> in Chat or In-App Web Apps for instant responses with zero heat. For local models, Daybook picks lightweight 1.5B models.</div>
         </div>
         <div class="ctg-tip">
           <div class="ctg-num">3</div>
-          <div class="ctg-text"><b>Split Panes &amp; IDE</b>Press <span class="kbd">Ctrl+Shift+D</span> to split terminals side-by-side (run tests on the left, Claude on the right) or click <b>Workspace View</b>.</div>
+          <div class="ctg-text"><b>Paste Code with 1 Click</b>Whenever AI writes code or scripts, click <b>Paste into terminal</b> above the code block to send it right into your active shell.</div>
         </div>
       </div>
     </div>
@@ -1470,6 +1529,15 @@ async function removeModel(btn, name) {
   try { await api("/api/models/" + encodeURIComponent(name), {method: "DELETE"}); toast("Removed " + name); S.models = []; await renderInstalled(); drawRecs(); } catch (e) { toast("⚠ " + e.message); }
 }
 async function useModel(name) { S.models = []; go("chat"); setTimeout(() => { $("#model").value = name; newChat(); }, 400); }
+async function pullQuickModel(name) {
+  go("models");
+  toast("Downloading " + name + " for local AI…");
+  const dummy = document.createElement("button");
+  dummy.textContent = "Installing " + name;
+  const host = $("#installed") || document.body;
+  if (host.firstChild) host.insertBefore(dummy, host.firstChild); else host.appendChild(dummy);
+  installModel(dummy, name);
+}
 
 // ================= THEMES =================
 const THEMES = [["aurora", "Aurora", "Violet & ice blue", "#0a0b10", "#8b7bff", "#4fd1ff", "#ff7ac6"],
@@ -1672,15 +1740,51 @@ async function renderSettings() {
 }
 async function renderClaude() {
   const c = await api("/api/claude");
+  const nodeChip = c.node && c.node.installed 
+    ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">✓ Node.js LTS: ${esc(c.node.version || 'Ready')}</span>`
+    : `<span class="badge" style="color:var(--warn);border-color:rgba(255,180,50,.4)">⚠ Node.js missing (1-Click will auto-install)</span>`;
+  const gemChip = c.gemini && c.gemini.installed
+    ? `<span class="badge" style="color:#38bdf8;border-color:rgba(56,189,248,.4)">✓ Gemini CLI: ${esc(c.gemini.version || 'Ready')}</span>`
+    : ``;
+  const hwChip = c.hardware && c.hardware.laptop_mode
+    ? `<span class="badge" style="color:var(--accent);border-color:rgba(180,120,255,.4)">💻 Laptop Profile (${c.hardware.ram_gb || 8} GB RAM · Cloud AI Recommended)</span>`
+    : c.hardware ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">⚡ Desktop Profile (${c.hardware.ram_gb || 16} GB RAM)</span>` : ``;
+
   const box = (title, sub, inst, conn, target, desc) => `<div class="clb"><div class="clmark">${ic("spark", "i")}</div>
     <div class="d"><b>${title}</b><span>${inst ? (conn ? "Connected — Claude can use your reminders, schedule and notes" : desc) : "Not installed on this PC"}${sub ? " · " + sub : ""}</span></div>
-    ${!inst ? `<a class="btn pri" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a>`
+    ${!inst ? (target === "code" 
+        ? `<div class="row" style="gap:6px"><button class="btn pri sm" onclick="runAIStackInstaller()">${ic("zap")}⚡ 1-Click Install</button><a class="btn ghost sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Manual</a></div>`
+        : `<a class="btn pri sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a>`)
       : conn ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}Connected</span><button class="btn ghost sm" onclick="claudeAct('disconnect','${target}')">Disconnect</button>`
-      : `<button class="btn pri" onclick="claudeAct('connect','${target}')">${ic("zap")}Connect</button>`}</div>`;
-  $("#claude").innerHTML = `<div class="cl">${box("Claude Code", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook")}
+      : `<button class="btn pri sm" onclick="claudeAct('connect','${target}')">${ic("zap")}Connect</button>`}</div>`;
+
+  const beginnerGuide = `
+    <div class="card" style="background:rgba(255,255,255,.025);border:1px solid var(--line2);padding:14px;margin-top:14px">
+      <div class="row" style="gap:8px;margin-bottom:6px">
+        <span class="badge pri">Zero-Struggle AI Guide</span>
+        <b>How to use Claude &amp; Gemini on this PC</b>
+      </div>
+      <ol class="step-list" style="margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6">
+        <li><b>1-Click Install:</b> Click <b>⚡ 1-Click Install Claude Code</b>. Daybook automatically installs Node.js LTS, Claude Code CLI, Gemini CLI, and Ollama without any command line headache or admin permission errors.</li>
+        <li><b>1-Click Connect:</b> Click <b>Connect</b> above so Claude Code can automatically access your Daybook reminders, calendar, and notes.</li>
+        <li><b>Login &amp; Code:</b> Press <span class="kbd">Ctrl + \`</span> to open the built-in terminal, type <code>claude login</code> once, and hit Enter. Afterwards, just type <code>claude</code> to write and test code autonomously!</li>
+        <li><b>On a Laptop without a GPU?</b> Open <b>Gemini (Cloud)</b> in Chat or In-App Web Apps (<span class="kb">Alt A</span>) for instant cloud AI with zero laptop heat or battery drain.</li>
+      </ol>
+    </div>
+  `;
+
+  $("#claude").innerHTML = `
+    <div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      ${nodeChip}
+      ${gemChip}
+      ${hwChip}
+      <button class="btn sm" onclick="runAIStackInstaller()">${ic("zap")}Re-run Installer / Check</button>
+    </div>
+    <div class="cl">${box("Claude Code CLI", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook")}
     ${box("Claude app (desktop)", "", c.desktop.installed, c.desktop.connected, "desktop", "Installed — connect it to Daybook")}</div>
-    <div class="muted small" style="margin-top:10px">Once connected, just ask Claude: “remind me Friday at 3pm to send the invoice”, “what's on my schedule tomorrow?”, “find my notes about the SDVCC meeting”.
-    ${!c.code.installed || !c.desktop.installed ? `Don't have Claude? <a href="${c.get_url}" target="_blank" rel="noopener">Get the easy Claude download</a>.` : ""}</div>`;
+    <div class="muted small" style="margin-top:10px">Once connected, just ask Claude: “remind me Friday at 3pm to send the invoice”, “what's on my schedule tomorrow?”, “find my notes about the SDVCC meeting”.</div>
+    ${beginnerGuide}
+  `;
   setClaudeStatus(c);
 }
 function setClaudeStatus(c) {
@@ -1704,6 +1808,13 @@ const HELP = [
   ["browser", "Browser — your profiles inside Daybook", `<p><b>Browser</b> (<span class="kb">Alt B</span>) docks real browser windows inside Daybook — the same Chrome, Edge, Brave or Comet with your profiles, tabs, extensions and logins. Press <b>Open profile</b> (or a profile on the Launchpad) and it slides into place; open more and they split the space evenly. Pick <b>Columns, Rows, Grid</b> or <b>Focus</b> (one big + the rest stacked). <b>Dock a window</b> pulls in a browser window you already have open; the ↗ button gives one back to the desktop. Docked windows move and minimize with Daybook and tuck away when you switch pages.</p>`],
   ["sidebar", "Customize the sidebar", `<p>Press <b>Customize sidebar</b> (bottom of the sidebar, or Settings → Layout): drag pages into any order, switch pages on or off, and put the bar on the <b>left, right, top or bottom</b>. Alt + number shortcuts follow your order.</p>`],
   ["studio", "AI Studio", `<p><b>AI Studio</b> (<span class="kb">Alt I</span>) uses the AI models already on this PC. <b>Images</b>: describe it, pick a style (Photo, Thumbnail, Anime, Logo…) and a shape, press Create — SDXL-Turbo makes it on your graphics card in seconds, free and private. <b>My voice</b>: type text and it's spoken in a cloned voice (the XTTS model from your Ori Brazil project) using one of your voice samples or any voice memo. Chat and Models are one click away. Everything saves to <code>D:\\Daybook\\Creations</code>; the GPU is freed after 10 idle minutes.</p>`],
+  ["ai", "AI: Gemini, Claude Code & Local Models", `<p><b>Zero-struggle AI setup</b>: Daybook supports three kinds of AI tailored to any Windows PC or laptop:</p>
+    <ol>
+      <li><b>Google Gemini (Cloud AI · Free):</b> Perfect for clean laptops or PCs without a dedicated GPU. Instant responses, zero gigabytes of model downloads, and zero battery drain. Use in Chat or in-app Web Apps (<span class="kb">Alt A</span>).</li>
+      <li><b>Claude Code CLI:</b> Anthropic's autonomous coding tool. Go to <b>Settings → Claude</b> or <b>Chat</b> and click <b>1-Click Install</b> — Daybook automatically installs Node.js LTS and Claude Code CLI with zero command-line headaches. Open the terminal with <span class="kb">Ctrl + \`</span>, type <code>claude login</code>, and start coding.</li>
+      <li><b>Local AI (Ollama):</b> 100% private and offline on your machine. For laptops, Daybook automatically pulls lightweight <b>1.5B models</b> (~1 GB) so your machine stays cool and quiet. For desktop PCs with Nvidia GPUs, use 7B+ models.</li>
+    </ol>
+    <p><b>Terminal Tips:</b> Press <span class="kb">Ctrl + \`</span> anywhere to toggle the built-in terminal. Split terminals with <span class="kb">Ctrl+Shift+D</span> to run Claude alongside your tests or dev server.</p>`],
   ["games", "Games", `<p>Launchpad → <b>Games</b> shows every installed Steam and Epic game with its cover art. Play launches it through Steam or Epic with your account. Offline: Steam → <i>Go Offline…</i> once while online; Epic remembers games you've launched online; “Play offline (direct)” starts an Epic game's own .exe. <b>Free & open-source games</b> download from each project's official GitHub releases into <code>D:\\Games\\Daybook</code> — one click to download, one to play.</p>`],
   ["folders", "Folders & workflows", `<p>Launchpad → <b>Folders</b>: pin the folders you open every day (the Windows picker or one-click suggestions), browse them right inside Daybook, open or reveal files, and send any file to Discord. <b>Workflows</b> open a whole set at once — e.g. “Editing” = your recordings folder + CapCut + YouTube Studio in the right Chrome profile.</p>`],
   ["discord", "Discord", `<p>Settings → <b>Discord</b>: paste a channel webhook (Edit Channel → Integrations → Webhooks → New Webhook → Copy URL). Then <b>Discord</b> buttons on notes (as .txt or PDF), voice & video notes, images, annotations and files send straight to that channel. Webhooks follow the server's upload limit (10 MB, or 50/100 MB with boosts); big audio/video is compressed to fit. For anything up to <b>500 MB with Nitro</b>, use <b>Copy & open Discord app</b> and paste it into any chat.</p>`],

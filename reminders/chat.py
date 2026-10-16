@@ -216,8 +216,10 @@ def model_list(include_claude=True):
     if include_claude and claude_cli():
         local += [{"name": f"claude:{k}", "label": label, "params": "Claude", "tools": True, "vision": False, "cloud": True}
                   for k, label in CLAUDE_MODELS]
-    if include_claude and gemini_cli():
-        local += [{"name": "gemini:default", "label": "Gemini — your Google account", "params": "Gemini", "tools": False, "vision": False, "cloud": True}]
+    if include_claude and (gemini_cli() or os.environ.get("GEMINI_API_KEY") or _user_env("GEMINI_API_KEY")):
+        local += [{"name": "gemini:default", "label": "Gemini — Cloud AI (Free, Fast)", "params": "Gemini", "tools": False, "vision": False, "cloud": True}]
+    if not local and include_claude:
+        local = [{"name": "gemini:default", "label": "Gemini — Cloud AI (Zero GPU Needed)", "params": "Gemini", "tools": False, "vision": False, "cloud": True}]
     return local
 
 
@@ -226,12 +228,8 @@ GEMINI_TIMEOUT_S = 300  # a stuck CLI (waiting for sign-in, network…) is stopp
 
 
 def gemini_cli():
-    import shutil
-    for c in (shutil.which("gemini"), r"D:\Applications\gemini-cli\gemini.cmd", os.path.join(os.environ.get("APPDATA", ""), "npm", "gemini.cmd"),
-              os.path.join(os.environ.get("LOCALAPPDATA", ""), "Daybook-tools", "gemini-cli", "gemini.cmd")):
-        if c and os.path.exists(c):
-            return c
-    return None
+    from . import claude_link
+    return claude_link._gemini_exe()
 
 
 def generate_gemini(cid):
@@ -300,11 +298,8 @@ PROCS = {}
 
 
 def claude_cli():
-    import shutil
-    for c in (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude.exe"), os.path.join(os.environ.get("APPDATA", ""), "npm", "claude.cmd")):
-        if c and os.path.exists(c):
-            return c
-    return None
+    from . import claude_link
+    return claude_link._claude_exe()
 
 
 def generate_claude(cid):

@@ -789,7 +789,15 @@ const terms = new Map();                               // id → session {pty, o
 const TERM_LOG = 400000;                               // characters of recent output kept per session (for reattach)
 let termSeq = 1;
 function whichExe(name) {
-  const dirs = (process.env.PATH || "").split(";").filter(Boolean).concat([path.join(TOOLS_DIR, "gemini-cli"), path.join(require("os").homedir(), ".local", "bin")]);
+  const homedir = require("os").homedir();
+  const dirs = (process.env.PATH || "").split(";").filter(Boolean).concat([
+    path.join(TOOLS_DIR, "gemini-cli"),
+    path.join(homedir, ".local", "bin"),
+    path.join(homedir, ".claude", "bin"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs"),
+    path.join(process.env.APPDATA || "", "npm"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama")
+  ]);
   for (const d of dirs) for (const ext of ["", ".exe", ".cmd", ".bat"]) { const f = path.join(d, name + ext); try { if (fs.statSync(f).isFile()) return f; } catch {} }
   return null;
 }
@@ -818,9 +826,12 @@ function termProfiles() {
 function termCommand(prof, opts) {
   const ps = prof._ps, q = s => "'" + String(s).replace(/'/g, "''") + "'";
   const inPs = cmd => [ps, ["-NoLogo", "-NoExit", "-Command", cmd]];          // tool runs, you stay in a shell after it ends
-  const AI_STACK_SCRIPT = app.isPackaged
-    ? path.join(process.resourcesPath || "", "backend", "install-ai-stack.ps1")
-    : path.join(DEV_ROOT, "install-ai-stack.ps1");
+  let AI_STACK_SCRIPT = path.join(DEV_ROOT, "install-ai-stack.ps1");
+  if (app.isPackaged) {
+    const p1 = path.join(process.resourcesPath || "", "backend", "install-ai-stack.ps1");
+    const p2 = path.join(process.resourcesPath || "", "backend", "_internal", "install-ai-stack.ps1");
+    AI_STACK_SCRIPT = fs.existsSync(p1) ? p1 : (fs.existsSync(p2) ? p2 : p1);
+  }
   switch (prof.id) {
     case "cmd": return ["cmd.exe", []];
     case "bash": return [prof._bash, ["--login", "-i"]];
@@ -829,7 +840,7 @@ function termCommand(prof, opts) {
     case "claude": return prof._claude ? inPs(`& ${q(prof._claude)}`)
       : inPs(`Write-Host 'Claude Code CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Claude Code...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "gemini": return prof._gemini ? inPs(`& ${q(prof._gemini)}`)
-      : inPs(`Write-Host 'Installing Gemini CLI into ${TOOLS_DIR}\\gemini-cli (one time)...' -ForegroundColor Cyan; npm install -g --prefix ${q(path.join(TOOLS_DIR, "gemini-cli"))} @google/gemini-cli@${GEMINI_CLI_VERSION}; if ($?) { & ${q(path.join(TOOLS_DIR, "gemini-cli", "gemini.cmd"))} }`);
+      : inPs(`Write-Host 'Gemini CLI is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Node.js and Gemini CLI...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`)
       : inPs(`Write-Host 'Ollama is not installed.' -ForegroundColor Yellow; Write-Host 'Running 1-Click AI Stack Installer to set up Ollama and models...' -ForegroundColor Cyan; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${q(AI_STACK_SCRIPT)}`);
     case "emacs": return [prof._emacs, ["-nw"]];
