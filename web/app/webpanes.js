@@ -203,6 +203,7 @@ async function bdAdblock(toggle) {
 }
 function bdMarkFocus() { $$(".bd-pane").forEach(e => e.classList.toggle("on", +e.dataset.id === BD.focus)); $$(".bd-tab").forEach(e => e.classList.toggle("on", e.getAttribute("onclick") === `bdFocus(${BD.focus})`)); }
 function bdSync(force) {
+  if (!window.desktop || !desktop.browser) return;  // plain browser (phone / LAN): no native panes
   const st = $("#bd-stage");
   const overlay = $("#scrim").classList.contains("on") || $$(".menu.on").length > 0 || !!$(".dict.on");
   const anyFull = (BD.panes || []).some(p => p.full);

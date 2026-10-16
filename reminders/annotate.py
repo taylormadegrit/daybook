@@ -16,6 +16,8 @@ except Exception:
 
 from PIL import Image, ImageDraw, ImageFont, ImageGrab, ImageTk  # noqa: E402
 
+from .winlist import get_window_box, get_window_title  # noqa: E402
+
 def _declare_setwindowpos():
     """HWND_TOPMOST is -1: it must be passed pointer-sized or 64-bit Windows misreads it."""
     import ctypes
@@ -34,110 +36,6 @@ SIZES = [3, 6, 12]
 TOOLS = [("pen", "✎", "Pen (P)"), ("hl", "▬", "Highlighter (H)"), ("arrow", "➚", "Arrow (A)"), ("rect", "▭", "Box (B)"),
          ("oval", "◯", "Circle (C)"), ("text", "T", "Text (T)"), ("erase", "⌫", "Eraser (E)")]
 BG, PANEL, FG, MUTED, ACCENT = "#14161f", "#1d2030", "#eceef4", "#8a90a3", "#8b7bff"
-
-
-def get_window_box(hwnd):
-    if not hwnd or sys.platform != "win32":
-        return None
-    try:
-        dwmapi = ctypes.windll.dwmapi
-        DWMWA_EXTENDED_FRAME_BOUNDS = 9
-        r = wintypes.RECT()
-        res = dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, ctypes.byref(r), ctypes.sizeof(r))
-        if res == 0:
-            return (r.left, r.top, r.right, r.bottom)
-        u32.GetWindowRect(hwnd, ctypes.byref(r))
-        return (r.left, r.top, r.right, r.bottom)
-    except Exception:
-        return None
-
-
-def get_window_title(hwnd):
-    if not hwnd or sys.platform != "win32":
-        return ""
-    try:
-        l = u32.GetWindowTextLengthW(hwnd)
-        if l == 0:
-            return ""
-        buf = ctypes.create_unicode_buffer(l + 1)
-        u32.GetWindowTextW(hwnd, buf, l + 1)
-        return buf.value.strip()
-    except Exception:
-        return ""
-
-
-def get_open_windows():
-    if sys.platform != "win32":
-        return []
-    try:
-        hWinSta0 = u32.OpenWindowStationW("WinSta0", False, 0x0000037F)
-        if hWinSta0:
-            u32.SetProcessWindowStation(hWinSta0)
-        hDesk = u32.OpenDesktopW("default", 0, False, 0x000001FF)
-        if hDesk:
-            u32.SetThreadDesktop(hDesk)
-
-        all_h = []
-        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HWND, wintypes.LPARAM)
-        def cb(h, lp):
-            all_h.append(h)
-            return 1
-
-        cb_inst = WNDENUMPROC(cb)
-        if hDesk:
-            u32.EnumDesktopWindows(hDesk, cb_inst, 0)
-        else:
-            u32.EnumWindows(cb_inst, 0)
-
-        apps = []
-        ignored_classes = {
-            "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd",
-            "Windows.UI.Core.CoreWindow", "TopLevelWindowForOverflowXamlIsland",
-            "IME", "MSCTFIME UI", "TaskListThumbnailWnd"
-        }
-
-        for h in all_h:
-            if not u32.IsWindowVisible(h):
-                continue
-            ex = u32.GetWindowLongW(h, -20)
-            if ex & 0x00000080:  # WS_EX_TOOLWINDOW
-                continue
-            len_ = u32.GetWindowTextLengthW(h)
-            if len_ == 0:
-                continue
-            buf = ctypes.create_unicode_buffer(len_ + 1)
-            u32.GetWindowTextW(hwnd := h, buf, len_ + 1)
-            title = buf.value.strip()
-            if not title:
-                continue
-
-            cbuf = ctypes.create_unicode_buffer(256)
-            u32.GetClassNameW(h, cbuf, 256)
-            cls = cbuf.value
-            if cls in ignored_classes:
-                continue
-
-            r = wintypes.RECT()
-            u32.GetWindowRect(h, ctypes.byref(r))
-            w = r.right - r.left
-            ht = r.bottom - r.top
-            if w < 160 or ht < 100:
-                continue
-
-            if u32.GetWindow(h, 4):  # GW_OWNER
-                continue
-
-            apps.append({
-                "hwnd": int(h),
-                "title": title,
-                "class": cls,
-                "width": w,
-                "height": ht,
-                "rect": [r.left, r.top, r.right, r.bottom]
-            })
-        return apps
-    except Exception:
-        return []
 
 
 def monitors():

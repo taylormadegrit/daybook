@@ -90,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.7.8"
+VERSION = "1.7.9"
 
 
 @app.get("/chat")
@@ -297,8 +297,8 @@ def annotation_file(name):
 
 @app.get("/api/windows/list")
 def windows_list():
-    from . import annotate
-    return jsonify(windows=annotate.get_open_windows())
+    from . import winlist
+    return jsonify(windows=winlist.get_open_windows())
 
 
 @app.post("/api/annotate")

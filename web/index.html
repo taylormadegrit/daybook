@@ -1361,7 +1361,7 @@ function chatHero() {
 
   const setupHTML = `
     <div class="row" style="gap:8px;margin:12px 0 16px;justify-content:center;flex-wrap:wrap">
-      <span class="badge" id="chat-stack-badge" style="color:var(--ok);border-color:rgba(62,224,160,.4);cursor:pointer" onclick="runAIStackInstaller()" title="Claude &amp; Ollama Ready (Click to launch 1-Click AI Stack Installer)"><svg class="i sm" data-i="check"></svg>Claude &amp; Ollama Ready</span>
+      <span class="badge" id="chat-stack-badge" style="color:var(--muted);cursor:pointer" onclick="runAIStackInstaller()" title="Checking which AI tools are installed…">Checking AI tools…</span>
       <button class="btn sm" onclick="termToggle(true)"><svg class="i sm" data-i="chip"></svg>Terminal (Ctrl+\`)</button>
       <button class="btn sm" onclick="termNew('claude')"><span class="t-ico" style="color:#d97757">✳</span>Claude Code</button>
       <button class="btn sm" onclick="termNew('gemini')"><span class="t-ico" style="color:#38bdf8">✦</span>Gemini CLI</button>
@@ -1406,16 +1406,18 @@ function chatHero() {
   renderChatList();
   if (typeof termEnsureUI === "function") { termEnsureUI(); termLayout(); }
 
-  // Background non-blocking check
-  if (!_aiStackCache) {
-    fetchAIStackStatus().then(stack => {
-      if (!stack) return;
-      const badge = $("#chat-stack-badge");
-      if (badge && (!stack.node?.installed || !stack.claude?.installed || !stack.ollama?.running)) {
-        badge.title = "Click to run 1-Click AI Stack Installer (Node.js, Claude Code, Ollama)";
-      }
-    }).catch(() => {});
-  }
+  // Background non-blocking check — the badge only says "Ready" once the stack really is
+  const paintStackBadge = stack => {
+    const badge = $("#chat-stack-badge"); if (!badge) return;
+    const ready = !!stack?.ready;
+    badge.innerHTML = ready ? `${ic("check")}${stack.ollama?.running ? "Claude &amp; Ollama Ready" : "Claude &amp; Gemini Ready"}` : `${ic("zap")}Set up AI tools (1-Click)`;
+    badge.style.color = ready ? "var(--ok)" : "var(--warn)";
+    badge.style.borderColor = ready ? "rgba(62,224,160,.4)" : "color-mix(in srgb,var(--warn) 45%,transparent)";
+    badge.title = ready ? "Your AI tools are installed (click to re-run the 1-Click AI Stack Installer)"
+      : "Some AI tools are missing — click to run the 1-Click AI Stack Installer (Node.js, Claude Code, Gemini CLI, Ollama)";
+  };
+  if (_aiStackCache) paintStackBadge(_aiStackCache);
+  else fetchAIStackStatus().then(paintStackBadge).catch(() => {});
 }
 function newChat() { if (S.view !== "chat") go("chat"); chatHero(); cinput.focus(); }
 async function openChat(id) {
@@ -1666,6 +1668,7 @@ async function renderDesktop() {
 async function newSticky() { await api("/api/stickies", {method: "POST", body: {color: newColor}}); toast("Sticky note added to your desktop — type, or paste a picture with Ctrl V"); setTimeout(deskRefresh, 300); }
 async function stickyAct(id, a) { await api(`/api/stickies/${id}/${a}`, {method: "POST"}); setTimeout(deskRefresh, 400); }
 async function stickyMode(id, mode) { await api(`/api/stickies/${id}/update`, {method: "POST", body: {mode}}); toast(mode === "top" ? "Pinned on top" : "Moved to the desktop layer"); setTimeout(deskRefresh, 300); }
+function stickyDel(btn, id) { if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.innerHTML = "Delete?"; return; } stickyAct(id, "delete"); }
 async function annotateNow(hwnd) {
   if (hwnd !== undefined) {
     closeModal();

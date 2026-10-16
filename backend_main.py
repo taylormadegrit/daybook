@@ -34,6 +34,7 @@ import reminders.studio  # noqa: F401
 import reminders.templates  # noqa: F401
 import reminders.ui  # noqa: F401
 import reminders.web  # noqa: F401
+import reminders.winlist  # noqa: F401
 import reminders.zotero  # noqa: F401
 
 HELPERS = {"annotate", "sticky", "peek", "note", "agenda", "add", "dashboard", "chat"}

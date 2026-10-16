@@ -198,18 +198,20 @@ def resolve_when(phrase, now):
             days_ahead = 7
         return (now + timedelta(days=days_ahead)).replace(hour=h, minute=mi, second=0, microsecond=0)
 
-    bare = re.fullmatch(r"\s*(?:at|by|@)?\s*(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*", p)
-    if bare and 1 <= int(bare.group(1)) <= 24:
-        h, mi = int(bare.group(1)), int(bare.group(2) or 0)
-        ap = bare.group(3)
-        if ap == "pm" and h < 12:
-            h += 12
-        elif ap == "am" and h == 12:
-            h = 0
-        elif not ap and h <= 7:
-            h += 12
-        cand = now.replace(hour=h % 24, minute=mi, second=0, microsecond=0)
-        return cand if cand > now else cand + timedelta(days=1)
+    bare = re.fullmatch(r"\s*(at|by|@)?\s*(\d{1,2})(?::([0-5]\d))?\s*(am|pm)?\s*", p)
+    # a lone number ("15") is not a time — need "at"/"by", minutes, or am/pm
+    if bare and (bare.group(1) or bare.group(3) or bare.group(4)) and int(bare.group(2)) <= 23 \
+            and (bare.group(4) is None or 1 <= int(bare.group(2)) <= 12):
+        h, mi = int(bare.group(2)), int(bare.group(3) or 0)
+        ap = bare.group(4)
+        if ap:  # explicit "5pm" / "12am"
+            cands = [now.replace(hour=h % 12 + (12 if ap == "pm" else 0), minute=mi, second=0, microsecond=0)]
+        elif h == 0 or h > 12:  # 24-hour clock: "17:30"
+            cands = [now.replace(hour=h, minute=mi, second=0, microsecond=0)]
+        else:  # "at 5" → the next 5:00 (5 pm if it's already past 5 am)
+            cands = [now.replace(hour=h % 12 + add, minute=mi, second=0, microsecond=0) for add in (0, 12)]
+        cands += [c + timedelta(days=1) for c in cands]
+        return min(c for c in cands if c > now)
     p = _daypart_with_time(p)
     for pat, rep in ALIASES:
         p = re.sub(pat, rep, p)

@@ -31,6 +31,15 @@ class TestNLPParsing(unittest.TestCase):
         self.assertEqual(nlp.parse(""), {})
         self.assertEqual(nlp.parse(None), {})
 
+    def test_bare_time_is_next_occurrence(self):
+        now = datetime(2026, 10, 16, 10, 0)
+        self.assertEqual(nlp.resolve_when("at 9", now), datetime(2026, 10, 16, 21, 0))   # 9 am passed → 9 pm
+        self.assertEqual(nlp.resolve_when("at 11", now), datetime(2026, 10, 16, 11, 0))
+        self.assertEqual(nlp.resolve_when("at 9am", now), datetime(2026, 10, 17, 9, 0))
+        self.assertEqual(nlp.resolve_when("at 5pm", now), datetime(2026, 10, 16, 17, 0))
+        self.assertEqual(nlp.resolve_when("17:30", now), datetime(2026, 10, 16, 17, 30))
+        self.assertIsNone(nlp.resolve_when("9:75", now))
+
     def test_parse_no_date(self):
         text = "Read chapter 4 of book"
         parsed = nlp.parse(text)
