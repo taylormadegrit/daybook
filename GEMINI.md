@@ -62,6 +62,35 @@ terminal, in-app web apps (Gemini, Discord, LocalSend…), screen annotation, ga
 - When you stop, update **Current state** below so the next agent knows what's done and what's next.
 
 ## Current state
+- **DesignPrompts Theme Studio, macOS Liquid Glass, Scrollable/Minimizable Menus & Display Orientation** (v1.8.2, 2026-10-16):
+  - [x] Upgraded `[data-style=glass]` in `web/app/glass.css` to macOS Sequoia/Sonoma Liquid Glass (frosted acrylic vibrancy, multi-layered specular top rim highlight, floating dock/sidebar, capsule controls, and light-theme frosted glass support), plus added `brutalist` (Neo-Brutalist Studio) and `neumorph` (Soft Clay & 3D) surface styles.
+  - [x] Expanded `THEMES` in `web/index.html` to 27 curated themes inspired by `designprompts.dev` (`sonoma`, `sequoia`, `moderndark`, `minimaldark`, `nord`, `terminal`, `academia`, `artdeco`, `cyberpunk`, `vaporwave`, `web3`, `kinetic`, `swiss`, `bauhaus`, `neobrutal`, `botanical`, `clay`, `newsprint`, plus the original 9) with category filters (`All`, ` macOS Glass`, `Studio Dark`, `Neon & Cyber`, `Daylight & Editorial`) and live custom variable overrides (`--a1`, `--a2`, `--a3`, `--gl-blur-px`, `--r`, `--font-sans`).
+  - [x] Fixed modal and menu scrolling on smaller laptop screens (`.scrim` and `.modal` scroll vertically with sticky `.modal h2` headers, macOS traffic-light buttons, Minimize `minimizeModal()` to `#modal-dock` bottom-right pill, Expand `toggleModalMax()`, scrollable `.menu`/`.ctxm`/`.nav`, and collapsible `.card` headers via `injectCardMinButtons()`).
+  - [x] Added customizable Display Orientation (`landscape`, `laptop`, `portrait`, `ultrawide`), Workspace Split Direction (`horizontal` Left ⇄ Right vs `vertical` Top ⇅ Bottom), UI Scale / Zoom (`80%`–`120%`), and Minimize Topbar / Sidebar controls in `web/app/layout.js` and the 3-tab `customizeModal()` in `web/app/home.js`.
+  - Review (2026-10-16, Claude): fixed the Customize window — Display tab was empty (`window.ORIENT_MODES` is undefined
+    for a top-level `const`), theme list had no `.themes` grid class, filter pills had no CSS, swatches picked up the
+    `.sw` toggle style, traffic-light classes didn't match the CSS (`cl`/`mn`/`mx`), Expand used a class with no CSS
+    (`maxed`), Minimize didn't hide the dialog (`.scrim.on.minimized`), and palette commands opened blank tabs
+    (`scenes`/`display`). Saved accents/corners/font, zoom and orientation now apply in `boot()` before the backend
+    answers, so the look doesn't jump on open. Removed the U+F8FF Apple glyph (blank box on Windows).
+  - Installer installs Antigravity CLI with `winget install --id Google.AntigravityCLI` when `agy` is missing (`-Only agy`
+    or `all`); `%LOCALAPPDATA%\Microsoft\WinGet\Links` added to the agy search paths (installer, `desktop/main.js`,
+    `reminders/claude_link.py`). Not yet run on a machine without agy.
+  - Higgsfield status no longer runs `higgsfield workspace set` on every Settings view — only on Connect.
+- **Higgsfield AI Studio & MCP Integration** (v1.8.2, 2026-10-16):
+  - [x] Set up Higgsfield on this PC: installed `@higgsfield/cli` v1.2.2 globally, installed all 8 `higgsfield-ai/skills`
+    into `~/.claude/skills` and `~/.gemini/config/skills`, and registered `https://mcp.higgsfield.ai/mcp` in
+    `~/.gemini/settings.json`, `~/.gemini/config/mcp_config.json`, and `~/.gemini/antigravity/mcp_config.json`.
+  - [x] Backend detection, 1-Click setup, and browser OAuth login (`_higgsfield_exe`, `_higgsfield_info`,
+    `login_higgsfield`, `connect_higgsfield`, `disconnect("higgsfield")` in `reminders/claude_link.py`;
+    `/api/claude/<action>/higgsfield` in `reminders/web.py`).
+  - [x] AI Studio Higgsfield Image & Video generation (`HIGGSFIELD_IMAGE_MODELS`, `HIGGSFIELD_VIDEO_MODELS`,
+    `higgsfield_generate` in `reminders/studio.py`; `/api/studio/image` with `engine="higgsfield"`, `/api/studio/video`,
+    `/api/studio/higgsfield/setup`, `/api/studio/higgsfield/login` in `reminders/web.py`).
+  - [x] AI Studio UI (`web/app/studio.js`): Higgsfield status/setup bar, Images engine toggle (`Local GPU` vs
+    `Higgsfield AI`), new **Videos (Higgsfield)** tab with start-frame image-to-video support, inline `.mp4` playback,
+    and one-click **Animate into video** on image cards; Settings row in `web/index.html`; `higgsfield` terminal
+    profile in `desktop/main.js` and `web/app/terminal.js`.
 - **v1.8.1** released 2026-10-16: Connect Gemini CLI, Claude Code, and Antigravity (`agy`) to Daybook (`docs/PATCH-1.8.0-AI-CONNECT.md`).
   - [x] Root cause 1 Fix A (`backend_main.py`, test `TEST_SUITE/test_mcp_entry.py`), Fix B (installer passes `mcp`,
     removes the old entry first), Fix C (`daemon.pyw` writes to stderr before its silent exit)
@@ -83,7 +112,7 @@ terminal, in-app web apps (Gemini, Discord, LocalSend…), screen annotation, ga
     `Register-AgyMcp` (`agy mcp add daybook <McpExe> mcp` + merge into `~/.gemini/config/mcp_config.json` and
     `~/.gemini/antigravity/mcp_config.json` without BOM, `-Only agy`, `$results` summary in `install-ai-stack.ps1`);
     `agy` status / Connect / Repair / Disconnect in `reminders/claude_link.py`, `reminders/web.py`, and `web/index.html`
-    (70 tests green in `TEST_SUITE`).
+    (71 tests green in `TEST_SUITE`).
   - [ ] Clean-machine testing checklist (`docs/PATCH-1.8.0-AI-CONNECT.md`) on a fresh Windows PC / VM
   - This PC: Gemini's `daybook` entry is in `~/.gemini/settings.json` and Connected. Claude Code's `reminders`
     entry runs the dev `venv\Scripts\python.exe mcp_server.py` and is Connected — leave it alone.

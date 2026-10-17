@@ -185,6 +185,41 @@ class StackStatusAndTrustTest(unittest.TestCase):
                 self.assertFalse(st3["agy"]["registered"])
                 self.assertFalse(st3["agy"]["connected"])
 
+                # Test connect_higgsfield() and disconnect("higgsfield") inside fake_home
+                sk_dir = fake_home / ".claude" / "skills" / "higgsfield-generate"
+                sk_dir.mkdir(parents=True, exist_ok=True)
+                (sk_dir / "SKILL.md").write_text("# higgsfield-generate\n", encoding="utf-8")
+                with mock.patch.object(claude_link, "_higgsfield_exe", return_value="higgsfield.cmd"), \
+                        mock.patch("subprocess.run") as m_run:
+                    m_run.return_value = mock.Mock(returncode=0, stdout="higgsfield 1.2.2\n", stderr="")
+                    msg = claude_link.connect_higgsfield(login=False)
+                    self.assertIn("Higgsfield", msg)
+                    st_hf = claude_link.stack_status()["higgsfield"]
+                    self.assertTrue(st_hf["installed"])
+                    self.assertEqual(st_hf["version"], "1.2.2")
+                    self.assertTrue(st_hf["connected"])
+                    self.assertTrue(st_hf["skills_installed"])
+                    self.assertEqual(st_hf["skills_count"], 1)
+                    self.assertTrue(st_hf["signed_in"])
+
+                    claude_link.disconnect("higgsfield")
+                    st4 = claude_link.stack_status()
+                    self.assertFalse(st4["higgsfield"]["connected"])
+
+    def test_studio_api_exposes_higgsfield_models(self):
+        client = web.app.test_client()
+        with mock.patch.object(claude_link, "_higgsfield_info", return_value={
+            "installed": True, "version": "1.2.2", "signed_in": False,
+            "skills_installed": True, "skills_count": 8, "registered": True, "connected": True,
+        }):
+            resp = client.get("/api/studio")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertIn("higgsfield", data)
+            self.assertTrue(data["higgsfield"]["installed"])
+            self.assertTrue(len(data["higgsfield"].get("image_models") or []) >= 5)
+            self.assertTrue(len(data["higgsfield"].get("video_models") or []) >= 5)
+
     def test_live_mcp_handshake_is_fast(self):
         res = claude_link.test_mcp_handshake(force=True, timeout=15.0)
         self.assertTrue(res["handshake_ok"], res)

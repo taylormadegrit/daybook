@@ -390,35 +390,89 @@ function renderAmbWidget() {
       <input type="range" min="0" max="1" step=".05" value="${c.vol}" style="flex:1" oninput="setAmb({vol:+this.value},true)" title="Volume"></div>
     <div class="small muted" style="margin-top:8px">${c.scene !== "none" && c.scene !== "custom" ? "Tip: click an empty part of the background — the scene reacts." : "Scenes are animated and generated on this PC."}</div>`;
 }
-async function setScene(k) { await saveHomeCfg({scene: k}); applyScene(); renderAmbWidget(); $("#scenes-grid") && customizeModal(); }
-async function setAmb(p, quiet) { const h = await saveHomeCfg(p); applyScene(); if (!quiet) renderAmbWidget(); if (!quiet && $("#scenes-grid")) customizeModal(); }
-function customizeModal() {
+async function setScene(k) { await saveHomeCfg({scene: k}); applyScene(); renderAmbWidget(); $("#scenes-grid") && customizeModal("scenes"); }
+async function setAmb(p, quiet) { const h = await saveHomeCfg(p); applyScene(); if (!quiet) renderAmbWidget(); if (!quiet && $("#scenes-grid")) customizeModal("scenes"); }
+let CZ_TAB = "theme";
+function customizeModal(tab) {
+  if (tab) CZ_TAB = tab;
   const c = sceneCfg();
-  modal(`<h2>${ic("palette", "i")}Customize home<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
-    <div class="grouph" style="margin-top:0">Background scene</div>
-    <div class="scenes" id="scenes-grid">${Object.entries(SCENES).map(([k, s]) => `<div class="scn ${c.scene === k ? "on" : ""}" onclick="${k === "custom" && !c.bgfile ? "$('#bgfile').click()" : `setScene('${k}')`}"><div class="pv" style="background:${s.bg}">${s.em}</div><b>${s.name}</b></div>`).join("")}</div>
-    <div class="row" style="margin-top:8px"><button class="btn sm" onclick="$('#bgfile').click()">${ic("up")}Upload my own picture or video</button><span class="small muted">jpg · png · webp · gif · mp4 · webm</span>
-      <input type="file" id="bgfile" accept="image/*,video/mp4,video/webm" style="display:none" onchange="uploadBg(this.files[0])"></div>
-    <div class="grouph">Sound &amp; display</div>
-    <div class="cz-rows">
-      <div class="srow"><div class="d"><b>Ambient sound</b><span>${c.sound ? "Playing" + (c.soundpick ? "" : (c.scene === "none" || c.scene === "custom" ? " — pick a sound below" : " the scene's sound")) : "Off"}</span></div>
-        <button class="sw ${c.sound ? "on" : ""}" onclick="setAmb({sound:${!c.sound}})" title="Sound on / off"></button></div>
-      <div class="srow"><div class="d"><b>Sound</b><span>Any sound works with any background</span></div>
-        <select class="f cz-ctl" onchange="setAmb({soundpick:this.value, sound:true})">${(window.SOUND_CHOICES || [["", "Match the scene"]]).map(([k, n]) => `<option value="${k}" ${c.soundpick === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
-      <div class="srow"><div class="d"><b>Volume</b></div><input class="cz-ctl" type="range" min="0" max="1" step=".05" value="${c.vol}" oninput="setAmb({vol:+this.value},true)"></div>
-      <div class="srow"><div class="d"><b>Darken background</b><span>Makes text easier to read over bright scenes</span></div><input class="cz-ctl" type="range" min="0" max=".8" step=".05" value="${c.dim}" oninput="setAmb({dim:+this.value},true)"></div>
-      <div class="srow"><div class="d"><b>Show on every page</b><span>Off = only on Home</span></div><button class="sw ${c.everywhere ? "on" : ""}" onclick="setAmb({everywhere:${!c.everywhere}})"></button></div>
-      <div class="srow"><div class="d"><b>Still image</b><span>No motion — uses less power</span></div><button class="sw ${c.still ? "on" : ""}" onclick="setAmb({still:${!c.still}})"></button></div>
+  const l = typeof layoutCfg === "function" ? layoutCfg() : {orient: "landscape", splitDir: "horizontal", uiScale: 100, navPos: "left"};
+  modal(`<h2>${ic("palette", "i")}Customize Theme, Glass &amp; Display<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+    <div class="cz-tabs">
+      <button class="${CZ_TAB === "theme" ? "on" : ""}" onclick="customizeSwitchTab('theme',this)">🎨 Theme &amp; macOS Glass</button>
+      <button class="${CZ_TAB === "scenes" ? "on" : ""}" onclick="customizeSwitchTab('scenes',this)">🏞️ Scenes &amp; Ambience</button>
+      <button class="${CZ_TAB === "display" ? "on" : ""}" onclick="customizeSwitchTab('display',this)">🖥️ Display &amp; Orientation</button>
     </div>
-    <div class="grouph">Widgets</div>
-    <div class="row"><button class="btn pri" onclick="closeModal();homeEdit(true)">${ic("grid")}Edit home layout</button><button class="btn" onclick="closeModal();addWidgetModal()">${ic("plus")}Add widgets</button></div>`, true);
+
+    <!-- TAB 1: THEME & MACOS GLASS -->
+    <div class="cz-pane ${CZ_TAB === "theme" ? "on" : ""}" id="cz-pane-theme">
+      <div class="grouph" style="margin-top:0">Surface Style (macOS Liquid Glass · Classic · Neo-Brutalist · Clay)</div>
+      <div class="stylepick" id="cz-stylepick"></div>
+      <div class="grouph">DesignPrompts Curated Themes</div>
+      <div class="themes" id="cz-themes"></div>
+      <div class="grouph">Fine-Tune Glass, Colors &amp; Corners</div>
+      <div id="cz-custom-vars"></div>
+    </div>
+
+    <!-- TAB 2: SCENES & AMBIENCE -->
+    <div class="cz-pane ${CZ_TAB === "scenes" ? "on" : ""}" id="cz-pane-scenes">
+      <div class="grouph" style="margin-top:0">Animated Background Scene</div>
+      <div class="scenes" id="scenes-grid">${Object.entries(SCENES).map(([k, s]) => `<div class="scn ${c.scene === k ? "on" : ""}" onclick="${k === "custom" && !c.bgfile ? "$('#bgfile').click()" : `setScene('${k}')`}"><div class="pv" style="background:${s.bg}">${s.em}</div><b>${s.name}</b></div>`).join("")}</div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" onclick="$('#bgfile').click()">${ic("up")}Upload my own picture or video</button><span class="small muted">jpg · png · webp · gif · mp4 · webm</span>
+        <input type="file" id="bgfile" accept="image/*,video/mp4,video/webm" style="display:none" onchange="uploadBg(this.files[0])"></div>
+      <div class="grouph">Sound &amp; Scene Display</div>
+      <div class="cz-rows">
+        <div class="srow"><div class="d"><b>Ambient sound</b><span>${c.sound ? "Playing" + (c.soundpick ? "" : (c.scene === "none" || c.scene === "custom" ? " — pick a sound below" : " the scene's sound")) : "Off"}</span></div>
+          <button class="sw ${c.sound ? "on" : ""}" onclick="setAmb({sound:${!c.sound}})" title="Sound on / off"></button></div>
+        <div class="srow"><div class="d"><b>Sound</b><span>Any sound works with any background</span></div>
+          <select class="f cz-ctl" onchange="setAmb({soundpick:this.value, sound:true})">${(window.SOUND_CHOICES || [["", "Match the scene"]]).map(([k, n]) => `<option value="${k}" ${c.soundpick === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+        <div class="srow"><div class="d"><b>Volume</b></div><input class="cz-ctl" type="range" min="0" max="1" step=".05" value="${c.vol}" oninput="setAmb({vol:+this.value},true)"></div>
+        <div class="srow"><div class="d"><b>Darken background</b><span>Makes text easier to read over bright scenes</span></div><input class="cz-ctl" type="range" min="0" max=".8" step=".05" value="${c.dim}" oninput="setAmb({dim:+this.value},true)"></div>
+        <div class="srow"><div class="d"><b>Show on every page</b><span>Off = only on Home</span></div><button class="sw ${c.everywhere ? "on" : ""}" onclick="setAmb({everywhere:${!c.everywhere}})"></button></div>
+        <div class="srow"><div class="d"><b>Still image</b><span>No motion — uses less power</span></div><button class="sw ${c.still ? "on" : ""}" onclick="setAmb({still:${!c.still}})"></button></div>
+      </div>
+      <div class="grouph">Home Widgets</div>
+      <div class="row"><button class="btn pri" onclick="closeModal();homeEdit(true)">${ic("grid")}Edit home layout</button><button class="btn" onclick="closeModal();addWidgetModal()">${ic("plus")}Add widgets</button></div>
+    </div>
+
+    <!-- TAB 3: DISPLAY & ORIENTATION -->
+    <div class="cz-pane ${CZ_TAB === "display" ? "on" : ""}" id="cz-pane-display">
+      <div class="grouph" style="margin-top:0">Display Orientation (Maximum Productivity for Laptops &amp; Monitors)</div>
+      <div class="orient-grid" id="cz-orient-grid">${(typeof ORIENT_MODES !== "undefined" ? ORIENT_MODES : []).map(([k, n, d]) => `<div class="orient-card ${(l.orient || "landscape") === k ? "on" : ""}" onclick="setDisplayOrient('${k}')"><b>${n}</b><span>${d}</span></div>`).join("")}</div>
+      <div class="cz-rows">
+        <div class="srow"><div class="d"><b>Workspace Split Direction</b><span>Side-by-side columns (Horizontal) or stacked top-to-bottom (Vertical)</span></div>
+          <div class="seg">${[["horizontal", "⇄ Horizontal"], ["vertical", "⇅ Vertical"]].map(([k, n]) => `<button class="${(l.splitDir || "horizontal") === k ? "on" : ""}" onclick="setSplitDir('${k}')">${n}</button>`).join("")}</div></div>
+        <div class="srow"><div class="d"><b>Display Scale / Zoom (<span id="cz-scale-lbl">${l.uiScale || 100}%</span>)</b><span>Fit more on smaller laptop screens without clipping</span></div>
+          <div class="row" style="gap:6px"><input class="cz-ctl" style="width:170px" type="range" min="80" max="120" step="2" value="${l.uiScale || 100}" oninput="setUiScale(this.value,true)" onchange="setUiScale(this.value,false)"><button class="btn sm ghost" onclick="setUiScale(100,false);customizeModal('display')">100%</button></div></div>
+        <div class="srow"><div class="d"><b>Sidebar Dock Position</b><span>Move navigation to Left, Right, Top or Bottom</span></div>
+          <div class="seg">${[["left", "Left"], ["right", "Right"], ["top", "Top"], ["bottom", "Bottom"]].map(([k, n]) => `<button class="${(l.navPos || "left") === k ? "on" : ""}" onclick="saveLayoutCfg({navPos:'${k}'}).then(()=>{applyNavLayout();customizeModal('display')})">${n}</button>`).join("")}</div></div>
+        <div class="srow"><div class="d"><b>Minimize Sidebar (Icon-only)</b><span>Saves 164px of horizontal space on laptops (Ctrl+B)</span></div>
+          <button class="sw ${$(".app").classList.contains("slim") ? "on" : ""}" onclick="setSlim(!$('.app').classList.contains('slim'));customizeModal('display')"></button></div>
+        <div class="srow"><div class="d"><b>Minimize Top Bar</b><span>Compact header bar for extra vertical room</span></div>
+          <button class="sw ${l.topbarMin ? "on" : ""}" onclick="toggleTopbarMin()"></button></div>
+      </div>
+    </div>
+
+    <div class="mfoot" style="border-top:1px solid var(--line);padding-top:12px;margin-top:16px">
+      <button class="btn ghost sm" onclick="minimizeModal()" title="Minimize this window to a floating pill so you can view your full screen">▂ Minimize to preview live</button>
+      <div class="sp"></div>
+      <button class="btn pri" onclick="closeModal()">Done</button>
+    </div>`, true);
+  if (typeof renderStylePick === "function") renderStylePick();
+  if (typeof renderThemes === "function") renderThemes();
+  if (typeof renderCustomThemeControls === "function") renderCustomThemeControls();
+}
+function customizeSwitchTab(tab, btn) {
+  CZ_TAB = tab;
+  $$(".cz-tabs button").forEach(b => b.classList.toggle("on", b === btn));
+  $$(".cz-pane").forEach(p => p.classList.toggle("on", p.id === "cz-pane-" + tab));
 }
 async function uploadBg(f) {
   if (!f) return; const fd = new FormData(); fd.append("file", f); toast("Uploading…");
   const r = await fetch("/api/home/background", {method: "POST", body: fd}); const j = await r.json();
   if (!r.ok) return toast(j.error);
   await saveHomeCfg({scene: "custom", bgfile: j.file, bgv: Date.now()}); const bg = $("#scenebg"); if (bg) bg.dataset.f = "";
-  applyScene(); customizeModal(); toast("Background set ✓");
+  applyScene(); customizeModal("scenes"); toast("Background set ✓");
 }
 function sceneInit() {
   addEventListener("resize", () => debounce("scres", () => { if (SC.ctx) sceneResize(); }, 200));

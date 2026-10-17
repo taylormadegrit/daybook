@@ -90,7 +90,7 @@ BG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
 
 
 STARTED = datetime.now()
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 
 
 @app.get("/chat")
@@ -406,8 +406,12 @@ def claude_action(action, target):
                 msg = claude_link.connect_gemini(trust_home=bool(d.get("trust_home", True)))
             elif target == "agy":
                 msg = claude_link.connect_agy()
+            elif target == "higgsfield":
+                msg = claude_link.connect_higgsfield(login=bool(d.get("login", False)))
             else:
                 msg = claude_link.connect_desktop()
+        elif action == "login" and target == "higgsfield":
+            msg = claude_link.login_higgsfield()
         elif action == "disconnect":
             msg = claude_link.disconnect(target)
         else:

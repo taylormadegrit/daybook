@@ -23,7 +23,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.55 Inter,"Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.55 var(--font-sans,Inter,"Segoe UI",system-ui,sans-serif);overflow:hidden;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
   background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(--a1) 20%,transparent),transparent 70%),
              radial-gradient(34% 30% at 92% 18%,color-mix(in srgb,var(--a2) 13%,transparent),transparent 70%),
@@ -290,18 +290,49 @@ label.lb{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-wei
 @media(max-width:760px){.app{grid-template-columns:1fr}.nav{display:none}.chatwrap{grid-template-columns:1fr}.clist{display:none}.searchbtn{min-width:0}}
 
 :root{--panel:#141621;--code:#0d0f16;--on:#0a0b10}
+/* Original & macOS / DesignPrompts Dark Themes */
+[data-theme=sonoma]{--bg:#070b19;--glass:rgba(16,22,42,.74);--glass2:rgba(24,33,60,.62);--fg:#f2f5ff;--fg2:#cbd5f0;--muted:#8a99bd;--a1:#0a84ff;--a2:#5ac8fa;--a3:#bf5af2;--panel:#10172d;--code:#070b16;--on:#ffffff}
+[data-theme=moderndark]{--bg:#050508;--glass:rgba(15,16,24,.78);--glass2:rgba(22,24,36,.66);--fg:#f8fafc;--fg2:#cbd5e1;--muted:#78849b;--a1:#6366f1;--a2:#8b5cf6;--a3:#38bdf8;--panel:#0e1018;--code:#07080d;--on:#ffffff}
+[data-theme=cyberpunk]{--bg:#04070b;--glass:rgba(8,16,24,.8);--glass2:rgba(12,24,36,.68);--fg:#eafff6;--fg2:#a7f3d0;--muted:#5ea88a;--a1:#00ff88;--a2:#00e5ff;--a3:#ff0055;--panel:#08121a;--code:#030609;--on:#04070b}
+[data-theme=vaporwave]{--bg:#0c0414;--glass:rgba(26,8,44,.76);--glass2:rgba(40,14,66,.64);--fg:#fff0ff;--fg2:#f5c2ff;--muted:#b983cc;--a1:#ff00ff;--a2:#00ffff;--a3:#ffd700;--panel:#180828;--code:#090210;--on:#0c0414}
+[data-theme=terminal]{--bg:#040a05;--glass:rgba(8,20,10,.82);--glass2:rgba(12,30,15,.7);--fg:#d8ffd6;--fg2:#86efac;--muted:#4ade80;--a1:#33ff00;--a2:#10b981;--a3:#ffb000;--panel:#071409;--code:#020703;--on:#040a05}
+[data-theme=web3]{--bg:#030304;--glass:rgba(15,17,21,.8);--glass2:rgba(23,26,33,.68);--fg:#ffffff;--fg2:#cbd5e1;--muted:#94a3b8;--a1:#f7931a;--a2:#ea580c;--a3:#ffd600;--panel:#0f1115;--code:#060709;--on:#030304}
+[data-theme=kinetic]{--bg:#09090b;--glass:rgba(20,20,24,.78);--glass2:rgba(30,30,36,.66);--fg:#fafafa;--fg2:#d4d4d8;--muted:#8e8e99;--a1:#f97316;--a2:#f59e0b;--a3:#fb7185;--panel:#141418;--code:#09090b;--on:#09090b}
+[data-theme=artdeco]{--bg:#0a0908;--glass:rgba(24,20,16,.8);--glass2:rgba(36,30,22,.68);--fg:#fbf5e9;--fg2:#e6d5b8;--muted:#a89676;--a1:#d4af37;--a2:#cd7f32;--a3:#f5e6c8;--panel:#16130f;--code:#080705;--on:#0a0908}
+[data-theme=minimaldark]{--bg:#0a0a0c;--glass:rgba(20,20,24,.78);--glass2:rgba(28,28,34,.66);--fg:#f5f5f4;--fg2:#d6d3d1;--muted:#8a8680;--a1:#f59e0b;--a2:#fbbf24;--a3:#a8a29e;--panel:#141417;--code:#08080a;--on:#0a0a0c}
+[data-theme=nord]{--bg:#191d24;--glass:rgba(36,41,51,.78);--glass2:rgba(46,52,64,.66);--fg:#eceff4;--fg2:#d8dee9;--muted:#9099ab;--a1:#88c0d0;--a2:#81a1c1;--a3:#b48ead;--panel:#242933;--code:#14171d;--on:#191d24}
 [data-theme=sunset]{--bg:#140a10;--glass:rgba(32,16,24,.76);--glass2:rgba(46,24,34,.62);--fg:#fff1ec;--fg2:#f0cfc6;--muted:#b58f8a;--a1:#ff6f61;--a2:#ffb347;--a3:#ff4fa0;--panel:#1f121a;--code:#120a0f}
 [data-theme=ocean]{--bg:#05111a;--glass:rgba(10,26,38,.76);--glass2:rgba(16,38,54,.62);--fg:#e6f6ff;--fg2:#bfe0ee;--muted:#7fa3b5;--a1:#2dd4bf;--a2:#38bdf8;--a3:#818cf8;--panel:#0b1c28;--code:#06131c}
 [data-theme=matcha]{--bg:#0a120d;--glass:rgba(16,28,20,.76);--glass2:rgba(24,40,30,.62);--fg:#eefbea;--fg2:#cfe8c8;--muted:#8fae8a;--a1:#84e17a;--a2:#d4f06b;--a3:#34d399;--panel:#122018;--code:#08100b}
 [data-theme=synthwave]{--bg:#0f0618;--glass:rgba(26,10,40,.76);--glass2:rgba(38,16,58,.62);--fg:#fdeeff;--fg2:#e6c9f2;--muted:#a585b8;--a1:#ff2fb3;--a2:#22e4ff;--a3:#ffd319;--panel:#1a0b2a;--code:#0c0414}
 [data-theme=candy]{--bg:#150c1c;--glass:rgba(34,20,44,.74);--glass2:rgba(48,28,60,.6);--fg:#fff0fb;--fg2:#ecd2ea;--muted:#b393b8;--a1:#ff8bd1;--a2:#9b8cff;--a3:#7ef0ff;--panel:#21132b;--code:#10081a}
 [data-theme=ember]{--bg:#120706;--glass:rgba(30,14,10,.76);--glass2:rgba(46,20,14,.62);--fg:#fff2ea;--fg2:#f1d3c4;--muted:#b48e7e;--a1:#ff5a36;--a2:#ffa62b;--a3:#ffd23f;--panel:#1d0e0a;--code:#0e0504}
-[data-theme=paper]{--bg:#f4f1ea;--glass:rgba(255,255,255,.8);--glass2:rgba(255,255,255,.72);--card:rgba(0,0,0,.035);--card2:rgba(0,0,0,.06);--line:rgba(0,0,0,.08);--line2:rgba(0,0,0,.14);
-  --fg:#1d1f27;--fg2:#3d4150;--muted:#6b7080;--a1:#6c5ce7;--a2:#0ea5e9;--a3:#ec4899;--ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--panel:#ffffff;--code:#1e1f29;--on:#ffffff}
-[data-theme=paper] body::before{opacity:.55}
-[data-theme=paper] ::-webkit-scrollbar-thumb{background-color:rgba(0,0,0,.15)}
-[data-theme=paper] input.f,[data-theme=paper] select.f,[data-theme=paper] textarea.f,[data-theme=paper] .seg{background:rgba(0,0,0,.03)}
-[data-theme=paper] .scrim{background:rgba(240,236,228,.55)}
+/* Light & Editorial Themes (macOS Sequoia, Paper, Sakura, DesignPrompts Light) */
+[data-theme=paper],[data-theme=sequoia],[data-theme=swiss],[data-theme=bauhaus],[data-theme=neobrutal],[data-theme=academia],[data-theme=botanical],[data-theme=clay],[data-theme=newsprint]{
+  --card:rgba(0,0,0,.035);--card2:rgba(0,0,0,.065);--line:rgba(0,0,0,.085);--line2:rgba(0,0,0,.15);
+  --ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--code:#1e1f29;--on:#ffffff;
+}
+[data-theme=paper]{--bg:#f4f1ea;--glass:rgba(255,255,255,.82);--glass2:rgba(255,255,255,.74);--fg:#1d1f27;--fg2:#3d4150;--muted:#6b7080;--a1:#6c5ce7;--a2:#0ea5e9;--a3:#ec4899;--panel:#ffffff}
+[data-theme=sequoia]{--bg:#eef2f8;--glass:rgba(255,255,255,.82);--glass2:rgba(255,255,255,.72);--fg:#111827;--fg2:#334155;--muted:#64748b;--a1:#007aff;--a2:#5856d6;--a3:#30b0c7;--panel:#ffffff}
+[data-theme=swiss]{--bg:#fafafa;--glass:rgba(255,255,255,.88);--glass2:rgba(255,255,255,.8);--fg:#09090b;--fg2:#27272a;--muted:#52525b;--a1:#dc2626;--a2:#18181b;--a3:#ef4444;--panel:#ffffff}
+[data-theme=bauhaus]{--bg:#f5f2eb;--glass:rgba(255,253,248,.86);--glass2:rgba(255,253,248,.76);--fg:#141413;--fg2:#292524;--muted:#57534e;--a1:#d02020;--a2:#1d4ed8;--a3:#eab308;--panel:#fffdf9}
+[data-theme=neobrutal]{--bg:#fffdf5;--glass:rgba(255,255,255,.9);--glass2:rgba(255,255,255,.84);--fg:#111111;--fg2:#262626;--muted:#525252;--a1:#eab308;--a2:#ef4444;--a3:#3b82f6;--panel:#ffffff;--on:#111111}
+[data-theme=academia]{--bg:#f6f1e6;--glass:rgba(253,250,242,.86);--glass2:rgba(253,250,242,.76);--fg:#231b15;--fg2:#44352a;--muted:#786352;--a1:#7c2d12;--a2:#b45309;--a3:#14532d;--panel:#fdfaf3}
+[data-theme=botanical]{--bg:#f2f5f0;--glass:rgba(250,252,248,.86);--glass2:rgba(250,252,248,.76);--fg:#1b261e;--fg2:#36493b;--muted:#607565;--a1:#5d7052;--a2:#c27b66;--a3:#d4a373;--panel:#fafcf9}
+[data-theme=clay]{--bg:#f7f4ff;--glass:rgba(255,255,255,.86);--glass2:rgba(255,255,255,.76);--fg:#251b38;--fg2:#463666;--muted:#756399;--a1:#ec4899;--a2:#8b5cf6;--a3:#14b8a6;--panel:#ffffff}
+[data-theme=newsprint]{--bg:#f1eee7;--glass:rgba(250,248,243,.88);--glass2:rgba(250,248,243,.78);--fg:#171717;--fg2:#3f3f46;--muted:#686870;--a1:#1a1a1a;--a2:#b91c1c;--a3:#52525b;--panel:#faf8f3}
+[data-theme=paper] body::before,[data-theme=sequoia] body::before,[data-theme=swiss] body::before,[data-theme=bauhaus] body::before,[data-theme=neobrutal] body::before,[data-theme=academia] body::before,[data-theme=botanical] body::before,[data-theme=clay] body::before,[data-theme=newsprint] body::before{opacity:.55}
+[data-theme=paper] ::-webkit-scrollbar-thumb,[data-theme=sequoia] ::-webkit-scrollbar-thumb,[data-theme=swiss] ::-webkit-scrollbar-thumb,[data-theme=bauhaus] ::-webkit-scrollbar-thumb,[data-theme=neobrutal] ::-webkit-scrollbar-thumb,[data-theme=academia] ::-webkit-scrollbar-thumb,[data-theme=botanical] ::-webkit-scrollbar-thumb,[data-theme=clay] ::-webkit-scrollbar-thumb,[data-theme=newsprint] ::-webkit-scrollbar-thumb{background-color:rgba(0,0,0,.16)}
+[data-theme=paper] input.f,[data-theme=paper] select.f,[data-theme=paper] textarea.f,[data-theme=paper] .seg,
+[data-theme=sequoia] input.f,[data-theme=sequoia] select.f,[data-theme=sequoia] textarea.f,[data-theme=sequoia] .seg,
+[data-theme=swiss] input.f,[data-theme=swiss] select.f,[data-theme=swiss] textarea.f,[data-theme=swiss] .seg,
+[data-theme=bauhaus] input.f,[data-theme=bauhaus] select.f,[data-theme=bauhaus] textarea.f,[data-theme=bauhaus] .seg,
+[data-theme=neobrutal] input.f,[data-theme=neobrutal] select.f,[data-theme=neobrutal] textarea.f,[data-theme=neobrutal] .seg,
+[data-theme=academia] input.f,[data-theme=academia] select.f,[data-theme=academia] textarea.f,[data-theme=academia] .seg,
+[data-theme=botanical] input.f,[data-theme=botanical] select.f,[data-theme=botanical] textarea.f,[data-theme=botanical] .seg,
+[data-theme=clay] input.f,[data-theme=clay] select.f,[data-theme=clay] textarea.f,[data-theme=clay] .seg,
+[data-theme=newsprint] input.f,[data-theme=newsprint] select.f,[data-theme=newsprint] textarea.f,[data-theme=newsprint] .seg{background:rgba(255,255,255,.78);color:var(--fg)}
+[data-theme=paper] .scrim,[data-theme=sequoia] .scrim,[data-theme=swiss] .scrim,[data-theme=bauhaus] .scrim,[data-theme=neobrutal] .scrim,[data-theme=academia] .scrim,[data-theme=botanical] .scrim,[data-theme=clay] .scrim,[data-theme=newsprint] .scrim{background:rgba(235,232,226,.55)}
 [data-theme=sakura]{--bg:#fcedf2;--glass:rgba(255,240,245,.82);--glass2:rgba(255,230,238,.72);--card:rgba(255,255,255,.75);--card2:rgba(255,255,255,.9);--line:rgba(180,80,120,.16);--line2:rgba(180,80,120,.24);
   --fg:#201117;--fg2:#482333;--muted:#78485e;--a1:#d94676;--a2:#8b5cf6;--a3:#ec4899;--ok:#0f9f6e;--warn:#c27c0e;--bad:#d63a55;--panel:#fff5f8;--code:#23202e;--on:#ffffff}
 [data-theme=sakura] body::before{opacity:.5}
@@ -365,9 +396,14 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
   radial-gradient(34% 30% at 92% 18%,color-mix(in srgb,var(--a2) 15%,transparent),transparent 70%),
   radial-gradient(40% 40% at 60% 105%,color-mix(in srgb,var(--a3) 12%,transparent),transparent 70%)!important}
 .themes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:900px){.themes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.theme-filter{display:flex;flex-wrap:wrap;gap:6px}
+.theme-filter button{border:1px solid var(--line);background:var(--card);color:var(--muted);padding:5px 12px;border-radius:99px;font-size:12.5px;font-weight:500;cursor:pointer}
+.theme-filter button.on{background:var(--card2);color:var(--fg);border-color:var(--a1)}
 .th{border-radius:14px;padding:10px;border:2px solid var(--line);cursor:pointer;transition:.15s}
 .th:hover{transform:translateY(-1px)}.th.on{border-color:var(--a1);box-shadow:0 0 0 3px color-mix(in srgb,var(--a1) 25%,transparent)}
 .th .sw{height:54px;border-radius:9px;position:relative;overflow:hidden}
+.th .sw.sw{width:auto;margin-left:0}.th .sw::after{display:none}
 .th .sw i{position:absolute;border-radius:50%;filter:blur(10px)}
 .th b{display:block;margin-top:7px;font-size:13px}.th span{font-size:11.5px;color:var(--muted)}
 /* desktop page */
@@ -439,12 +475,14 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
       <div id="updatepill" style="display:none;margin-left:14px"></div>
       <div class="sp"></div>
       <div class="quick" title="Desktop tools">
+        <button class="iconbtn" title="Customize theme, macOS glass & display orientation" onclick="customizeModal()"><svg class="i" data-i="palette"></svg></button>
         <button class="iconbtn" title="New sticky note (Alt S · Ctrl Alt S anywhere)" onclick="newSticky()"><svg class="i" data-i="sticky"></svg></button>
         <button class="iconbtn" title="Show / tuck away all sticky notes (Alt W · Ctrl Alt W anywhere)" onclick="peekStickies()"><svg class="i" data-i="layers"></svg></button>
         <button class="iconbtn" title="Annotate the screen (Alt P · Ctrl Alt P anywhere)" onclick="annotateNow()"><svg class="i" data-i="brush"></svg></button>
         <div id="top-rec-pill" class="top-rec-pill" style="display:none"><span class="rec-dot"></span><span id="top-rec-lbl" class="rec-lbl">Recording</span><canvas id="top-rec-wave" width="54" height="16"></canvas><span id="top-rec-t" class="rec-t">0:00</span><button class="top-rec-btn top-rec-stop" id="top-rec-stop" title="Stop & save">${ic("check")}Done</button><button class="top-rec-btn top-rec-cancel" id="top-rec-cancel" title="Discard">${ic("x")}</button></div>
         <button class="iconbtn micbtn" id="topmic" title="Dictate into the box you were typing in (Alt M) — or record a voice memo" onclick="V.mode?dictateStop():dictate()"><svg class="i" data-i="mic"></svg></button>
         <button class="iconbtn" title="Timers & alarms (Alt 6)" onclick="go('clock')"><svg class="i" data-i="timer"></svg></button>
+        <button class="iconbtn" title="Minimize / expand top bar for maximum laptop screen space" onclick="toggleTopbarMin()"><svg class="i" data-i="up"></svg></button>
       </div>
       <div style="position:relative"><button class="iconbtn netbtn" id="netbtn" title="Network" onclick="netToggle(event)"></button><div class="menu net-menu" id="netmenu"></div></div>
       <button class="searchbtn" onclick="openPalette()"><svg class="i sm" data-i="search"></svg>Search or jump to…<span class="kbd">Ctrl K</span></button>
@@ -675,11 +713,13 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 
       <!-- Appearance Card -->
       <div class="card" id="set-sec-appearance" style="margin-bottom:18px">
-        <h3><svg class="i sm" data-i="palette"></svg>Appearance</h3>
-        <div class="grouph" style="margin-top:0">Style</div>
+        <h3><svg class="i sm" data-i="palette"></svg>Appearance<button class="btn sm ghost" style="margin-left:auto" onclick="customizeModal('theme')">Open Studio Customizer</button></h3>
+        <div class="grouph" style="margin-top:0">Surface Style (macOS Liquid Glass, Classic, Brutalist, Clay)</div>
         <div class="stylepick" id="stylepick"></div>
-        <div class="grouph">Colors &amp; Themes</div>
+        <div class="grouph">DesignPrompts Curated Themes</div>
         <div class="themes" id="themes"></div>
+        <div class="grouph">Fine-Tune Glass Vibrancy, Custom Accents &amp; Corners</div>
+        <div id="set-custom-vars"></div>
       </div>
 
       <!-- Layout Card -->
@@ -870,6 +910,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
 
 <!-- overlays -->
 <div class="scrim" id="scrim" onclick="if(event.target===this)closeModal()"><div id="mhost"></div></div>
+<div id="modal-dock"></div>
 <div id="toast"></div>
 
 <script src="/app/voice.js"></script>
@@ -1123,11 +1164,69 @@ async function renderReminders() {
 
 // ---------- reminder modal ----------
 const REPEATS = [["", "Doesn't repeat"], ["daily", "Every day"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]];
-function modal(html, wide) { $("#mhost").innerHTML = `<div class="modal ${wide === "xl" ? "wide xl" : wide ? "wide" : ""}">${html}</div>`; $("#scrim").classList.add("on"); paintIcons($("#mhost")); }
-function closeModal() { $("#scrim").classList.remove("on"); $("#mhost").innerHTML = ""; }
+let _minModalTitle = "";
+function modal(html, wide) {
+  const d = $("#modal-dock"); if (d) { d.classList.remove("on"); d.innerHTML = ""; }
+  const sc = $("#scrim"); sc.classList.remove("minimized");
+  $("#mhost").innerHTML = `<div class="modal ${wide === "xl" ? "wide xl" : wide ? "wide" : ""}">${html}</div>`;
+  const h2 = $("#mhost .modal h2");
+  if (h2 && !h2.querySelector(".mac-dots")) {
+    const rawTitle = (h2.textContent || "Window").trim();
+    _minModalTitle = rawTitle || "Dialog";
+    const dots = document.createElement("span");
+    dots.className = "mac-dots";
+    dots.innerHTML = `<button class="mac-dot cl" title="Close (Esc)" onclick="closeModal()">×</button><button class="mac-dot mn" title="Minimize to corner so you can see/use the app" onclick="minimizeModal()">–</button><button class="mac-dot mx" title="Expand / Restore size" onclick="toggleModalMax()">+</button>`;
+    h2.insertBefore(dots, h2.firstChild);
+    const closeBtn = h2.querySelector("button.iconbtn[onclick*='closeModal']");
+    if (closeBtn) {
+      const minBtn = document.createElement("button");
+      minBtn.className = "iconbtn";
+      minBtn.title = "Minimize menu to corner";
+      minBtn.style.marginLeft = "auto";
+      minBtn.innerHTML = `<span style="font-weight:700;font-size:14px;line-height:1">—</span>`;
+      minBtn.onclick = e => { e.stopPropagation(); minimizeModal(); };
+      const maxBtn = document.createElement("button");
+      maxBtn.className = "iconbtn";
+      maxBtn.title = "Expand / restore menu size";
+      maxBtn.innerHTML = `<span style="font-size:13px;line-height:1">⤢</span>`;
+      maxBtn.onclick = e => { e.stopPropagation(); toggleModalMax(); };
+      closeBtn.style.marginLeft = "0";
+      h2.insertBefore(minBtn, closeBtn);
+      h2.insertBefore(maxBtn, closeBtn);
+    }
+  }
+  sc.classList.add("on");
+  paintIcons($("#mhost"));
+}
+function minimizeModal() {
+  const sc = $("#scrim"), m = $("#mhost .modal");
+  if (!sc || !m || !sc.classList.contains("on")) return;
+  sc.classList.add("minimized");
+  const d = $("#modal-dock");
+  if (d) {
+    d.innerHTML = `<span class="md-dot"></span><span>${esc(_minModalTitle || "Menu")}</span><span class="muted small" style="margin-left:4px">Click to restore</span><button class="iconbtn" style="width:24px;height:24px;margin-left:6px" title="Close" onclick="event.stopPropagation();closeModal()">✕</button>`;
+    d.onclick = () => restoreModal();
+    d.classList.add("on");
+  }
+}
+function restoreModal() {
+  const sc = $("#scrim"), d = $("#modal-dock");
+  if (sc) sc.classList.remove("minimized");
+  if (d) { d.classList.remove("on"); d.innerHTML = ""; }
+}
+function toggleModalMax() {
+  const m = $("#mhost .modal");
+  if (m) m.classList.toggle("maxed");
+}
+function closeModal() {
+  const sc = $("#scrim"), d = $("#modal-dock");
+  if (sc) sc.classList.remove("on", "minimized");
+  if (d) { d.classList.remove("on"); d.innerHTML = ""; }
+  $("#mhost").innerHTML = "";
+}
 function reminderModal(pre = {}) {
   closeMenu();
-  modal(`<h2>${ic("bell", "i")}New reminder<button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
+  modal(`<h2>${ic("bell", "i")}<span id="rm-title-txt">New reminder</span><button class="iconbtn" onclick="closeModal()">${ic("x")}</button></h2>
     <div class="seg" id="rm-mode" style="margin-bottom:14px"><button class="on" data-m="nl">Plain English</button><button data-m="ex">Exact time</button></div>
     <div id="rm-nl"><label class="lb">What and when? <span class="muted small">— type or 🎤 say it</span></label><div class="row" style="flex-wrap:nowrap" id="rm-row"><input class="f" id="rm-text" placeholder="e.g. call mom sunday at 5pm · take meds every day at 9am" autocomplete="off"></div>
       <div class="preview wait" id="rm-prev">Type and Daybook shows what it understood.</div></div>
@@ -1139,7 +1238,7 @@ function reminderModal(pre = {}) {
   t.addEventListener("input", () => { $("#rm-prev").className = "preview wait"; $("#rm-prev").textContent = "Reading…"; debounce("parse", previewParse, 650); });
   t.addEventListener("keydown", e => e.key === "Enter" && saveReminder());
 }
-function blockModal() { closeMenu(); reminderModal({repeat: "daily", block: true}); $("#mhost h2").childNodes[1].textContent = "New routine block"; $$("#rm-mode button")[1].click(); }
+function blockModal() { closeMenu(); reminderModal({repeat: "daily", block: true}); if ($("#rm-title-txt")) $("#rm-title-txt").textContent = "New routine block"; _minModalTitle = "New routine block"; $$("#rm-mode button")[1].click(); }
 function exactFields(r = {}) {
   const due = r.due || (r.date ? r.date + "T09:00" : (() => { const d = new Date(Date.now() + 36e5); d.setMinutes(0); return isoDay(d) + "T" + String(d.getHours()).padStart(2, "0") + ":00"; })());
   return `<label class="lb">What</label><input class="f" id="ex-text" value="${esc(r.text || "")}" placeholder="e.g. Schedule Facebook uploads">
@@ -1603,31 +1702,145 @@ async function pullQuickModel(name) {
   installModel(dummy, name);
 }
 
-// ================= THEMES =================
-const THEMES = [["aurora", "Aurora", "Violet & ice blue", "#0a0b10", "#8b7bff", "#4fd1ff", "#ff7ac6"],
-  ["sunset", "Sunset", "Coral, gold & pink", "#140a10", "#ff6f61", "#ffb347", "#ff4fa0"],
-  ["ocean", "Ocean", "Teal & deep blue", "#05111a", "#2dd4bf", "#38bdf8", "#818cf8"],
-  ["matcha", "Matcha", "Fresh greens", "#0a120d", "#84e17a", "#d4f06b", "#34d399"],
-  ["synthwave", "Synthwave", "Neon pink & cyan", "#0f0618", "#ff2fb3", "#22e4ff", "#ffd319"],
-  ["candy", "Candy", "Bubblegum pastels", "#150c1c", "#ff8bd1", "#9b8cff", "#7ef0ff"],
-  ["ember", "Ember", "Fire orange & amber", "#120706", "#ff5a36", "#ffa62b", "#ffd23f"],
-  ["paper", "Paper", "Light & clean", "#f4f1ea", "#6c5ce7", "#0ea5e9", "#ec4899"],
-  ["sakura", "Cherry Blossom", "Soft petal pink & plum", "#fcedf2", "#d94676", "#8b5cf6", "#f472b6"]];
+// ================= THEMES & DESIGNPROMPTS STUDIO =================
+const THEMES = [
+  ["sonoma", "macOS Sonoma Glass", "Apple system blue, indigo & vibrant frosted depth", "#0b0e17", "#0a84ff", "#5e5ce6", "#bf5af2", "mac"],
+  ["sequoia", "macOS Sequoia Daylight", "Translucent daylight frost & Apple blue", "#eef1f7", "#007aff", "#5856d6", "#ff2d55", "mac"],
+  ["aurora", "Aurora", "Violet & ice blue", "#0a0b10", "#8b7bff", "#4fd1ff", "#ff7ac6", "mac"],
+  ["moderndark", "Linear / Vercel Dark", "Ambient spotlight obsidian & electric indigo", "#0a0a0f", "#5e6ad2", "#8b5cf6", "#38bdf8", "dark"],
+  ["minimaldark", "Monochrome Minimal Dark", "Pure OLED obsidian & crisp silver ink", "#09090b", "#a1a1aa", "#e4e4e7", "#71717a", "dark"],
+  ["ocean", "Ocean", "Teal & deep blue", "#05111a", "#2dd4bf", "#38bdf8", "#818cf8", "dark"],
+  ["nord", "Nordic Frost", "Arctic slate & glacier cyan", "#1e222a", "#88c0d0", "#81a1c1", "#b48ead", "dark"],
+  ["matcha", "Matcha", "Fresh botanical greens", "#0a120d", "#84e17a", "#d4f06b", "#34d399", "dark"],
+  ["terminal", "Phosphor Terminal", "CRT scanline black & phosphor green", "#050a06", "#22c55e", "#4ade80", "#10b981", "dark"],
+  ["academia", "Classical Academia", "Mahogany library & antique brass", "#14100c", "#d97706", "#b45309", "#f59e0b", "dark"],
+  ["artdeco", "Art Deco Opulence", "Midnight velvet & champagne gold", "#0b0d13", "#eab308", "#ca8a04", "#facc15", "dark"],
+  ["cyberpunk", "Cyberpunk HUD", "Neon magenta & HUD cyan", "#08060f", "#ff0055", "#00f0ff", "#fcee09", "neon"],
+  ["synthwave", "Synthwave", "Outrun neon pink & cyan", "#0f0618", "#ff2fb3", "#22e4ff", "#ffd319", "neon"],
+  ["vaporwave", "Vaporwave Sunset", "Dreamy magenta, aqua & gold", "#140921", "#ff71ce", "#01cdfe", "#05ffa1", "neon"],
+  ["web3", "DeFi Protocol", "Deep space & ultraviolet", "#060814", "#7c3aed", "#06b6d4", "#ec4899", "neon"],
+  ["kinetic", "Kinetic Acid", "High-energy volt lime & cyan", "#090a07", "#ccff00", "#00ff88", "#38bdf8", "neon"],
+  ["sunset", "Sunset", "Coral, gold & pink", "#140a10", "#ff6f61", "#ffb347", "#ff4fa0", "neon"],
+  ["candy", "Candy", "Bubblegum pastels", "#150c1c", "#ff8bd1", "#9b8cff", "#7ef0ff", "neon"],
+  ["ember", "Ember", "Fire orange & amber", "#120706", "#ff5a36", "#ffa62b", "#ffd23f", "neon"],
+  ["paper", "Paper", "Warm editorial ivory & violet", "#f4f1ea", "#6c5ce7", "#0ea5e9", "#ec4899", "light"],
+  ["swiss", "Swiss International", "Architectural grid white & signal red", "#f7f7f5", "#e11d48", "#2563eb", "#0f172a", "light"],
+  ["bauhaus", "Bauhaus Primary", "Warm canvas with red, blue & yellow", "#f4efe6", "#dc2626", "#2563eb", "#eab308", "light"],
+  ["neobrutal", "Neo-Brutalist Studio", "Stark cream, bold ink & punchy orange", "#f6f4ee", "#ff5722", "#6366f1", "#10b981", "light"],
+  ["botanical", "Botanical Atelier", "Linen sage & terracotta", "#f3f5f0", "#2f6f4e", "#84a98c", "#d97757", "light"],
+  ["clay", "Soft Clay & Neumorph", "Tactile cloud grey & soft indigo", "#eef0f5", "#6366f1", "#ec4899", "#14b8a6", "light"],
+  ["newsprint", "Editorial Newsprint", "Broadsheet cream & crimson ink", "#f2ede2", "#b91c1c", "#1d4ed8", "#047857", "light"],
+  ["sakura", "Cherry Blossom", "Soft petal pink & plum", "#fcedf2", "#d94676", "#8b5cf6", "#f472b6", "light"]
+];
+const STYLE_MODES = [
+  ["glass", "macOS Liquid Glass", "Frosted acrylic vibrancy, specular rim highlights, floating dock & capsule controls"],
+  ["classic", "Classic Crisp", "Daybook's clean, solid high-contrast studio panels"],
+  ["brutalist", "Neo-Brutalist", "DesignPrompts architectural 2px borders & offset hard shadows"],
+  ["neumorph", "Soft Clay / 3D", "Tactile sculpted cushions & recessed input wells"]
+];
+let _themeCat = "all";
+function customThemeCfg() {
+  try { return JSON.parse(localStorage.getItem("daybook-custom-theme") || "{}"); } catch { return {}; }
+}
+function applyCustomThemeVars() {
+  const c = customThemeCfg(), root = document.documentElement;
+  if (c.a1) root.style.setProperty("--a1", c.a1); else root.style.removeProperty("--a1");
+  if (c.a2) root.style.setProperty("--a2", c.a2); else root.style.removeProperty("--a2");
+  if (c.a3) root.style.setProperty("--a3", c.a3); else root.style.removeProperty("--a3");
+  if (c.blur !== undefined && c.blur !== "") root.style.setProperty("--gl-blur-px", c.blur + "px"); else root.style.removeProperty("--gl-blur-px");
+  if (c.radius !== undefined && c.radius !== "") {
+    root.style.setProperty("--r", c.radius + "px");
+    root.style.setProperty("--r2", Math.max(4, Math.round(c.radius * 0.7)) + "px");
+  } else {
+    root.style.removeProperty("--r");
+    root.style.removeProperty("--r2");
+  }
+  if (c.font) root.style.setProperty("--font-sans", c.font); else root.style.removeProperty("--font-sans");
+}
+function setCustomThemeVar(k, v, quiet) {
+  const c = customThemeCfg();
+  if (v === null || v === "") delete c[k]; else c[k] = v;
+  try { localStorage.setItem("daybook-custom-theme", JSON.stringify(c)); } catch {}
+  applyCustomThemeVars();
+  if (!quiet) renderCustomThemeControls();
+}
+function resetCustomThemeVars() {
+  try { localStorage.removeItem("daybook-custom-theme"); } catch {}
+  applyCustomThemeVars();
+  renderCustomThemeControls();
+  toast("Reset custom colors, blur & corner radius to theme defaults");
+}
+function renderCustomThemeControls() {
+  const c = customThemeCfg();
+  const cs = getComputedStyle(document.documentElement);
+  const toHex = (val, fb) => {
+    const s = (val || "").trim();
+    return /^#[0-9a-fA-F]{6}$/.test(s) ? s : fb;
+  };
+  const a1 = c.a1 || toHex(cs.getPropertyValue("--a1"), "#8b7bff");
+  const a2 = c.a2 || toHex(cs.getPropertyValue("--a2"), "#4fd1ff");
+  const a3 = c.a3 || toHex(cs.getPropertyValue("--a3"), "#ff7ac6");
+  const blur = c.blur !== undefined ? c.blur : 28;
+  const radius = c.radius !== undefined ? c.radius : 14;
+  const font = c.font || "";
+  const html = `<div class="cust-theme-bar">
+    <label class="cust-swatch"><span>Primary Accent</span><input type="color" value="${a1}" oninput="setCustomThemeVar('a1',this.value,true)" onchange="setCustomThemeVar('a1',this.value)"></label>
+    <label class="cust-swatch"><span>Secondary Glow</span><input type="color" value="${a2}" oninput="setCustomThemeVar('a2',this.value,true)" onchange="setCustomThemeVar('a2',this.value)"></label>
+    <label class="cust-swatch"><span>Tertiary Highlight</span><input type="color" value="${a3}" oninput="setCustomThemeVar('a3',this.value,true)" onchange="setCustomThemeVar('a3',this.value)"></label>
+    <label class="cust-swatch" style="min-width:140px"><span>Glass Blur: <b id="ct-blur-lbl">${blur}px</b></span>
+      <input type="range" min="6" max="48" step="2" value="${blur}" style="accent-color:var(--a1);width:110px" oninput="$('#ct-blur-lbl').textContent=this.value+'px';setCustomThemeVar('blur',+this.value,true)"></label>
+    <label class="cust-swatch" style="min-width:140px"><span>Corners: <b id="ct-rad-lbl">${radius}px</b></span>
+      <input type="range" min="0" max="24" step="2" value="${radius}" style="accent-color:var(--a1);width:110px" oninput="$('#ct-rad-lbl').textContent=this.value+'px';setCustomThemeVar('radius',+this.value,true)"></label>
+    <label class="cust-swatch"><span>Font</span>
+      <select class="f" style="width:auto;padding:4px 8px;font-size:12px" onchange="setCustomThemeVar('font',this.value)">
+        <option value="" ${!font ? "selected" : ""}>System / SF Pro / Segoe</option>
+        <option value="'Inter', system-ui, sans-serif" ${font.includes("Inter") ? "selected" : ""}>Swiss Sans (Inter)</option>
+        <option value="'Georgia', 'Times New Roman', serif" ${font.includes("Georgia") ? "selected" : ""}>Editorial Serif</option>
+        <option value="'Cascadia Code', 'Consolas', monospace" ${font.includes("Cascadia") ? "selected" : ""}>Developer Mono</option>
+      </select>
+    </label>
+    <button class="btn sm ghost" style="margin-left:auto" onclick="resetCustomThemeVars()">Reset overrides</button>
+  </div>`;
+  ["#set-custom-vars", "#cz-custom-vars"].forEach(sel => { const el = $(sel); if (el) el.innerHTML = html; });
+}
 function applyStyle(s) { document.documentElement.dataset.style = s; try { localStorage.setItem("daybook-style", s); } catch {} }
 function renderStylePick() {
-  const cur = document.documentElement.dataset.style || "classic", el = $("#stylepick"); if (!el) return;
-  el.innerHTML = [["classic", "Classic", "Daybook's original look — solid, crisp panels"], ["glass", "Glass", "macOS-style frosted glass — translucent, glossy, floating sidebar"]]
-    .map(([k, n, d]) => `<div class="sp-o ${k === cur ? "on" : ""}" onclick="pickStyle('${k}')"><div class="sp-prev sp-${k}"><i class="s"></i><i class="c"></i><i class="c2"></i></div><b>${n}</b><span>${d}</span></div>`).join("");
+  const cur = document.documentElement.dataset.style || "classic";
+  const html = STYLE_MODES.map(([k, n, d]) => `<div class="sp-o ${k === cur ? "on" : ""}" onclick="pickStyle('${k}')"><div class="sp-prev sp-${k}"><i class="s"></i><i class="c"></i><i class="c2"></i></div><b>${n}</b><span>${d}</span></div>`).join("");
+  ["#stylepick", "#cz-stylepick"].forEach(sel => { const el = $(sel); if (el) el.innerHTML = html; });
 }
-async function pickStyle(s) { applyStyle(s); renderStylePick(); await saveSetting("ui_style", s); toast(s === "glass" ? "Glass style on — works with every color theme" : "Classic style"); }
-function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem("daybook-theme", t); } catch {} }
-function renderThemes() {
+async function pickStyle(s) {
+  applyStyle(s);
+  renderStylePick();
+  await saveSetting("ui_style", s);
+  const label = (STYLE_MODES.find(x => x[0] === s) || [s, s])[1];
+  toast("Surface style: " + label);
+}
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("daybook-theme", t); } catch {}
+}
+function renderThemes(cat) {
+  if (cat) _themeCat = cat;
   const cur = document.documentElement.dataset.theme || "aurora";
-  $("#themes").innerHTML = THEMES.map(([k, n, d, bg, a, b, c]) => `<div class="th ${k === cur ? "on" : ""}" onclick="pickTheme('${k}')">
+  const cats = [["all", "All (27)"], ["mac", "macOS Glass"], ["dark", "Studio Dark"], ["neon", "Neon & Cyber"], ["light", "Daylight & Editorial"]];
+  const filterHtml = `<div class="theme-filter" style="grid-column:1/-1">${cats.map(([k, l]) => `<button class="${_themeCat === k ? "on" : ""}" onclick="renderThemes('${k}')">${l}</button>`).join("")}</div>`;
+  const list = THEMES.filter(t => _themeCat === "all" || t[7] === _themeCat);
+  const cardsHtml = list.map(([k, n, d, bg, a, b, c]) => `<div class="th ${k === cur ? "on" : ""}" onclick="pickTheme('${k}')">
     <div class="sw" style="background:${bg}"><i style="width:60px;height:40px;left:-6px;top:-8px;background:${a}"></i><i style="width:56px;height:40px;right:-8px;top:4px;background:${b}"></i><i style="width:46px;height:30px;left:40%;bottom:-12px;background:${c}"></i></div>
     <b>${n}</b><span>${d}</span></div>`).join("");
+  ["#themes", "#cz-themes"].forEach(sel => { const el = $(sel); if (el) el.innerHTML = filterHtml + cardsHtml; });
 }
-async function pickTheme(t) { applyTheme(t); renderThemes(); await saveSetting("theme", t); toast("Theme: " + THEMES.find(x => x[0] === t)[1]); }
+async function pickTheme(t) {
+  const c = customThemeCfg();
+  if (c.a1 || c.a2 || c.a3) { delete c.a1; delete c.a2; delete c.a3; try { localStorage.setItem("daybook-custom-theme", JSON.stringify(c)); } catch {} applyCustomThemeVars(); }
+  applyTheme(t);
+  renderThemes();
+  renderCustomThemeControls();
+  await saveSetting("theme", t);
+  const found = THEMES.find(x => x[0] === t);
+  toast("Theme: " + (found ? found[1] : t));
+}
 
 // ================= DESKTOP =================
 const STICKY = {lemon: "#fff3a8", peach: "#ffd6b8", rose: "#ffc7dd", lilac: "#e2d4ff", sky: "#c9e9ff", mint: "#c8f5dc", night: "#2f3341"};
@@ -1839,7 +2052,7 @@ async function renderSettings() {
     const k = el.dataset.s; if (el.type === "checkbox") el.checked = set[k] === "1"; else el.value = set[k];
     el.onchange = async () => { try { await saveSetting(k, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); toast("Saved ✓"); } catch (e) { toast("⚠ " + e.message); } };
   });
-  renderClaude(); renderThemes(); renderStylePick(); renderPrivacy(); renderCatSettings();
+  renderClaude(); renderThemes(); renderStylePick(); renderCustomThemeControls(); renderPrivacy(); renderCatSettings();
   const sv = $("#s-startup-view"); if (sv) sv.value = set.startup_view || localStorage.getItem("daybook-startup-view") || "today";
   const sc = $("#s-show-clock"); if (sc) sc.checked = store.get("daybook-show-clock", "1") !== "0";
   renderLocalSendSettings();
@@ -1868,6 +2081,10 @@ async function renderClaude() {
   const agyChip = c.agy && c.agy.installed
     ? `<span class="badge" style="color:#4285f4;border-color:rgba(66,133,244,.4)">🪐 Antigravity: ${esc(c.agy.version || 'Ready')}</span>`
     : ``;
+  const hf = c.higgsfield || {};
+  const hfChip = hf.installed
+    ? `<span class="badge" style="color:#f472b6;border-color:rgba(244,114,182,.4)">🎬 Higgsfield: ${esc("v" + (hf.version || "Ready"))}${hf.signed_in ? " · Signed in" : ""}${hf.skills_installed ? ` · ${hf.skills_count} skills` : ""}</span>`
+    : ``;
   const hwChip = c.hardware && c.hardware.laptop_mode
     ? `<span class="badge" style="color:var(--accent);border-color:rgba(180,120,255,.4)">💻 Laptop Profile (${c.hardware.ram_gb || 8} GB RAM · Cloud AI Recommended)</span>`
     : c.hardware ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">⚡ Desktop Profile (${c.hardware.ram_gb || 16} GB RAM)</span>` : ``;
@@ -1875,11 +2092,29 @@ async function renderClaude() {
   const box = (title, sub, inst, conn, target, desc, needsRepair, onlyMode) => `<div class="clb"><div class="clmark">${ic("spark", "i")}</div>
     <div class="d"><b>${title}</b><span>${inst ? (conn ? "Connected — can use your reminders, schedule and notes" : needsRepair ? "Registered without 'mcp' argument — click Repair connection" : desc) : "Not installed on this PC"}${sub ? " · " + sub : ""}</span></div>
     ${!inst ? (target === "code" || target === "gemini" || target === "agy"
-        ? `<div class="row" style="gap:6px"><button class="btn pri sm" onclick="runAIStackInstaller('${onlyMode || "all"}')">${ic("zap")}⚡ ${target === "agy" ? "Connect / Configure" : "1-Click Install"}</button>${target === "code" ? `<a class="btn ghost sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Manual</a>` : ""}</div>`
+        ? `<div class="row" style="gap:6px"><button class="btn pri sm" onclick="runAIStackInstaller('${onlyMode || "all"}')">${ic("zap")}⚡ 1-Click Install</button>${target === "code" ? `<a class="btn ghost sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Manual</a>` : ""}</div>`
         : `<a class="btn pri sm" href="${c.get_url}" target="_blank" rel="noopener">${ic("arrow")}Get Claude</a>`)
       : needsRepair ? `<button class="btn pri sm" onclick="repairMcpConnection('${target}','${onlyMode || "all"}')">${ic("zap")}Repair connection</button>`
       : conn ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}Connected</span><button class="btn ghost sm" onclick="claudeAct('disconnect','${target}')">Disconnect</button>`
       : `<button class="btn pri sm" onclick="claudeAct('connect','${target}')">${ic("zap")}Connect</button>`}</div>`;
+
+  const hfRow = `<div class="clb"><div class="clmark" style="color:#f472b6">🎬</div>
+    <div class="d"><b>Higgsfield AI (Images, Videos &amp; Agent Skills)</b><span>${
+      hf.installed && hf.connected && hf.skills_installed
+        ? (hf.signed_in
+          ? `Ready — CLI v${esc(hf.version || "")}, ${hf.skills_count || 8} skills &amp; MCP connected`
+          : `Installed (v${esc(hf.version || "")}, ${hf.skills_count || 8} skills, MCP connected) — Sign in once in browser to generate`)
+        : "Install @higgsfield/cli, 8 companion skills &amp; connect Higgsfield MCP to Claude, Gemini &amp; Antigravity"
+    }</span></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      ${hf.installed && hf.connected && hf.skills_installed
+        ? `<span class="badge" style="color:var(--ok);border-color:rgba(62,224,160,.4)">${ic("check")}${hf.signed_in ? "Connected &amp; Signed In" : "Setup Complete"}</span>`
+        : `<button class="btn pri sm" onclick="claudeAct('connect','higgsfield')">${ic("zap")}⚡ 1-Click Setup Higgsfield</button>`}
+      ${!hf.signed_in
+        ? `<button class="btn sm ${hf.installed ? "pri" : ""}" onclick="claudeAct('login','higgsfield')">${ic("ext")}Sign In (Browser)</button>`
+        : `<button class="btn ghost sm" onclick="go('studio')">Open AI Studio</button>`}
+      ${hf.connected ? `<button class="btn ghost sm" onclick="claudeAct('disconnect','higgsfield')">Disconnect MCP</button>` : ""}
+    </div></div>`;
 
   const gem = c.gemini || {};
   const agy = c.agy || {};
@@ -1907,12 +2142,14 @@ async function renderClaude() {
       ${nodeChip}
       ${gemChip}
       ${agyChip}
+      ${hfChip}
       ${hwChip}
       <button class="btn sm" onclick="runAIStackInstaller('all')">${ic("zap")}Re-run Installer / Check</button>
     </div>
     <div class="cl">${box("Claude Code CLI", c.code.version ? "v" + c.code.version : "", c.code.installed, c.code.connected, "code", "Installed — connect it to Daybook", c.code.registered && !c.code.args_ok, "claude")}
     ${box("Gemini CLI", gem.version ? "v" + gem.version + (gem.signed_in ? " · Signed in" : " · Sign in in terminal") : "", gem.installed, gem.connected, "gemini", "Installed — connect it to Daybook", gem.registered && !gem.args_ok, "gemini")}
     ${box("Antigravity (AGY)", agy.version ? esc(agy.version) : "", agy.installed || agy.registered, agy.connected, "agy", "Installed — connect it to Daybook", agy.registered && !agy.args_ok, "agy")}
+    ${hfRow}
     ${box("Claude app (desktop)", "", c.desktop.installed, c.desktop.connected, "desktop", "Installed — connect it to Daybook", false, "claude")}</div>
     <label class="row small" style="gap:8px;margin-top:10px;cursor:pointer;user-select:none">
       <input type="checkbox" id="gem-trust-home" ${trustChecked ? "checked" : ""} onchange="toggleGeminiTrust(this.checked)">
@@ -2052,7 +2289,7 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Test a pop-up", "bell", () => testPopup()],
   ["Go to Voice memos", "mic", () => go("memos")], ["Record a voice memo", "mic", () => { go("memos"); setTimeout(memoRecToggle, 250); }], ["Import phone recordings", "up", () => { go("memos"); setTimeout(memoImportPick, 250); }],
   ["Go to Clock", "timer", () => go("clock")], ["Start a timer", "timer", () => go("clock", "timers")], ["Stopwatch", "watch", () => go("clock", "stopwatch")], ["New alarm", "alarm", () => { go("clock", "alarms"); setTimeout(() => alarmModal(), 300); }], ["World clock", "globe", () => go("clock", "world")],
-  ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize home", "palette", () => { go("today"); customizeModal(); }], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
+  ["Focus 25 timer", "timer", () => tmrStart(1500, "Focus")], ["Customize theme, macOS glass & orientation", "palette", () => customizeModal("theme")], ["Customize scenes & ambience", "palette", () => customizeModal("scenes")], ["Customize display orientation", "grid", () => customizeModal("display")], ["Edit home widgets", "grid", () => { go("today"); homeEdit(true); }], ["Add a widget", "plus", () => { go("today"); addWidgetModal(); }],
   ["Go to Launchpad", "grid", () => go("launchpad")], ["Record a video note", "rec", () => { go("memos"); setTimeout(() => videoRecModal(), 250); }], ["Record with OBS", "rec", () => { go("memos"); setTimeout(() => videoRecModal("obs"), 250); }],
   ["Go to Research (Zotero)", "book", () => go("research")], ["Add a source to Zotero", "book", () => { go("research"); setTimeout(zAddModal, 400); }], ["Open Zotero", "book", () => api("/api/zotero/launch", {method: "POST"})],
   ["Open a new window (other screen)", "ext", () => newAppWindow()],
@@ -2060,6 +2297,8 @@ const CMDS = [["Go to Today", "home", () => go("today")], ["Go to Calendar", "ca
   ["Go to AI Studio", "spark", () => go("studio")], ["Create an image", "spark", () => go("studio", "image")], ["Speak in my voice", "mic", () => go("studio", "voice")],
   ["Games library", "gamepad", () => go("games")], ["Free games", "gamepad", () => { GM.view = "free"; go("games"); }], ["Wi-Fi & network", "globe", () => netToggle()], ["Speed test", "zap", () => { netToggle(); setTimeout(netSpeed, 600); }], ["Folders & workflows", "note", () => go("launchpad", "folders")], ["Discord settings", "send", () => go("settings")],
   ["Simple layout", "grid", () => pickLayout("simple")], ["Balanced layout", "grid", () => pickLayout("balanced")], ["Power user layout", "grid", () => pickLayout("power")], ["Layout settings", "sliders", () => go("settings")],
+  ["Display orientation: Laptop Compact", "grid", () => setDisplayOrient("laptop")], ["Display orientation: Vertical / Portrait Stack", "grid", () => setDisplayOrient("portrait")], ["Display orientation: Landscape", "grid", () => setDisplayOrient("landscape")], ["Display orientation: Ultrawide Command Center", "grid", () => setDisplayOrient("ultrawide")],
+  ["Switch to macOS Liquid Glass style", "palette", () => pickStyle("glass")], ["Minimize / restore top bar", "up", () => toggleTopbarMin()],
   ["Focus mode (notes)", "expand", () => { go("notes"); focusMode(); }], ["Collapse sidebar", "sidebar", () => setSlim(!$(".app").classList.contains("slim"))], ["Dictate (speech to text)", "mic", () => dictate()], ["Voice settings", "mic", () => go("settings")]];
 let palItems = [], palIdx = 0;
 function openPalette() {
@@ -2138,9 +2377,15 @@ window.addEventListener("hashchange", () => { const [v, sub] = location.hash.sli
   if (window.desktop) document.body.classList.add("desktop");
   paintIcons(); trackFields(); sceneInit(); dockInit(); splInit(); netInit();
   if (store.get("daybook-slim", "0") === "1") $(".app").classList.add("slim");
+  // apply the look saved on this device before waiting for the backend, so the theme doesn't jump on open
+  applyCustomThemeVars();
+  { const l = layoutCfg(), z = Math.max(80, Math.min(120, +l.uiScale || 100)) / 100;
+    document.documentElement.dataset.orient = l.orient; document.documentElement.dataset.split = l.splitDir;
+    document.body.classList.toggle("topbar-min", !!l.topbarMin); $(".app").style.zoom = z === 1 ? "" : String(z); }
   S.settings = await api("/api/settings"); await loadMeta();
   if (S.settings.theme && S.settings.theme !== document.documentElement.dataset.theme) applyTheme(S.settings.theme);
   if (S.settings.ui_style && S.settings.ui_style !== document.documentElement.dataset.style) applyStyle(S.settings.ui_style);
+  applyCustomThemeVars();
   applyLayout();
   const [v, sub] = location.hash.slice(1).split("/");
   const startupView = S.settings.startup_view || localStorage.getItem("daybook-startup-view") || "";

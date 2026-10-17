@@ -837,6 +837,7 @@ function whichExe(name) {
     path.join(TOOLS_DIR, "gemini-cli"),
   ].concat((process.env.PATH || "").split(";").filter(Boolean)).concat([
     path.join(process.env.LOCALAPPDATA || "", "agy", "bin"),
+    path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Links"),
     path.join(homedir, ".gemini", "antigravity-ide", "bin"),
     path.join(process.env.LOCALAPPDATA || "", "Programs", "Antigravity IDE", "bin"),
     path.join(homedir, ".local", "bin"),
@@ -857,7 +858,7 @@ function termProfiles() {
   const emacsHome = first("D:\\Applications\\EmacsHome");      // isolated HOME with the Doom config (Launch-Emacs.bat sets the same)
   const gitBash = first("C:\\Program Files\\Git\\bin\\bash.exe", "D:\\Applications\\Git\\bin\\bash.exe");
   const orca = whichExe("orca") || first("D:\\Applications\\Orca\\resources\\bin\\orca.exe", "D:\\Applications\\Orca\\resources\\bin\\orca");
-  const claude = whichExe("claude"), gemini = whichExe("gemini"), agy = whichExe("agy"), ollama = whichExe("ollama") || first("D:\\Applications\\Ollama\\ollama.exe");
+  const claude = whichExe("claude"), gemini = whichExe("gemini"), agy = whichExe("agy"), higgsfield = whichExe("higgsfield"), ollama = whichExe("ollama") || first("D:\\Applications\\Ollama\\ollama.exe");
   const packedBackend = path.join(process.resourcesPath || "", "backend", "daybook-backend.exe");
   const devPy = path.join(DEV_ROOT, "venv", "Scripts", "python.exe");
   const arcadeExe = (app.isPackaged && fs.existsSync(packedBackend)) ? packedBackend : (fs.existsSync(devPy) ? devPy : whichExe("python"));
@@ -870,11 +871,12 @@ function termProfiles() {
     {id: "claude", name: "Claude Code", group: "AI", ok: !!claude, hint: "Install Claude Code from claude.ai/download, then sign in once in this terminal."},
     {id: "gemini", name: "Gemini CLI", group: "AI", ok: !!gemini, hint: "Not installed yet — Daybook can install it (Node.js needed), then sign in with Google in this terminal."},
     {id: "agy", name: "Antigravity (AGY)", group: "AI", ok: !!agy, hint: "Google Antigravity autonomous agent CLI."},
+    {id: "higgsfield", name: "Higgsfield AI (Images & Video)", group: "AI", ok: !!higgsfield, hint: "Higgsfield CLI, MCP & 8 agent skills for AI images & videos."},
     {id: "ollama", name: "Local AI (Ollama)", group: "AI", ok: !!ollama, hint: "Install Ollama from ollama.com, then pull a model."},
     {id: "emacs", name: emacsHome ? "Emacs (your Doom setup)" : "Emacs", group: "Tools", ok: !!emacs, hint: "Install Emacs (winget install GNU.Emacs)."},
     {id: "orca", name: "Orca", group: "Tools", ok: !!orca},
     {id: "arcade", name: "8-Bit Arcade (Snake, Pong, Galactica)", group: "Tools", ok: !!arcadeExe},
-  ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _agy: agy, _ollama: ollama, _arcadeExe: arcadeExe}));
+  ].map(p => ({...p, _ps: ps, _emacs: emacs, _emacsHome: emacsHome, _bash: gitBash, _orca: orca, _claude: claude, _gemini: gemini, _agy: agy, _higgsfield: higgsfield, _ollama: ollama, _arcadeExe: arcadeExe}));
 }
 function termCommand(prof, opts) {
   const ps = prof._ps, q = s => "'" + String(s).replace(/'/g, "''") + "'";
@@ -899,6 +901,9 @@ function termCommand(prof, opts) {
     case "claude": return prof._claude ? ["cmd.exe", ["/k", `"${prof._claude}"`]] : stack("claude");
     case "gemini": return prof._gemini ? ["cmd.exe", ["/k", `"${prof._gemini}"`]] : stack("gemini");
     case "agy": return prof._agy ? ["cmd.exe", ["/k", `"${prof._agy}"`]] : stack("agy");
+    case "higgsfield": return prof._higgsfield
+      ? inPs(`Write-Host 'Higgsfield AI CLI Ready — try: higgsfield auth login | higgsfield models list | higgsfield generate create gpt_image_2_5 --prompt "..." --wait' -ForegroundColor Magenta; & ${q(prof._higgsfield)} --version`)
+      : inPs(`Write-Host 'Installing Higgsfield CLI & Companion Skills...' -ForegroundColor Magenta; npm i -g @higgsfield/cli; npx -y skills add higgsfield-ai/skills -g --all --copy; higgsfield auth login`);
     case "ollama": return prof._ollama ? inPs(opts.model ? `& ${q(prof._ollama)} run ${q(opts.model)}` : `& ${q(prof._ollama)} list`) : stack("ollama");
     case "emacs": return [prof._emacs, ["-nw"]];
     case "orca": return inPs(`$env:PATH = ${q(path.dirname(prof._orca))} + ';' + $env:PATH; & ${q(prof._orca)} status; Write-Host ''; Write-Host 'Orca is ready here - try: orca --help' -ForegroundColor Cyan`);
@@ -922,13 +927,14 @@ ipcMain.handle("term:create", (e, opts = {}) => {
   try { pty = require("@lydell/node-pty"); }
   catch (err) { console.error("terminal", err); return {error: "The terminal component is missing from this install — reinstall Daybook. (" + err.message + ")"}; }
   const prof = termProfiles().find(p => p.id === (opts.profile || "pwsh")) || termProfiles()[0];
-  if (!prof.ok && !["gemini", "claude", "agy", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
+  if (!prof.ok && !["gemini", "claude", "agy", "higgsfield", "ollama", "ai-stack"].includes(prof.id)) return {error: prof.hint || `${prof.name} isn't installed`};
   const [cmd, args] = termCommand(prof, opts);
   const homedir = require("os").homedir();
   const extraPaths = [
     path.join(TOOLS_DIR, "nodejs"),
     path.join(TOOLS_DIR, "gemini-cli"),
     path.join(process.env.LOCALAPPDATA || "", "agy", "bin"),
+    path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Links"),
     path.join(homedir, ".gemini", "antigravity-ide", "bin"),
     path.join(process.env.LOCALAPPDATA || "", "Programs", "Antigravity IDE", "bin"),
     path.join(homedir, ".local", "bin"),

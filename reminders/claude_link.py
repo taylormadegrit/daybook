@@ -72,8 +72,29 @@ def _agy_exe():
     candidates = [
         shutil.which("agy"),
         Path(os.environ.get("LOCALAPPDATA", "")) / "agy" / "bin" / "agy.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links" / "agy.exe",
         Path.home() / ".gemini" / "antigravity-ide" / "bin" / "agy.exe",
         Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Antigravity IDE" / "bin" / "agy.exe",
+    ]
+    for c in candidates:
+        if c and Path(c).exists():
+            return str(c)
+    return None
+
+
+HIGGSFIELD_MCP_NAME = "higgsfield"
+HIGGSFIELD_MCP_URL = "https://mcp.higgsfield.ai/mcp"
+
+
+def _higgsfield_exe():
+    """Locate higgsfield CLI executable across PATH, npm global dirs, and Daybook-tools."""
+    candidates = [
+        shutil.which("higgsfield"),
+        Path(os.environ.get("APPDATA", "")) / "npm" / "higgsfield.cmd",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Daybook-tools" / "nodejs" / "higgsfield.cmd",
+        Path(r"D:\Applications\nodejs\higgsfield.cmd"),
+        Path.home() / ".local" / "bin" / "higgsfield.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs" / "higgsfield.cmd",
     ]
     for c in candidates:
         if c and Path(c).exists():
@@ -219,6 +240,98 @@ def _agy_mcp_info():
         "registered": registered,
         "args_ok": args_ok,
         "connected": bool(registered and args_ok),
+    }
+
+
+def _ensure_higgsfield_workspace(exe=None, select: bool = False) -> dict:
+    """Return the selected Higgsfield workspace; with select=True, pick the first one if none is selected."""
+    if exe is None:
+        exe = _higgsfield_exe()
+    info = {"workspace_id": None, "plan": None, "credits": None}
+    if not exe:
+        return info
+    try:
+        r = subprocess.run([exe, "workspace", "list", "--json"], capture_output=True, text=True, timeout=6, creationflags=NO_WINDOW)
+        if r.returncode == 0 and r.stdout.strip().startswith("["):
+            ws_list = json.loads(r.stdout.strip())
+            if isinstance(ws_list, list) and ws_list:
+                selected = next((w for w in ws_list if isinstance(w, dict) and w.get("is_selected")), None)
+                if not selected and select:
+                    first = ws_list[0] if isinstance(ws_list[0], dict) else None
+                    if first and first.get("id"):
+                        subprocess.run([exe, "workspace", "set", str(first["id"])], capture_output=True, text=True, timeout=6, creationflags=NO_WINDOW)
+                        selected = first
+                if selected:
+                    info["workspace_id"] = selected.get("id")
+                    info["plan"] = selected.get("plan_type")
+                    info["credits"] = selected.get("credits")
+    except Exception:
+        pass
+    return info
+
+
+def _higgsfield_info(exe=None, select_workspace: bool = False):
+    """Inspect Higgsfield CLI installation, OAuth token status, workspace, companion skills, and MCP registration."""
+    if exe is None:
+        exe = _higgsfield_exe()
+    version = None
+    signed_in = False
+    ws_info = {"workspace_id": None, "plan": None, "credits": None}
+    if exe:
+        try:
+            out = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW).stdout.strip()
+            if out:
+                # e.g. "higgsfield 1.2.2 (...) built ..."
+                parts = out.splitlines()[0].split()
+                version = parts[1] if len(parts) > 1 else parts[0]
+        except Exception:
+            pass
+        try:
+            r = subprocess.run([exe, "auth", "token"], capture_output=True, text=True, timeout=4, creationflags=NO_WINDOW)
+            signed_in = r.returncode == 0 and bool(r.stdout.strip())
+        except Exception:
+            pass
+        if signed_in:
+            ws_info = _ensure_higgsfield_workspace(exe, select=select_workspace)
+
+    claude_sk = Path.home() / ".claude" / "skills"
+    gem_sk = Path.home() / ".gemini" / "config" / "skills"
+    skill_names = set()
+    for base in (claude_sk, gem_sk):
+        try:
+            if base.exists():
+                for d in base.glob("higgsfield-*"):
+                    if (d / "SKILL.md").exists():
+                        skill_names.add(d.name)
+        except Exception:
+            pass
+    skills_count = len(skill_names)
+    skills_installed = skills_count > 0
+
+    mcp_registered = False
+    for cfg_file in [Path.home() / ".gemini" / "settings.json", *_agy_mcp_files(), Path.home() / ".claude.json"]:
+        try:
+            if cfg_file.exists():
+                cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig"))
+                if isinstance((cfg.get("mcpServers") or {}).get(HIGGSFIELD_MCP_NAME), dict):
+                    mcp_registered = True
+                    break
+        except Exception:
+            pass
+
+    return {
+        "installed": bool(exe),
+        "version": version,
+        "signed_in": signed_in,
+        "workspace_id": ws_info["workspace_id"],
+        "plan": ws_info["plan"],
+        "credits": ws_info["credits"],
+        "skills_installed": skills_installed,
+        "skills_count": skills_count,
+        "registered": mcp_registered,
+        "args_ok": True,
+        "connected": mcp_registered,
+        "path": exe,
     }
 
 
@@ -392,6 +505,8 @@ def status():
             pass
     agy_mcp = _agy_mcp_info()
 
+    hf_info = _higgsfield_info()
+
     hw = hardware_info()
 
     return {
@@ -423,6 +538,7 @@ def status():
             "connected": agy_mcp["connected"],
             "path": agy_e,
         },
+        "higgsfield": hf_info,
         "hardware": hw
     }
 
@@ -515,6 +631,126 @@ def connect_agy():
     return "Connected to Antigravity (AGY) — start a new Antigravity session to use it."
 
 
+def login_higgsfield():
+    """Launch `higgsfield auth login` in the background and explicitly open the sign-in.html page in the default browser."""
+    import re
+    import threading
+    import urllib.parse
+    exe = _higgsfield_exe()
+    if not exe:
+        raise RuntimeError("Higgsfield CLI isn't installed yet. Click 1-Click Setup first.")
+    proc = subprocess.Popen(
+        [exe, "auth", "login"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=NO_WINDOW,
+    )
+    url_box = []
+
+    def _drain():
+        try:
+            for line in proc.stdout:
+                m = re.search(r"(file:///[^\s]+)", line)
+                if m and not url_box:
+                    u = m.group(1).strip()
+                    url_box.append(u)
+                    if os.name == "nt":
+                        try:
+                            local_p = urllib.parse.unquote(u.replace("file:///", "")).replace("/", "\\")
+                            if Path(local_p).exists():
+                                os.startfile(local_p)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_drain, daemon=True)
+    t.start()
+    for _ in range(25):
+        if url_box:
+            break
+        time.sleep(0.1)
+    return "Browser opened for Higgsfield sign-in — complete the login in your browser."
+
+
+def connect_higgsfield(login: bool = False):
+    """Install @higgsfield/cli + companion skills if missing, register Higgsfield MCP, and optionally start browser login."""
+    node_e = _node_exe()
+    npm_cmd = shutil.which("npm")
+    if not npm_cmd and node_e:
+        cand = Path(node_e).parent / "npm.cmd"
+        if cand.exists():
+            npm_cmd = str(cand)
+    npx_cmd = shutil.which("npx")
+    if not npx_cmd and node_e:
+        cand = Path(node_e).parent / "npx.cmd"
+        if cand.exists():
+            npx_cmd = str(cand)
+
+    exe = _higgsfield_exe()
+    if not exe:
+        if not npm_cmd:
+            raise RuntimeError("Node.js / npm not found. Run 1-Click Install first.")
+        r = subprocess.run([npm_cmd, "i", "-g", "@higgsfield/cli"], capture_output=True, text=True, timeout=180, creationflags=NO_WINDOW)
+        exe = _higgsfield_exe()
+        if not exe and r.returncode != 0:
+            raise RuntimeError(f"Failed to install @higgsfield/cli: {(r.stderr or r.stdout).strip()[:240]}")
+
+    # Install companion skills if not yet present
+    claude_skills = Path.home() / ".claude" / "skills"
+    gem_skills = Path.home() / ".gemini" / "config" / "skills"
+    if not (claude_skills / "higgsfield-generate" / "SKILL.md").exists() and npx_cmd:
+        try:
+            subprocess.run(
+                [npx_cmd, "-y", "skills", "add", "higgsfield-ai/skills", "-g", "--all", "--copy"],
+                capture_output=True, text=True, timeout=180, creationflags=NO_WINDOW,
+            )
+        except Exception:
+            pass
+    # Ensure Antigravity / Gemini skills directory also has the Higgsfield skills
+    if claude_skills.exists():
+        gem_skills.mkdir(parents=True, exist_ok=True)
+        for sk in claude_skills.glob("higgsfield-*"):
+            if sk.is_dir():
+                dst = gem_skills / sk.name
+                try:
+                    if dst.exists():
+                        shutil.rmtree(dst)
+                    shutil.copytree(sk, dst)
+                except Exception:
+                    pass
+
+    # Merge Higgsfield MCP server into Gemini & Antigravity config files (UTF-8 without BOM)
+    for cfg_file in [Path.home() / ".gemini" / "settings.json", *_agy_mcp_files()]:
+        try:
+            cfg_file.parent.mkdir(parents=True, exist_ok=True)
+            cfg = {}
+            if cfg_file.exists():
+                raw = cfg_file.read_text(encoding="utf-8-sig")
+                if raw.strip():
+                    cfg = json.loads(raw)
+                (cfg_file.parent / f"{cfg_file.name}.daybook-backup").write_text(raw, encoding="utf-8")
+            if isinstance(cfg, dict):
+                if not isinstance(cfg.get("mcpServers"), dict):
+                    cfg["mcpServers"] = {}
+                cfg["mcpServers"][HIGGSFIELD_MCP_NAME] = {"httpUrl": HIGGSFIELD_MCP_URL}
+                cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    info = _higgsfield_info(exe, select_workspace=True)
+    if login or not info["signed_in"]:
+        try:
+            login_higgsfield()
+            return "Higgsfield CLI, MCP & 8 Skills installed! Complete sign-in in the browser window that just opened."
+        except Exception:
+            pass
+    return "Higgsfield CLI, MCP & 8 Companion Skills connected and ready!"
+
+
 def connect_desktop():
     path = _desktop_config()
     if not _desktop_installed():
@@ -552,6 +788,16 @@ def disconnect(target):
                 if (cfg.get("mcpServers") or {}).pop(GEMINI_MCP_NAME, None) is not None:
                     cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
         return "Disconnected from Antigravity (AGY)."
+    if target == "higgsfield":
+        for cfg_file in [Path.home() / ".gemini" / "settings.json", *_agy_mcp_files()]:
+            if cfg_file.exists():
+                try:
+                    cfg = json.loads(cfg_file.read_text(encoding="utf-8-sig") or "{}")
+                    if (cfg.get("mcpServers") or {}).pop(HIGGSFIELD_MCP_NAME, None) is not None:
+                        cfg_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+        return "Disconnected Higgsfield MCP."
     path = _desktop_config()
     if path.exists():
         cfg = json.loads(path.read_text(encoding="utf-8") or "{}")
@@ -583,6 +829,7 @@ def stack_status(check_handshake: bool = True):
     claude_stat = s["code"]
     gemini_stat = s["gemini"]
     agy_stat = s["agy"]
+    hf_stat = s["higgsfield"]
 
     ollama_exe = shutil.which("ollama")
     if not ollama_exe:
@@ -615,6 +862,7 @@ def stack_status(check_handshake: bool = True):
         "claude": claude_stat,
         "gemini": gemini_stat,
         "agy": agy_stat,
+        "higgsfield": hf_stat,
         "mcp": mcp_stat,
         "ollama": {"installed": bool(ollama_exe), "version": ollama_ver, "running": ollama_running, "models": models},
         "hardware": s["hardware"],

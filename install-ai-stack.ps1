@@ -58,6 +58,7 @@ function Refresh-EnvPath {
         (Join-Path $ToolsDir "nodejs"),
         (Join-Path $ToolsDir "gemini-cli"),
         "$env:LOCALAPPDATA\agy\bin",
+        "$env:LOCALAPPDATA\Microsoft\WinGet\Links",
         "$env:USERPROFILE\.gemini\antigravity-ide\bin",
         "$env:LOCALAPPDATA\Programs\Antigravity IDE\bin",
         "$env:LOCALAPPDATA\Programs\nodejs",
@@ -152,6 +153,7 @@ function Find-AgyExe {
     }
     $candidates = @(
         "$env:LOCALAPPDATA\agy\bin\agy.exe",
+        "$env:LOCALAPPDATA\Microsoft\WinGet\Links\agy.exe",
         "$env:USERPROFILE\.gemini\antigravity-ide\bin\agy.exe",
         "$env:LOCALAPPDATA\Programs\Antigravity IDE\bin\agy.exe"
     )
@@ -577,6 +579,17 @@ if ($runGemini) {
 if ($runAgy) {
     Write-Step "Checking Google Antigravity (AGY)"
     $agyExe = Find-AgyExe
+    if (-not $agyExe -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Info "Installing Google Antigravity CLI via winget (Google.AntigravityCLI)..."
+        try {
+            $proc = Start-Process winget -ArgumentList "install", "--id", "Google.AntigravityCLI", "-e", "--silent", "--accept-package-agreements", "--accept-source-agreements" -NoNewWindow -PassThru -Wait
+            Refresh-EnvPath
+            $agyExe = Find-AgyExe
+            if (-not $agyExe) { Write-Warn "winget finished (exit $($proc.ExitCode)) but agy.exe wasn't found yet - open a new terminal and try again." }
+        } catch {
+            Write-Warn "winget install of Antigravity CLI failed: $($_.Exception.Message)"
+        }
+    }
     $agyInstalled = $false
     $agyDetail = "Not installed"
     if ($agyExe) {
