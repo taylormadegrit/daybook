@@ -18,7 +18,9 @@ from flask import Blueprint, Response, jsonify, request
 from . import db, nlp, notes, orca
 
 OLLAMA = "http://127.0.0.1:11434"
-NUM_CTX = 8192
+NUM_CTX = nlp.NUM_CTX  # one window for chat, titles and JSON jobs, so Ollama never reloads between them
+REPLY_RESERVE = 4096  # tokens left free for the answer (and qwen's thinking)
+DEFAULT_LOCAL = "qwen3.5:9b"
 bp = Blueprint("chat", __name__)
 
 PERSONAS = {
@@ -429,7 +431,24 @@ def build_messages(chat):
             msgs.append({"role": "assistant", "content": m["content"], "tool_calls": m["meta"]["tool_calls"]})
         elif m["role"] in ("user", "assistant"):
             msgs.append({"role": m["role"], "content": m["content"]})
-    return msgs[:1] + msgs[1:][-40:]  # keep the recent window
+    # Keep the newest messages that fit NUM_CTX (minus room for the reply). Past num_ctx Ollama cuts the
+    # *oldest* tokens first — the system prompt — so trim here instead.
+    budget = NUM_CTX - REPLY_RESERVE - _tokens(msgs[0])
+    keep = []
+    for m in reversed(msgs[1:][-40:]):
+        budget -= _tokens(m)
+        if budget < 0 and keep:
+            break
+        keep.append(m)
+    keep.reverse()
+    while len(keep) > 1 and keep[0]["role"] == "tool":  # a tool result without its call confuses the model
+        keep.pop(0)
+    return msgs[:1] + keep
+
+
+def _tokens(m):
+    """Rough token count (~3.5 chars/token) for a chat message."""
+    return (len(m.get("content") or "") + len(json.dumps(m.get("tool_calls") or ""))) * 2 // 7 + 4
 
 
 def sse(event, data):
@@ -509,8 +528,8 @@ def auto_title(cid):
     try:
         chat = get_chat(cid)
         first = next((m["content"] for m in history(cid) if m["role"] == "user"), "")
-        local = chat["model"] if not chat["model"].startswith(("claude:", "gemini:")) else (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"]
-        r = ollama("/api/generate", {"model": local, "stream": False, "options": {"num_ctx": 2048},
+        local = chat["model"] if not chat["model"].startswith(("claude:", "gemini:")) else (model_list(False) or [{"name": DEFAULT_LOCAL}])[0]["name"]
+        r = ollama("/api/generate", {"model": local, "stream": False, "think": False, "options": {"num_ctx": NUM_CTX},
                                      "prompt": f"Give a 2-5 word title for a chat that starts with: \"{first[:500]}\". "
                                                "Reply with the title only, no quotes."})
         title = r["response"].strip().strip('"').split("\n")[0][:60]
@@ -539,7 +558,7 @@ def new_chat():
     j = request.get_json() or {}
     with _con() as con:
         cur = con.execute("INSERT INTO chats (model, persona, tools, created, updated) VALUES (?,?,?,?,?)",
-                          (j.get("model") or db.setting("chat_model") or (model_list(False) or [{"name": "qwen2.5:7b"}])[0]["name"],
+                          (j.get("model") or db.setting("chat_model") or (model_list(False) or [{"name": DEFAULT_LOCAL}])[0]["name"],
                            j.get("persona", "Assistant"), j.get("tools", "daybook,orca"), _now(), _now()))
     return jsonify(get_chat(cur.lastrowid))
 

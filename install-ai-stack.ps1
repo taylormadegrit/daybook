@@ -698,11 +698,11 @@ if ($runOllama) {
     Write-Step "Model Recommendation for Your Hardware"
     if ([string]::IsNullOrWhiteSpace($Model)) {
         if (-not $hasDedicatedGpu -or $totalRamGB -lt 16) {
-            $Model = "qwen2.5:1.5b"
+            $Model = "qwen3.5:2b"
             Write-Info "Laptop profile detected ($totalRamGB GB RAM, integrated graphics). Selecting lightweight model '$Model' (~1 GB)."
         } else {
-            $Model = "qwen2.5:7b"
-            Write-Info "Desktop/GPU profile detected ($totalRamGB GB RAM). Selecting standard 7B model '$Model'."
+            $Model = "qwen3.5:9b"
+            Write-Info "Desktop/GPU profile detected ($totalRamGB GB RAM). Selecting standard 9B model '$Model'."
         }
     }
 

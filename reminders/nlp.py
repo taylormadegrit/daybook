@@ -1,4 +1,4 @@
-"""Natural-language → reminder, fully local: Ollama qwen2.5:7b first, dateparser as fallback.
+"""Natural-language → reminder, fully local: Ollama qwen3.5:9b first, dateparser as fallback.
 e.g. "call mom every sunday at 5pm" → text="Call mom", due=next Sunday 17:00, repeat=weekly
 """
 import calendar
@@ -11,13 +11,24 @@ from datetime import datetime, timedelta
 from . import db
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+OLLAMA_MODEL = "qwen3.5:9b"
+NUM_CTX = 16384  # same window as chat: Ollama reloads the model whenever num_ctx changes
+MAX_CTX = 32768  # most qwen3.5:9b runs at full speed on this PC's GPUs (see D:\projects\qwen-token-limitation)
+
+
+def fit_ctx(prompt, reply_tokens=512):
+    """NUM_CTX, or MAX_CTX for a prompt (~3.5 chars/token) too long for it.
+    Ollama's default window is small and silently drops the start of anything longer."""
+    return NUM_CTX if len(prompt) * 2 // 7 + reply_tokens <= NUM_CTX else MAX_CTX
+
+
 DEFAULT_HOUR = 9  # "tomorrow" with no time → 9 AM
 
 
 def _ask_ollama(prompt):
+    # think=False: qwen3.x reasons by default, which is slow and unneeded for short JSON jobs
     body = json.dumps({"model": db.setting("ai_model") or OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
-                       "options": {"temperature": 0}}).encode()
+                       "think": False, "options": {"temperature": 0, "num_ctx": fit_ctx(prompt)}}).encode()
     req = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(json.loads(r.read())["response"])

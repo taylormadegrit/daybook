@@ -343,7 +343,7 @@ def hardware_info():
         "has_gpu": has_gpu,
         "laptop_mode": laptop_mode,
         "recommended_cloud": laptop_mode,
-        "recommended_model": "qwen2.5:1.5b" if laptop_mode else "qwen2.5:7b"
+        "recommended_model": "qwen3.5:2b" if laptop_mode else "qwen3.5:9b"
     }
 
 

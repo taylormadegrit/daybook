@@ -1,5 +1,5 @@
 """Notes: SQLite + full-text search, daily log, read-only import of old notes, and free local AI
-organizing (Ollama qwen2.5:7b): title, category, tags, summary, topics and action items."""
+organizing (Ollama qwen3.5:9b): title, category, tags, summary, topics and action items."""
 import json
 import re
 import zipfile

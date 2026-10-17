@@ -751,7 +751,7 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
             <p>Runs locally on this PC. For laptops, Daybook selects lightweight <b>1.5B models</b> (~1 GB) so your laptop stays cool.</p>
             <div class="row" style="gap:6px;margin-top:auto">
               <button class="btn sm" onclick="go('models')"><svg class="i sm" data-i="spark"></svg>Browse Models</button>
-              <button class="btn sm ghost" onclick="pullQuickModel('qwen2.5:1.5b')">Pull 1.5B Model</button>
+              <button class="btn sm ghost" onclick="pullQuickModel('qwen3.5:2b')">Pull 2B Model</button>
             </div>
           </div>
         </div>
@@ -831,9 +831,9 @@ body::before{background:radial-gradient(38% 34% at 12% 8%,color-mix(in srgb,var(
           <div class="srow"><div class="d"><b>Default chat model</b><span>Used for new chats</span></div><select class="f" data-s="chat_model" id="s-chatmodel"></select></div>
           <div class="srow"><div class="d"><b>1-Click Model Download</b><span>Pre-tested models matched to your machine</span></div>
             <div class="row" style="gap:6px;flex-wrap:wrap">
-              <button class="btn sm" onclick="pullQuickModel('qwen2.5:1.5b')" title="Ultra-fast on laptop CPUs (~1 GB)"><span class="badge" style="color:var(--ok)">Laptop</span> qwen2.5:1.5b</button>
+              <button class="btn sm" onclick="pullQuickModel('qwen3.5:2b')" title="Fast on laptop CPUs (~2.7 GB)"><span class="badge" style="color:var(--ok)">Laptop</span> qwen3.5:2b</button>
               <button class="btn sm" onclick="pullQuickModel('llama3.2:1b')" title="Lightweight Llama model (~0.8 GB)"><span class="badge">CPU</span> llama3.2:1b</button>
-              <button class="btn sm" onclick="pullQuickModel('qwen2.5:7b')" title="Standard 7B model for GPUs (~4.7 GB)"><span class="badge">GPU</span> qwen2.5:7b</button>
+              <button class="btn sm" onclick="pullQuickModel('qwen3.5:9b')" title="Standard 9B model for GPUs (~6.6 GB)"><span class="badge">GPU</span> qwen3.5:9b</button>
             </div>
           </div>
           <div class="srow"><div class="d"><b>Re-organize all notes</b><span>Runs the AI again on every note (background)</span></div><button class="btn" onclick="reorgAll()">Re-organize</button></div>

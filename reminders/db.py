@@ -227,7 +227,7 @@ SETTINGS = {  # key → default (stored as text in meta, prefixed 'set:')
     "agenda_popup": "1",        # morning agenda pop-up
     "agenda_hour": "3",         # ...after this hour
     "nag_minutes": "5",         # pop-ups ring again every N minutes
-    "ai_model": "qwen2.5:7b",   # local model for parsing + organizing notes
+    "ai_model": "qwen3.5:9b",   # local model for parsing + organizing notes
     "ai_cloud_fallback": "1",   # '1' = ask Claude (cloud) when the local AI isn't running; '0' = stay on this PC
     "chat_model": "",           # default model for new chats ('' = first installed)
     "import_dir": paths.IMPORT_DIR,  # old-notes folder
